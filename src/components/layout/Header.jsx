@@ -170,14 +170,13 @@ export default function Header() {
       {/* ======= ПАНЕЛЬ (не сдвигаем: начинается БЕЗ изменений — от низа шапки) ======= */}
       {servicesOpen && (
         <>
-          {/* Затемнение НИЖЕ шапки — панель не меняет свою позицию */}
+          {/* Затемнение — теперь накрывает ВЕСЬ экран, включая шапку */}
           <div
-            className="services-overlay fixed inset-x-0 bottom-0 z-[60]"
-            style={{ top: "var(--header-height)" }}
+            className="services-overlay fixed inset-0 z-[60]"
             onClick={() => setServicesOpen(false)}
           />
 
-          {/* Панель под шапкой (top = высота шапки) */}
+          {/* Панель под шапкой (top = высота шапки) — без изменений */}
           <div className="fixed inset-x-0 z-[61]" style={{ top: "var(--header-height)" }}>
             <div className="container-header">
               <div
