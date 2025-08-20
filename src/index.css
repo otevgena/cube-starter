@@ -341,3 +341,299 @@ body{
 .services-top .services-search-holder .search-wrap{
   height: var(--header-search-height) !important;
 }
+
+/* =========================================================
+   НОВЫЕ ПРАВКИ (из последнего сообщения) — применяются последними
+   ========================================================= */
+
+/* Span Tag */
+.panel-bar-left .items-center span{
+  top:-16px;
+}
+
+/* Services panel */
+.min-h-dvh .services-panel{
+  top:19px;
+}
+
+/* Panel bar right */
+.services-panel .panel-bar .panel-bar-right{
+  top:-11px;
+}
+
+/* Search wrap */
+.services-top .services-search-holder .search-wrap{
+  top:-60px;
+}
+
+/* Span Tag (логотип в шапке) */
+.logo-wrap .items-center span{
+  top:-8px !important;
+  left:-77px !important;
+}
+
+/* Span Tag (правый блок шапки: Вход/Регистрация/…) */
+.container-header .ml-auto span{
+  position:relative;
+  top:-1px;
+  left:5px;
+}
+
+/* Search wrap (шапка) */
+.container-header .items-center .search-wrap{
+  position:relative;
+  top:-1px;
+  transform:translatex(0px) translatey(0px);
+}
+
+/* Auto — сдвиг правого блока шапки */
+.container-header .items-center .ml-auto{
+  position:relative;
+  left:119px;
+  top:-3px;
+}
+
+/* Span Tag — фикс позиционирования логотипа */
+#root .min-h-dvh .sticky .container-header .items-center .logo-wrap .items-center span{
+  bottom:auto !important;
+}
+
+/* Input — убираем правый внутренний отступ у поиска в шапке */
+.justify-center .search-wrap input[type=text]{
+  padding-right:0px;
+}
+
+/* Span Tag — навигация */
+.lg\:flex .nav-link span{
+  left:-20px;
+  top:-1px;
+}
+
+/* Lucide chevron down — навигация */
+.lg\:flex .nav-link .lucide-chevron-down{
+  left:-23px;
+}
+
+/* Search wrap — тянем на всю ширину внутри конкретного состояния */
+#root .min-h-dvh .sticky .container-header .items-center .justify-center .search-wrap{
+  width:100% !important;
+}
+
+/* === FINAL OVERRIDES: удлинение поиска без смещения окружения + правка логотипа === */
+
+/* Поиск в шапке: расширяем ФОН на -18px слева и +118px справа, не меняя размеры блока */
+.container-header .items-center .justify-center .search-wrap{
+  position: relative !important;   /* создаём контекст для ::before */
+  z-index: 0 !important;           /* чтобы псевдо-элемент мог лежать под соседями */
+  background: var(--bg-search) !important; /* базовый фон как был */
+  overflow: visible !important;
+}
+
+/* Само расширение — рисуем фоном под элементом (не влияет на layout) */
+.container-header .items-center .justify-center .search-wrap::before{
+  content: "";
+  position: absolute;
+  top: 0; bottom: 0;
+  left: -18px;                               /* 18px влево */
+  width: calc(100% + 136px);                 /* +18 слева и +118 справа */
+  background: var(--bg-search);
+  border-radius: 10px;                        /* как у .search-wrap по умолчанию */
+  box-shadow: 0 0 0 0 rgba(0,0,0,0);         /* при необходимости можно имитировать бордер */
+  z-index: -1;                                /* ЛЕЖИТ НИЖЕ, не перекрывая кнопки справа */
+  pointer-events: none;                       /* клики проходят сквозь расширение */
+}
+
+/* Если активен более специфичный sticky-контекст — продублируем селектор */
+#root .min-h-dvh .sticky .container-header .items-center .justify-center .search-wrap::before{
+  content: "";
+  position: absolute;
+  top: 0; bottom: 0;
+  left: -18px;
+  width: calc(100% + 136px);
+  background: var(--bg-search);
+  border-radius: 10px;
+  z-index: -1;
+  pointer-events: none;
+}
+
+/* Логотип "c." — твоя новая позиция */
+.logo-wrap .items-center span{
+  top: -4px !important;
+}
+
+/* Items center */
+.min-h-dvh .container-header > .items-center{
+  transform:translatex(0px) translatey(0px);
+}
+
+/* Pro */
+.container-header .actions-right .btn-pro{
+  height:42px;
+  position:relative;
+  top:2px;
+}
+
+/* Submit */
+.container-header .ml-auto .btn-submit{
+  height:42px;
+  position:relative;
+  top:2px;
+}
+
+/* Span Tag */
+.container-header .ml-auto span{
+  top:2px;
+  transform:translatex(0px) translatey(0px);
+  left:4px;
+}
+
+/* Логотип ("c.") */
+.logo-wrap .items-center span{
+  top:-4px !important;
+}
+
+/* Span Tag */
+.panel-bar-left .items-center span{
+  left:-77px !important;
+  top:-12px !important;
+}
+
+/* Span Tag */
+#root .min-h-dvh .sticky .fixed .container-header .services-panel .panel-bar .panel-bar-left .items-center span{
+  right:auto !important;
+  bottom:auto !important;
+}
+
+/* Panel bar right */
+.services-panel .panel-bar .panel-bar-right{
+  position:relative;
+  left:8px;
+  transform:translatex(0px) translatey(0px);
+}
+
+/* Pro */
+.panel-bar .panel-bar-right .btn-pro{
+  height:42px !important;
+  position:relative;
+  top:2px;
+  left:-1px;
+}
+
+/* Submit */
+.panel-bar .panel-bar-right .btn-submit{
+  height:42px !important;
+  position:relative;
+  top:2px;
+  left:-1px;
+}
+
+/* Span Tag */
+.panel-bar-right .nav-link span{
+  position:relative;
+  left:3px;
+  top:2px;
+}
+
+/* Link */
+.services-body .svc-left a{
+  top:-74px;
+  left:-28px;
+  min-height:4px;
+  height:44px;
+}
+
+/* Row */
+.services-body .svc-right .svc-row{
+  position:relative;
+  top:-56px;
+  left:-4px;
+  transform:translatex(0px) translatey(0px);
+}
+
+/* Panel bar right */
+.services-panel .panel-bar .panel-bar-right{
+  left:5px;
+}
+
+/* Span Tag */
+.panel-bar-left .items-center span{
+  left:-80px !important;
+}
+
+/* Span Tag */
+#root .min-h-dvh .sticky .fixed .container-header .services-panel .panel-bar .panel-bar-left .items-center span{
+  right:auto !important;
+}
+
+/* === PANEL SEARCH: -28px справа и опустить на 1px, не трогая layout === */
+
+/* 1) Чуть ниже на 1px (заменяет прежний top:-60px) */
+.services-top .services-search-holder .search-wrap{
+  top:-59px !important;               /* было -60px */
+  position: relative !important;      /* контекст для псевдо-элемента */
+  z-index: 0;
+  overflow: visible;
+}
+
+/* 2) Визуально "укоротить" справа на 28px без изменения размеров блока:
+      накрываем правые 28px цветом фона панели */
+.services-top .services-search-holder .search-wrap::after{
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;                           /* прикрываем правую кромку */
+  width: 28px;
+  height: 100%;
+  background: #e9e9e9;                /* фон services-panel */
+  border-top-right-radius: 10px;
+  border-bottom-right-radius: 10px;
+  pointer-events: none;               /* не блокирует клики по полю */
+  z-index: 1;                         /* поверх белого фона поиска */
+}
+
+/* На случай более специфичных состояний sticky — дубль для гарантии */
+#root .min-h-dvh .sticky .fixed .container-header .services-panel
+  .services-top .services-search-holder .search-wrap::after{
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 28px;
+  height: 100%;
+  background: #e9e9e9;
+  border-top-right-radius: 10px;
+  border-bottom-right-radius: 10px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* === PANEL SEARCH: -28px справа с правильным скруглением + опустить на 1px === */
+
+/* 0) Отключаем прежнюю маску, чтобы не мешала */
+.services-top .services-search-holder .search-wrap::after{
+  content: none !important;
+}
+#root .min-h-dvh .sticky .fixed .container-header
+  .services-panel .services-top .services-search-holder .search-wrap::after{
+  content: none !important;
+}
+
+/* 1) Смещение на 1px вниз (было -60px) */
+.services-top .services-search-holder .search-wrap{
+  position: relative !important;
+  top: -59px !important;
+  overflow: visible; /* на всякий случай */
+}
+
+/* 2) Визуально «укоротить» справа на 28px без влияния на layout,
+      и сохранить нормальные выпуклые углы у нового правого края */
+.services-top .services-search-holder .search-wrap{
+  /* inset: top right bottom left; round: TL TR BR BL */
+  clip-path: inset(0 28px 0 0 round 10px 10px 10px 10px);
+}
+
+/* Дублируем для более специфичного sticky-контекста */
+#root .min-h-dvh .sticky .fixed .container-header
+  .services-panel .services-top .services-search-holder .search-wrap{
+  clip-path: inset(0 28px 0 0 round 10px 10px 10px 10px);
+}
