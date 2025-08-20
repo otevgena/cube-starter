@@ -656,3 +656,44 @@ body{
 .services-overlay{
   background: linear-gradient(to right, #454545 0%, #454545 100%) !important;
 }
+
+/* === Smooth open for overlay + panel (only on mount) === */
+
+/* Оверлей — мягкое появление */
+.services-overlay{
+  /* фон у тебя уже задан градиентом — оставляем */
+  animation: overlayFadeIn .22s ease-out both;
+  will-change: opacity;
+}
+
+@keyframes overlayFadeIn{
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* Панель — мягкое появление (без сдвигов, только прозрачность) */
+.services-panel{
+  animation: panelFadeIn .24s ease-out both;
+  will-change: opacity;
+}
+
+@keyframes panelFadeIn{
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* Уважение системной настройки «уменьшить движение» */
+@media (prefers-reduced-motion: reduce){
+  .services-overlay,
+  .services-panel{
+    animation: none !important;
+  }
+}
+
+/* === Sharper corners for the Services panel === */
+.services-panel{
+  border-radius: 8px !important;
+}
+.services-panel--extend-left::before{
+  border-radius: 8px !important; /* чтобы фон-расширение слева совпадало */
+}
