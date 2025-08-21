@@ -1023,3 +1023,354 @@ html, body{
   display:block;
   object-fit:contain;
 }
+
+
+/* ========= Sticky bottom dock — v3 ========= */
+.dock{
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: var(--dock-bottom);
+  width: var(--dock-w);
+  height: var(--dock-h);
+  border-radius: var(--dock-radius);
+
+  /* темнее фон + чёткая кромка (настоящий 1px border) */
+  background: #3a3a3a;
+  border: 1px solid rgba(0,0,0,.55);
+  box-shadow: none;
+
+  /* убираем горизонтальные поля, чтобы CTA точно «влезла» внутрь */
+  padding: 6px 0;
+
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+
+  font-family: "Inter Tight", Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  -webkit-font-smoothing: auto;
+  -moz-osx-font-smoothing: auto;
+}
+
+.dock__inner{
+  display: grid;
+  grid-template-columns:
+    var(--dock-left-tile)
+    var(--dock-group-w)
+    var(--dock-right-btn);
+  align-items: center;
+  column-gap: var(--dock-gap-x);
+  width: 100%;
+  height: 100%;
+}
+
+/* Левая плитка с "c." */
+.dock__brand{
+  display: grid; place-items: center;
+  width: 60px; height: 60px;
+  border-radius: 8px;
+  background: #1B1B1B;
+  text-decoration: none;
+  border: 1px solid rgba(255,255,255,.06);
+}
+/* “c.” 26px/28px как в шапке */
+.dock__brand-text{
+  font-size: 26px;
+  line-height: 28px;
+  font-weight: 400;
+  color: #e9e9e9;
+}
+
+/* Внутренняя рамка — скругление как у поисковика, без контура */
+.dock__group{
+  width: 100%;
+  height: 60px;
+  background: rgba(255,255,255,.05);
+  border: none;
+  border-radius: 10px;   /* как у search-wrap */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--pill-gap);
+  padding: 6px 10px;
+}
+
+/* Таблетки */
+.dock__pill{
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--pill-h);          /* 48px */
+  width: 82.5625px;
+  border-radius: 8px;
+  background: rgba(0,0,0,.20);    /* фон НЕ меняем на hover */
+  border: 1px solid rgba(255,255,255,.12);
+  border-image: none;
+  color: #e8e8e8;                 /* текст не меняется на hover */
+  font-size: 13px;
+  line-height: 28px;
+  font-weight: 300;
+  white-space: nowrap;
+  transition: border-color .15s ease, border-image .15s ease;
+}
+
+/* hover: только контур 1px, цвет рамки = градиент #8f8f8f→#8f8f8f */
+.dock__pill:hover,
+.dock__pill:focus-visible{
+  outline: none;
+  border-color: transparent;
+  border-image: linear-gradient(to right, #8f8f8f 0%, #8f8f8f 100%) 1;
+}
+
+/* active: без «толстой» рамки; только 1px белый контур */
+.dock__pill.is-active{
+  box-shadow: none;
+  border-color: transparent;
+  border-image: linear-gradient(to right, #ffffff 0%, #ffffff 100%) 1;
+  color: #e8e8e8; /* оставляем текст как был */
+}
+
+/* Правая белая кнопка (жирный текст) */
+.dock__cta{
+  display: grid; place-items: center;
+  width: var(--dock-right-btn);
+  height: 60px;
+  border-radius: 8px;
+  background: #e9e9e9;
+  color: #111;
+  text-decoration: none;
+  font-size: 13px;
+  line-height: 28px;
+  font-weight: 600;           /* Visit Sotd — жирный */
+  border: 1px solid rgba(0,0,0,.12);
+  transition: filter .18s ease, transform .06s ease;
+}
+.dock__cta:hover{ filter: brightness(.96); }
+.dock__cta:active{ transform: translateY(1px); }
+
+@media (max-width: 640px){
+  .dock{ transform: translateX(-50%) scale(.92); transform-origin: bottom center; }
+}
+
+/* === Dock: внутренняя область прозрачна (просвечивает тёмная база дока) === */
+.dock__inner{ background: transparent !important; }
+.dock__group{
+  background: transparent !important; /* без заливки */
+  border: none !important;
+  border-radius: 10px !important;     /* как у поисковика */
+}
+
+/* === Pills: только контур, без изменения заливки/текста === */
+.dock__pill{
+  background: rgba(0,0,0,.20) !important; /* фиксируем заливку */
+  color: #e8e8e8 !important;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,.12) !important;
+  border-image: none !important;          /* отключаем прошлые трюки */
+  box-shadow: none !important;
+  transition: border-color .15s ease;
+}
+
+/* hover: только 1px контур #8f8f8f, всё остальное без изменений */
+.dock__pill:hover,
+.dock__pill:focus-visible{
+  outline: none !important;
+  border-color: #8f8f8f !important;
+}
+
+/* active: только 1px белый контур, без «толстой» рамки и без заливки */
+.dock__pill.is-active{
+  border-color: #ffffff !important;
+  box-shadow: none !important;
+  color: #e8e8e8 !important; /* текст не меняем */
+}
+
+/* Visit Sotd.: более тёмный hover */
+.dock__cta:hover{ filter: brightness(.80) !important; }
+
+/* База дока — тёмная и с чёткой кромкой (если вдруг переопределялось) */
+.dock{
+  background: #3a3a3a !important;
+  border: 1px solid rgba(0,0,0,.55) !important;
+  padding: 6px 0 !important; /* чтобы CTA была внутри .dock__inner */
+}
+
+/* === Dock: полупрозрачный фон с тем же оттенком + лёгкий blur === */
+.dock{
+  /* тот же цвет, что у оверлея (#454545), но с альфой */
+  background: linear-gradient(to right,
+    rgba(69,69,69,0.72),
+    rgba(69,69,69,0.72)
+  ) !important;
+
+  /* чёткая кромка остаётся прежней */
+  border: 1px solid rgba(0,0,0,.55) !important;
+
+  /* лёгкое стекло — можно убрать, если не нужно */
+  -webkit-backdrop-filter: saturate(115%) blur(6px);
+  backdrop-filter: saturate(115%) blur(6px);
+
+  /* остальное как было */
+  padding: 6px 0 !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  bottom: var(--dock-bottom) !important;
+  width: var(--dock-w) !important;
+  height: var(--dock-h) !important;
+  border-radius: var(--dock-radius) !important;
+  z-index: 9999 !important;
+}
+
+/* === Dock: убираем тёмный контур, ставим едва заметный внутренний штрих === */
+.dock{
+  /* полупрозрачный фон как и было */
+  background: linear-gradient(to right, rgba(69,69,69,0.72), rgba(69,69,69,0.72)) !important;
+
+  /* вместо тёмной рамки — прозрачная граница + светлый inset-штрих */
+  border: 1px solid transparent !important;
+  box-shadow: 0 0 0 1px rgba(255,255,255,.08) inset !important;
+
+  /* остальное оставляем как есть */
+}
+
+/* === Внутренняя "плашка" под кнопками — снова видимая, без контура === */
+.dock__group{
+  background: rgba(255,255,255,.05) !important; /* мягкая подложка */
+  border: none !important;
+  border-radius: 10px !important;               /* как у поиска в панели */
+}
+
+/* На всякий случай: контейнер без заливки (пусть просвечивает фон дока) */
+.dock__inner{ background: transparent !important; }
+
+/* Pills — только контур (как уже сделали), не меняем заливку */
+.dock__pill{
+  background: rgba(0,0,0,.20) !important;
+  border: 1px solid rgba(255,255,255,.12) !important;
+  box-shadow: none !important;
+}
+.dock__pill:hover,
+.dock__pill:focus-visible{
+  border-color: #8f8f8f !important;
+}
+.dock__pill.is-active{
+  border-color: #ffffff !important;
+}
+
+/* === Dock overrides — opaque group & pills; darker transparent base === */
+
+/* Главный контейнер: прозрачный, но темнее, без внешнего чёрного контура */
+.dock{
+  background: linear-gradient(to right, rgba(69,69,69,0.86), rgba(69,69,69,0.86)) !important;
+  border: 1px solid transparent !important;
+  box-shadow: 0 0 0 1px rgba(255,255,255,.08) inset !important; /* едва заметный внутренний штрих */
+  padding: 6px 0 !important; /* чтобы CTA была строго внутри dock__inner */
+}
+
+/* Внутренний контейнер — без фона (просвечивает док) */
+.dock__inner{ background: transparent !important; }
+
+/* Плашка под кнопками: БЕЗ прозрачности, контур как у кнопок */
+.dock__group{
+  background: #1B1B1B !important;                                   /* opaque */
+  border: 1px solid rgba(255,255,255,.12) !important;                /* = как у кнопок */
+  border-radius: 10px !important;                                    /* как у поиска */
+  padding: 6px 10px;                                                 /* оставляем геометрию */
+}
+
+/* Кнопки: БЕЗ прозрачности, тот же базовый контур */
+.dock__pill{
+  background: #232323 !important;                                    /* opaque */
+  border: 1px solid rgba(255,255,255,.12) !important;                /* базовый серый */
+  color: #e8e8e8 !important;
+  box-shadow: none !important;
+  border-image: none !important;
+  transition: border-color .15s ease !important;
+}
+
+/* Hover: только контур (не меняем заливку/текст) */
+.dock__pill:hover,
+.dock__pill:focus-visible{
+  outline: none !important;
+  border-color: #8f8f8f !important;                                  /* серый градиент не нужен — ровный 1px */
+}
+
+/* Active: только белый контур */
+.dock__pill.is-active{
+  border-color: #ffffff !important;
+}
+
+/* === 1) Плашка под кнопками — сплошной фон #3E3E3E === */
+.dock__group{
+  background: #3E3E3E !important;
+  border: 1px solid rgba(255,255,255,.12) !important; /* как у кнопок */
+  border-radius: 10px !important;
+}
+
+/* === 2) Visit Sotd — чёткая (не «размытая») рамка и более тёмный ховер без фильтров === */
+.dock__cta{
+  background: #e9e9e9 !important;
+  border: 1px solid #111 !important;        /* сплошная чёткая рамка */
+  box-shadow: none !important;
+  background-clip: padding-box;             /* исключаем «подтекание» фона в рамку */
+  will-change: background-color;
+}
+
+/* ховер делаем темнее через цвет фона, а не filter (чтобы рамка оставалась резкой) */
+.dock__cta:hover{
+  background: #dcdcdc !important;           /* слегка темнее */
+  transform: translateY(1px);
+}
+
+/* на всякий — актив без blur/фильтров */
+.dock__cta:active{
+  background: #d5d5d5 !important;
+}
+
+/* ==== BASE: прозрачная основная рамка (виден сайт позади), темнее ==== */
+.dock{
+  background: linear-gradient(to right, rgba(69,69,69,.58), rgba(69,69,69,.58)) !important;
+  border: 1px solid transparent !important;
+  box-shadow: none !important;
+  padding: 6px 0 !important;
+}
+
+/* ==== Плашка под кнопками — #3E3E3E без прозрачности, контур как у кнопок ==== */
+.dock__group{
+  background: #3E3E3E !important;
+  border: 1px solid rgba(255,255,255,.12) !important;
+  border-radius: 10px !important;
+}
+
+/* ==== Кнопки: фон как у плашки, только контур меняется ==== */
+.dock__pill{
+  background: #3E3E3E !important;                       /* тот же цвет, НЕ чёрный */
+  border: 1px solid rgba(255,255,255,.12) !important;    /* базовый 1px */
+  color: #e8e8e8 !important;
+  border-radius: 8px !important;
+  box-shadow: none !important;
+  transition: border-color .15s ease !important;
+}
+.dock__pill:hover,
+.dock__pill:focus-visible{
+  outline: none !important;
+  border-color: #8f8f8f !important;                      /* только контур */
+}
+.dock__pill.is-active{
+  border-color: #ffffff !important;                      /* только контур */
+}
+
+/* ==== Visit Sotd.: без контура, просто чёткая заливка и тёмный hover ==== */
+.dock__cta{
+  background: #e9e9e9 !important;
+  border: none !important;                               /* убираем контур */
+  box-shadow: none !important;
+}
+.dock__cta:hover{
+  background: #dcdcdc !important;                        /* затемнение без фильтров */
+}
+.dock__cta:active{ background:#d5d5d5 !important; }
+
+/* На всякий случай — промежуточные контейнеры прозрачные */
+.dock__inner{ background: transparent !important; }
+

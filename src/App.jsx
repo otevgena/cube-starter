@@ -5,6 +5,13 @@ import About from '@/components/blocks/About.jsx'
 import Projects from '@/components/blocks/Projects.jsx'
 import Contact from '@/components/blocks/Contact.jsx'
 import Footer from '@/components/layout/Footer.jsx'
+import StickyDock from "@/components/common/StickyDock";
+
+// ...внутри return вашего App:
+<>
+  {/* ...весь ваш контент/маршруты... */}
+  <StickyDock />
+</>
 
 export default function App(){
   return (
