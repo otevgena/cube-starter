@@ -1418,3 +1418,273 @@ html, body{
 /* Плашка и кнопки остаются НЕпрозрачными (как прежде) */
 #dock-root .dock .dock__group{ background:#3E3E3E !important; }
 #dock-root .dock .dock__pill{  background:#3E3E3E !important; }
+
+
+/* ===== О НАС (About) ===== */
+.about-hero{ margin-top:118px; text-align:center; color:#222; }
+
+/* Верхняя строка */
+.about-hero-meta{
+  display:flex; align-items:center; justify-content:center; gap:12px;
+  font-family: var(--font-tight);
+}
+.about-hero-today,.about-hero-load{
+  font-size:14px; line-height:14px; font-weight:500; color:#222;
+}
+.about-hero-date{
+  font-size:14px; line-height:14px; font-weight:500; color:#222;
+  padding:4px 10px; border:1px solid rgba(0,0,0,.20); border-radius:6px;
+}
+
+/* Заголовок CUBE-TECH — из ТЗ */
+.about-hero-title{
+  margin:22px 0 12px;
+  font-family:"Inter Tight", Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-size:137.549px; line-height:137.549px; font-weight:300; letter-spacing:0;
+  color:#222; text-transform:uppercase;
+}
+
+/* Линия с директором */
+.about-hero-sign{ display:flex; align-items:center; justify-content:center; gap:10px; margin-top:14px; }
+.about-hero-avatar{ width:32px; height:32px; border-radius:9999px; object-fit:cover; }
+.about-hero-role{ position:relative; text-decoration:none; color:#222; font-size:14px; line-height:14px; font-weight:600; padding-bottom:4px; }
+.about-hero-role::before{ content:""; position:absolute; left:0; right:0; bottom:0; height:2px; background:#d0d0d0; }
+.about-hero-role::after{ content:""; position:absolute; left:0; bottom:0; height:2px; width:0; background:#222; transition:width .35s ease; }
+.about-hero-role:hover::after{ width:100%; }
+.about-hero-badge{ font-size:5px; line-height:14px; color:#222; align-self:flex-start; margin-left:6px; }
+
+/* Большой «ромб» */
+.about-hero-diamond{
+  width:1441px; height:1111.95px; background:#222; border-radius:14px; margin:78px auto 0;
+  position:relative; overflow:hidden;
+}
+.about-hero-diamond>img{
+  position:absolute; inset:62px; width:calc(100% - 124px); height:calc(100% - 124px);
+  object-fit:cover; border-radius:14px;
+}
+
+/* Адаптация ширины под узкие экраны */
+@media (max-width:1500px){
+  .about-hero-title{ font-size:min(137.549px, 13.5vw); line-height:1; }
+  .about-hero-diamond{ width:min(1441px, 96vw); height:calc(min(1441px, 96vw) * 0.7715); }
+}
+
+/* ===== Скрыть «Услуги» в основном полотне ТОЛЬКО на главной ===== */
+
+/* desktop-якоря раздела */
+body.home #services-first,
+body.home #services{
+  display: none !important;
+}
+
+/* mobile-блок внутри Showcase: заголовок "Услуги" и список под ним */
+body.home .md\:hidden > h2,
+body.home .md\:hidden > .mt-6{
+  display: none !important;
+}
+
+/* подстраховка: если где-то есть кнопка "Подробнее" ведущая на #services — отключим скролл на главной */
+body.home a[href="#services"]{
+  pointer-events: none;
+  opacity: .9;
+}
+
+/* ====== ABOUT: поднять на 60px, правки шрифта и фон как у шапки ====== */
+
+/* Было 118px от верха, поднимаем весь блок "О нас" на 60px вверх → 58px */
+.about-hero{
+  margin-top: 58px !important;
+  background: var(--bg-page) !important; /* фон как у шапки */
+}
+
+/* Heading */
+.about-hero h1{
+  font-weight: 600 !important;
+}
+
+/* Span Tag — маленький "CUBE" рядом с должностью */
+.about-hero .about-hero-sign span{
+  font-size: 9px !important;
+  position: relative !important;
+  left: -13px !important;
+  top: 4px !important;
+}
+
+/* Bold Tag — внутри "Загруженность" делаем 400 */
+.about-hero-meta .about-hero-load b{
+  font-weight: 400 !important;
+}
+
+/* About hero load / today — 400 как просил */
+.about-hero .about-hero-meta .about-hero-load{
+  font-weight: 400 !important;
+}
+.about-hero .about-hero-meta .about-hero-today{
+  font-weight: 400 !important;
+}
+
+/* Main — без сдвигов (на всякий случай) */
+#root .min-h-dvh main{
+  transform: translateX(0) translateY(0) !important;
+}
+
+/* === 1) Полоска между шапкой и «О нас» (margin-collapsing) === */
+/* Меняем верхний отступ на паддинг, фон как у шапки */
+.about-hero{
+  margin-top: 0 !important;
+  padding-top: 58px !important;      /* раньше было margin-top:58px */
+  background: var(--bg-page) !important;
+}
+
+/* === 2) Скрываем ТОЛЬКО контент-секцию «Услуги» на главной === */
+body.home #services,
+body.home #services-first,
+body.home [data-section="services"]{
+  display: none !important;
+}
+
+/* ИСПРАВЛЕНО: ссылки на #services снова кликабельны (в шапке) */
+body.home a[href="#services"]{
+  pointer-events: auto !important;
+  opacity: 1 !important;
+}
+
+/* === 3) StickyDock: убедимся, что он виден поверх всего === */
+.dock{
+  z-index: 2147483647 !important;   /* выше любых оверлеев */
+  opacity: 1 !important;
+  visibility: visible !important;
+  display: flex !important;
+  pointer-events: auto !important;
+}
+
+/* Если что-то накрывало низ страницы — пробиваем фон/перекрытия */
+body, #root{
+  background: var(--bg-page);
+}
+
+/* ========= Sticky bottom dock — стабильная версия ========= */
+#dock-root{ position:relative; z-index:2147483647; }
+
+.dock{
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: var(--dock-bottom);
+  width: var(--dock-w);
+  height: var(--dock-h);
+  border-radius: var(--dock-radius);
+
+  /* ПРОЗРАЧНЫЙ основной фон (виден фон сайта), но чуть затемнён */
+  background: rgba(58,58,58,.85);
+  border: 1px solid rgba(0,0,0,.55); /* чёткая кромка */
+  box-shadow: none;
+
+  /* никаких внутренних отступов, чтобы CTA точно внутри */
+  padding: 6px 0;
+
+  display: flex;
+  align-items: center;
+  pointer-events: auto;
+  font-family: "Inter Tight", Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  -webkit-font-smoothing: auto;
+  -moz-osx-font-smoothing: auto;
+}
+
+.dock__inner{
+  display: grid;
+  grid-template-columns:
+    var(--dock-left-tile)
+    var(--dock-group-w)
+    var(--dock-right-btn);
+  align-items: center;
+  column-gap: 10px;     /* по бокам меньше, чтобы CTA влезала внутрь */
+  width: 100%;
+  height: 100%;
+  background: transparent; /* сам контейнер прозрачный */
+}
+
+/* Левая плитка с "c." */
+.dock__brand{
+  display: grid; place-items: center;
+  width: 60px; height: 60px;
+  border-radius: 8px;
+  background: #1B1B1B;
+  text-decoration: none;
+  border: 1px solid rgba(255,255,255,.06);
+}
+.dock__brand-text{
+  font-size: 26px;     /* 26/28 как в шапке */
+  line-height: 28px;
+  font-weight: 400;
+  color: #e9e9e9;
+}
+
+/* Плашка с кнопками */
+.dock__group{
+  width: 100%;
+  height: 60px;
+  background: #3E3E3E;    /* как просил */
+  border-radius: 10px;    /* как у поисковика */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--pill-gap);
+  padding: 6px 10px;
+}
+
+/* Таблетки */
+.dock__pill{
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--pill-h);          /* 48px */
+  width: 82.5625px;
+  border-radius: 8px;
+  background: rgba(0,0,0,.20);    /* как у макета */
+  border: 1px solid rgba(255,255,255,.12);
+  border-image: none;
+  color: #e8e8e8;
+  font-size: 13px;
+  line-height: 28px;
+  font-weight: 300;
+  white-space: nowrap;
+  transition: border-color .15s ease, border-image .15s ease, filter .15s ease;
+  position: relative;
+}
+.dock__pill:hover,
+.dock__pill:focus-visible{
+  outline: none;
+  border-color: transparent;
+  border-image: linear-gradient(to right, #8f8f8f 0%, #8f8f8f 100%) 1;
+}
+.dock__pill.is-active{
+  border-color: transparent;
+  border-image: linear-gradient(to right, #ffffff 0%, #ffffff 100%) 1; /* только контур, без толстой обводки */
+}
+
+/* CTA справа — без «прыжка» при ховере */
+.dock__cta{
+  display: grid; place-items: center;
+  width: var(--dock-right-btn);
+  height: 60px;
+  border-radius: 8px;
+  background: #e9e9e9;
+  color: #111;
+  text-decoration: none;
+  font-size: 13px;
+  line-height: 28px;
+  font-weight: 600; /* жирный */
+  border: 1px solid rgba(0,0,0,.12);
+  transition: filter .18s ease;
+}
+.dock__cta:hover{ filter: brightness(.96); }
+
+/* Мелкие позиционные правки (как просил ранее) */
+.dock a{ position:relative; }
+#dock-root .dock .dock__inner a{ left:4px !important; }
+#dock-root .dock .dock__inner .dock__cta{ left:-6px !important; right:auto !important; }
+.dock .dock__group{ position:relative; left:-1px; }
+
+/* Защита от перекрытий другими слоями */
+.services-overlay{ z-index: 60; }            /* оверлей ниже дока */
