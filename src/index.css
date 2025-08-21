@@ -1374,3 +1374,30 @@ html, body{
 /* На всякий случай — промежуточные контейнеры прозрачные */
 .dock__inner{ background: transparent !important; }
 
+/* === 1) Visit Sotd. — не прыгает на hover/active === */
+.dock__cta,
+.dock__cta:hover,
+.dock__cta:active{
+  transform: none !important;   /* убираем любые сдвиги */
+  outline: none !important;
+}
+
+/* === 2) Твои точные сдвиги ссылок и группы === */
+/* Link */
+.dock a{
+  position: relative;
+}
+/* Link */
+#dock-root .dock .dock__inner a{
+  left: 4px !important;
+}
+/* Dock cta */
+#dock-root .dock .dock__inner .dock__cta{
+  left: -6px !important;
+  right: auto !important;
+}
+/* Dock group */
+.dock .dock__group{
+  position: relative;
+  left: -1px;
+}
