@@ -970,3 +970,56 @@ html, body{
   left: auto !important;
   transform: none !important;
 }
+
+
+/* === Поиск в панели: чёткая рамка как у активной карточки + цвета текста === */
+.services-top .services-search-holder .search-wrap{
+  background:#fff !important;
+  border:1px solid rgba(0,0,0,.12) !important; /* ровная 1px рамка */
+  box-shadow:none !important;
+  border-radius:8px !important;
+  height:var(--header-search-height) !important;
+}
+.services-top .services-search-holder .search-wrap .search-input{
+  color:#111 !important;             /* как у пунктов */
+  font-weight:400 !important;        /* тоньше, но читаемо */
+}
+.services-top .services-search-holder .search-wrap .search-input::placeholder{
+  color:#111 !important; opacity:1 !important;
+}
+
+/* === Левые пункты: при активном — слегка жирнее текст; справа без изменений === */
+.services-panel .services-body .svc-left .svc-left-item span{
+  font-weight:400 !important;        /* обычное состояние */
+}
+.services-panel .services-body .svc-left .svc-left-item.is-active span{
+  font-weight:500 !important;        /* немного жирнее при активном */
+}
+
+/* === Иконки слева: 14×14, аккуратное выравнивание === */
+.svc-ico-img{
+  width:14px; height:14px; display:block; object-fit:contain;
+}
+
+/* (на всякий) высота карточек слева/справа остаётся 40px */
+.services-panel .services-body .svc-left .svc-left-item,
+.services-panel .services-body .svc-right .svc-row{
+  height:40px !important;
+  min-height:40px !important;
+  padding-top:0 !important; padding-bottom:0 !important;
+}
+
+/* (если где-то осталось старое мягкое «подсвечивание» — гасим) */
+.services-panel .services-body .svc-left .svc-left-item:hover,
+.services-panel .services-body .svc-right .svc-row:hover{
+  box-shadow:none !important;
+  background:#fff !important;
+  border-color:rgba(0,0,0,.12) !important;
+}
+/* Icons +2px (14→16) */
+.svc-ico-img{
+  width:25px !important;
+  height:25px !important;
+  display:block;
+  object-fit:contain;
+}

@@ -1,25 +1,15 @@
 import React from "react";
-import {
-  ChevronDown,
-  Search,
-  Trophy,
-  Layers,
-  Cpu,
-  FolderOpen,
-  Newspaper,
-} from "lucide-react";
+import { ChevronDown, Search } from "lucide-react";
 
-/** Хедер + MegaPanel "Услуги" — скрываем строку шапки, панель не сдвигается, кнопки продублированы в панели */
+/** Хедер + MegaPanel "Услуги" */
 export default function Header() {
   const [servicesOpen, setServicesOpen] = React.useState(false);
-
-  // Активные пункты панелей (слева и справа)
-  const [activeLeft, setActiveLeft] = React.useState(0);   // 0: Awards — по умолчанию
-  const [activeRight, setActiveRight] = React.useState(2); // 2: Sites of the Day — как было
+  const [activeLeft, setActiveLeft] = React.useState(0);   // слева: активный пункт
+  const [activeRight, setActiveRight] = React.useState(0); // справа: активная строка
 
   // === РУЧКИ (строго по ТЗ) ===
   const VARS = {
-    "--header-height": "54px",           // вся панель шапки: 54px
+    "--header-height": "54px",
     "--header-sticky-top": "0px",
     "--header-stack-offset-x": "0px",
     "--header-stack-offset-y": "0px",
@@ -30,8 +20,8 @@ export default function Header() {
     "--actions-offset-x": "0px",
     "--actions-offset-y": "0px",
 
-    "--header-search-height": "42px",    // высота поиска
-    "--header-search-max": "554.508px",  // ширина поиска
+    "--header-search-height": "42px",
+    "--header-search-max": "554.508px",
 
     // Панель
     "--panel-left-extra": "74px",
@@ -45,7 +35,7 @@ export default function Header() {
     "--panel-search-right": "0px",
   };
 
-  /* === Dev-хуки === */
+  /* Dev-хуки */
   React.useEffect(() => {
     const onKey = (e) => {
       const key = (e.key || "").toLowerCase();
@@ -56,13 +46,13 @@ export default function Header() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
   React.useEffect(() => {
-    (window).openServicesPanel = () => setServicesOpen(true);
-    (window).closeServicesPanel = () => setServicesOpen(false);
-    (window).toggleServicesPanel = () => setServicesOpen((v) => !v);
+    window.openServicesPanel = () => setServicesOpen(true);
+    window.closeServicesPanel = () => setServicesOpen(false);
+    window.toggleServicesPanel = () => setServicesOpen((v) => !v);
     return () => {
-      delete (window).openServicesPanel;
-      delete (window).closeServicesPanel;
-      delete (window).toggleServicesPanel;
+      delete window.openServicesPanel;
+      delete window.closeServicesPanel;
+      delete window.toggleServicesPanel;
     };
   }, []);
   React.useEffect(() => {
@@ -74,13 +64,79 @@ export default function Header() {
     } catch {}
   }, []);
 
-  // Лочим скролл страницы при открытой панели
   React.useEffect(() => {
     if (!servicesOpen) return;
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => (document.body.style.overflow = prev);
   }, [servicesOpen]);
+
+  // Содержимое вкладок справа — для каждой левой категории свой список
+  const dataRightByLeft = {
+    0: [ // Электромонтаж
+      "Подключение объектов к электросетям|",
+      "Увеличение мощности и модернизация сетей|",
+      "Внутренние электромонтажные работы|",
+      "Наружные электросети и уличное освещение|",
+      "Монтаж электрощитов и ВРУ|",
+      "Системы заземления и молниезащиты|",
+      "Автоматизация и учёт электроэнергии|",
+      "Резервное электроснабжение|",
+    ],
+    1: [ // Слаботочные сис.
+      "СКС и структурированные кабельные сети|",
+      "Видеонаблюдение (CCTV)|",
+      "Охранно-пожарная сигнализация|",
+      "Системы контроля и управления доступом|",
+      "Домофония и интерком|",
+      "Серверные, кроссовые и шкафы|",
+      "ЛВС и активное сетевое оборудование|",
+      "Системы оповещения и звука|",
+    ],
+    2: [ // Климат системы
+      "Проектирование и монтаж вентиляции|",
+      "Системы кондиционирования (VRF/VRV)|",
+      "Чиллер-фанкойл системы|",
+      "Системы отопления и теплоснабжения|",
+      "Автоматика ОВиК|",
+      "Паспортизация и балансировка систем|",
+      "Воздуховоды, шумоглушение, КИПиА|",
+      "Сервис и регламентное обслуживание|",
+    ],
+    3: [ // Проектирование
+      "Проект электроснабжения (ЭОМ)|",
+      "Проект ОВ и ВК|",
+      "Проект СС (слаботочные системы)|",
+      "АСУ ТП и разделы автоматики|",
+      "Молниезащита и заземление|",
+      "Сметная документация|",
+      "Авторский надзор|",
+      "Согласования в сетевых организациях|",
+    ],
+    4: [ // Общестрой
+      "Общестроительные и отделочные работы|",
+      "Монолитные и бетонные работы|",
+      "Фундамент и земляные работы|",
+      "Кровля и фасад|",
+      "Внутренние перегородки и проёмы|",
+      "Усиление конструкций|",
+      "Генподряд и технадзор|",
+      "Пуско-наладка инженерных систем|",
+    ],
+  };
+
+  // при переключении левой вкладки — сбрасываем активную строку справа
+  React.useEffect(() => { setActiveRight(0); }, [activeLeft]);
+
+  const leftItems = [
+    { img: "/electricity.png", label: "Электромонтаж" },
+    { img: "/lowcurrent.png",   label: "Слаботочные сис." },
+    { img: "/climat.png",       label: "Климат системы" },
+    { img: "/design.png",       label: "Проектирование" },
+    { img: "/construction.png", label: "Общестрой" },
+  ];
+
+  const rightRows = dataRightByLeft[activeLeft];
 
   return (
     <header
@@ -92,7 +148,6 @@ export default function Header() {
       }}
     >
       <div className="container-header" style={{ height: "var(--header-height)" }}>
-        {/* Обычная строка шапки: просто скрываем, НЕ меняя высоту контейнера */}
         <div
           className="header-row flex items-center gap-4"
           style={{
@@ -102,10 +157,7 @@ export default function Header() {
           }}
         >
           {/* ЛОГО "c." */}
-          <div
-            className="logo-wrap"
-            style={{ transform: "translate(var(--logo-offset-x), var(--logo-offset-y))" }}
-          >
+          <div className="logo-wrap" style={{ transform: "translate(var(--logo-offset-x), var(--logo-offset-y))" }}>
             <a href="/" className="flex items-center gap-2">
               <span className="logo-c">c.</span>
             </a>
@@ -130,7 +182,7 @@ export default function Header() {
             <a href="#reviews" className="nav-link"><span className="text-grad-452f2d">Отзывы</span></a>
           </nav>
 
-          {/* Поиск в шапке (точные размеры) */}
+          {/* Поиск в шапке */}
           <div className="flex-1 hidden md:flex justify-center">
             <div
               className="search-wrap w-full"
@@ -155,10 +207,7 @@ export default function Header() {
           <div className="ml-auto hidden md:flex items-center gap-4">
             <a href="/login" className="nav-link"><span className="text-grad-222">Вход</span></a>
             <a href="/register" className="nav-link"><span className="text-grad-222">Регистрация</span></a>
-            <div
-              className="actions-right flex items-center gap-4"
-              style={{ transform: "translate(var(--actions-offset-x), var(--actions-offset-y))" }}
-            >
+            <div className="actions-right flex items-center gap-4" style={{ transform: "translate(var(--actions-offset-x), var(--actions-offset-y))" }}>
               <a href="/pro" className="btn-pro">Be Pro</a>
               <a href="/submit" className="btn-submit">Submit Website</a>
             </div>
@@ -171,17 +220,15 @@ export default function Header() {
         </div>
       </div>
 
-      {/* ======= ПАНЕЛЬ (не сдвигаем: начинается БЕЗ изменений — от низа шапки) ======= */}
+      {/* ======= ПАНЕЛЬ ======= */}
       {servicesOpen && (
         <>
-          {/* Затемнение НИЖЕ шапки — панель не меняет свою позицию */}
           <div
             className="services-overlay fixed inset-x-0 bottom-0 z-[60]"
             style={{ top: "var(--header-height)" }}
             onClick={() => setServicesOpen(false)}
           />
 
-          {/* Панель под шапкой (top = высота шапки) */}
           <div className="fixed inset-x-0 z-[61]" style={{ top: "var(--header-height)" }}>
             <div className="container-header">
               <div
@@ -193,7 +240,7 @@ export default function Header() {
                 }}
                 onClick={(e) => e.stopPropagation()}
               >
-                {/* Простой бар внутри панели — c. слева, Вход/Регистрация/BePro/Submit справа */}
+                {/* Верх панели */}
                 <div className="panel-bar flex items-center justify-between mb-3">
                   <div className="panel-bar-left flex items-center gap-2">
                     <a href="/" className="flex items-center gap-2">
@@ -208,7 +255,7 @@ export default function Header() {
                   </div>
                 </div>
 
-                {/* Поиск (белый, та же высота что и в шапке) */}
+                {/* Поиск (в панели) */}
                 <div className="services-top">
                   <div
                     className="services-search-holder"
@@ -233,42 +280,35 @@ export default function Header() {
 
                 {/* Тело панели */}
                 <div className="services-body">
-                  {/* ЛЕВАЯ КОЛОНКА */}
+                  {/* ЛЕВАЯ */}
                   <div className="svc-left">
-                    {[
-                      { ico:<Trophy size={18} className="svc-ico" />, label:"Awards" },
-                      { ico:<Layers size={18} className="svc-ico" />, label:"By Category" },
-                      { ico:<Cpu size={18} className="svc-ico" />, label:"By Technology" },
-                      { ico:<FolderOpen size={18} className="svc-ico" />, label:"Collections" },
-                      { ico:<Newspaper size={18} className="svc-ico" />, label:"Blog" },
-                    ].map((it, i)=>(
+                    {leftItems.map((it, i)=>(
                       <a
                         key={it.label}
                         className={`svc-left-item ${activeLeft===i ? "is-active" : ""}`}
                         onClick={()=>setActiveLeft(i)}
                         role="button" tabIndex={0}
                       >
-                        {it.ico}<span>{it.label}</span>
+                        <img
+                          src={it.img}
+                          alt=""
+                          width={16}
+                          height={16}
+                          className="svc-ico-img"
+                          loading="eager"
+                        />
+                        <span>{it.label}</span>
                       </a>
                     ))}
                   </div>
 
-                  {/* ПРАВАЯ КОЛОНКА */}
+                  {/* ПРАВАЯ */}
                   <div className="svc-right">
-                    {[
-                      "Honor Mentions|25K",
-                      "Nominees|48K",
-                      "Sites of the Day|6076",
-                      "Sites of the Month|195",
-                      "Sites of the Year|64",
-                      "Honors|New",
-                      "Most Awarded Profiles|",
-                      "Jury 2025|",
-                    ].map((row, i)=>{
-                      const [label, num] = row.split("|");
+                    {rightRows.map((row, i)=>{
+                      const [label, num=""] = row.split("|");
                       return (
                         <div
-                          key={label}
+                          key={`${activeLeft}-${label}`}
                           className={`svc-row ${activeRight===i ? "is-active" : ""}`}
                           onClick={()=>setActiveRight(i)}
                           role="button" tabIndex={0}
@@ -280,6 +320,7 @@ export default function Header() {
                     })}
                   </div>
                 </div>
+
               </div>
             </div>
           </div>
