@@ -1401,3 +1401,20 @@ html, body{
   position: relative;
   left: -1px;
 }
+
+/* === MAIN DOCK: реальная полупрозрачность основы === */
+#dock-root .dock{
+  /* тёмный полупрозрачный фон — видно контент сайта под панелью */
+  background: linear-gradient(to right,
+    rgba(69,69,69,0.58),
+    rgba(69,69,69,0.58)
+  ) !important;
+
+  /* без внешнего тёмного контура; лёгкий внутренний штрих для чёткости */
+  border: 1px solid transparent !important;
+  box-shadow: 0 0 0 1px rgba(255,255,255,.08) inset !important;
+}
+
+/* Плашка и кнопки остаются НЕпрозрачными (как прежде) */
+#dock-root .dock .dock__group{ background:#3E3E3E !important; }
+#dock-root .dock .dock__pill{  background:#3E3E3E !important; }

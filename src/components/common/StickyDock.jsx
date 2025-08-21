@@ -4,7 +4,7 @@ export default function StickyDock() {
   // было: useState(0)
   const [active, setActive] = React.useState(-1);
 
-  const pills = ["Nominees", "Courses", "Collections", "Directory", "Market"];
+  const pills = ["Услуги", "О нас", "Проекты", "Контакты", "Отзывы"];
 
   return (
     <div
