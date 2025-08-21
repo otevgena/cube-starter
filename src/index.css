@@ -697,3 +697,276 @@ body{
 .services-panel--extend-left::before{
   border-radius: 8px !important; /* чтобы фон-расширение слева совпадало */
 }
+
+/* === Left column: точные размеры и меньшие интервалы === */
+.services-panel .services-body .svc-left{
+  width:180px !important;
+  height:208px !important;
+  border-radius:0 !important;
+  gap:2px !important;                 /* ближе друг к другу */
+}
+
+/* Элементы слева — ниже и плотнее */
+.services-panel .services-body .svc-left .svc-left-item{
+  min-height:38px !important;
+  height:38px !important;
+  padding:6px 12px !important;
+  border-radius:8px;                  /* небольшой радиус для «плашки» */
+}
+
+/* Ховер — как активный (белая «плашка», как у Awards) */
+.services-panel .services-body .svc-left .svc-left-item:hover,
+.services-panel .services-body .svc-left .svc-left-item:focus-visible{
+  background:#fff !important;
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.06) !important;
+}
+
+/* Активный уже задан: .svc-left-item.is-active — оставляем как есть */
+
+
+/* === 1) ЧЁТКИЙ ТЕКСТ И РАМКИ (как на page3) === */
+html, body{
+  /* «auto» возвращает субпиксельное сглаживание → буквы контрастнее */
+  -webkit-font-smoothing: auto !important;
+  -moz-osx-font-smoothing: auto !important;
+  text-rendering: optimizeLegibility;
+}
+
+/* Карточки в панели — НЕ тени, а настоящая 1px граница для чёткости */
+.services-panel .services-body .svc-left .svc-left-item{
+  border: 1px solid transparent;
+  box-shadow: none !important;
+}
+.services-panel .services-body .svc-left .svc-left-item:hover,
+.services-panel .services-body .svc-left .svc-left-item:focus-visible{
+  background:#fff !important;
+  border-color: rgba(0,0,0,.12) !important;
+}
+.services-panel .services-body .svc-left .svc-left-item.is-active{
+  background:#fff !important;
+  border-color: rgba(0,0,0,.12) !important;
+  box-shadow: none !important;
+}
+
+/* Правая колонка — такие же «карточки» */
+.services-panel .services-body .svc-right{
+  /* выравниваем по левой колонке (180px), добавим минимальный внутренний отступ */
+  margin-left: 12px; /* тонкая подстройка, чтобы кромки совпали с левой */
+}
+.services-panel .services-body .svc-right .svc-row{
+  border: 1px solid transparent;
+  border-radius: 8px;
+  min-height: 38px;
+  padding: 6px 12px;
+  box-shadow: none !important;
+  transition: background-color .2s ease, border-color .2s ease;
+}
+.services-panel .services-body .svc-right .svc-row:hover,
+.services-panel .services-body .svc-right .svc-row:focus-visible{
+  background: #fff !important;
+  border-color: rgba(0,0,0,.12) !important;
+}
+.services-panel .services-body .svc-right .svc-row.is-active{
+  background:#fff !important;
+  border-color: rgba(0,0,0,.12) !important;
+  box-shadow: none !important;
+}
+
+/* — размеры и плотность левой колонки (как на прошлом шаге) — */
+.services-panel .services-body .svc-left{
+  width:180px !important;
+  height:208px !important;
+  border-radius:0 !important;
+  gap:2px !important;
+}
+.services-panel .services-body .svc-left .svc-left-item{
+  min-height:38px !important;
+  height:38px !important;
+  padding:6px 12px !important;
+  border-radius:8px;
+}
+
+/* === 2) ТЁМНЫЙ ФОН ОВЕРЛЕЯ (вернули) === */
+.services-overlay{
+  background: linear-gradient(to right, #454545 0%, #454545 100%) !important;
+  animation: overlayFadeIn .22s ease-out both; /* мягкое появление */
+}
+@keyframes overlayFadeIn{ from{opacity:0} to{opacity:1} }
+
+/* === 3) Плавное появление самой панели (без сдвигов) === */
+.services-panel{
+  animation: panelFadeIn .24s ease-out both;
+}
+@keyframes panelFadeIn{ from{opacity:0} to{opacity:1} }
+
+/* Уважение системной настройки */
+@media (prefers-reduced-motion: reduce){
+  .services-overlay, .services-panel { animation: none !important; }
+}
+
+/* === СБРОС СТАРЫХ СМЕЩЕНИЙ, чтобы всё ровно стояло === */
+.services-panel .services-body,
+.services-panel .services-body .svc-left,
+.services-panel .services-body .svc-right,
+.services-panel .services-body .svc-left .svc-left-item,
+.services-panel .services-body .svc-right .svc-row{
+  position: static !important;
+  left: auto !important;
+  top: auto !important;
+  transform: none !important;
+}
+
+/* Левая колонка в сетке реально 180px, правая — остальное */
+.services-panel .services-body{
+  grid-template-columns: 180px 1fr !important;
+  align-items: start;
+}
+
+/* === ЛЕВАЯ КОЛОНКА — плотнее и 40px высота === */
+.services-panel .services-body .svc-left{
+  width:180px !important;
+  height:auto !important;
+  gap:2px !important;                 /* как просил: ближе друг к другу */
+}
+.services-panel .services-body .svc-left .svc-left-item{
+  display:inline-flex; align-items:center;
+  height:40px !important;
+  min-height:40px !important;
+  padding:0 12px !important;          /* без вертикальных паддингов, чтобы было ровно 40px */
+  border-radius:8px;
+  border:1px solid transparent;
+  box-shadow:none !important;
+  font-weight:400 !important;         /* чуть тоньше шрифт */
+}
+/* Ховер — чёткий бордер, как у активного */
+.services-panel .services-body .svc-left .svc-left-item:hover,
+.services-panel .services-body .svc-left .svc-left-item:focus-visible{
+  background:#fff !important;
+  border-color:rgba(0,0,0,.12) !important;
+}
+.services-panel .services-body .svc-left .svc-left-item.is-active{
+  background:#fff !important;
+  border-color:rgba(0,0,0,.12) !important;
+  box-shadow:none !important;
+}
+
+/* === ПРАВАЯ КОЛОНКА — такие же карточки, та же плотность и высота 40px === */
+.services-panel .services-body .svc-right{
+  display:grid;
+  gap:2px !important;                 /* как слева */
+  margin:0 !important;
+}
+.services-panel .services-body .svc-right .svc-row{
+  display:grid;
+  grid-template-columns:1fr 80px;
+  align-items:center;
+  height:40px !important;
+  min-height:40px !important;
+  padding:0 12px !important;          /* симметрично левой колонке */
+  border-radius:8px;
+  border:1px solid transparent;
+  box-shadow:none !important;
+  transition:background-color .2s ease, border-color .2s ease;
+  font-weight:400 !important;         /* чуть тоньше шрифт */
+}
+.services-panel .services-body .svc-right .svc-row:hover,
+.services-panel .services-body .svc-right .svc-row:focus-visible{
+  background:#fff !important;
+  border-color:rgba(0,0,0,.12) !important;
+}
+.services-panel .services-body .svc-right .svc-row.is-active{
+  background:#fff !important;
+  border-color:rgba(0,0,0,.12) !important;
+  box-shadow:none !important;
+}
+
+/* Текст в правых карточках (и слева) — тоньше */
+.services-panel .services-body .svc-left .svc-left-item span,
+.services-panel .services-body .svc-right .svc-row .svc-label,
+.services-panel .services-body .svc-right .svc-row .svc-num{
+  font-weight:400 !important;
+}
+
+/* — на всякий: затемнение-оверлей остаётся тёмным — */
+.services-overlay{
+  background: linear-gradient(to right, #454545 0%, #454545 100%) !important;
+}
+
+/* === FIX 1: убираем пустое пространство под поиском в панели === */
+/* 1) отменяем прежний сдвиг ВНУТРИ поиска */
+.services-top .services-search-holder .search-wrap{
+  top: 0 !important;
+}
+
+/* 2) сдвигаем ВЕСЬ блок поиска вверх и "забираем" место обратно */
+.services-top{
+  position: relative !important;
+  top: -59px !important;          /* как и просили: на 59px вверх */
+  margin-bottom: -59px !important;/* возвращаем место, чтобы тело панели не съезжало вниз */
+}
+
+/* 3) на всякий — высота и радиус поиска в панели остаются как в шапке */
+.services-top .services-search-holder .search-wrap{
+  height: var(--header-search-height) !important;
+  border-radius: 8px !important;
+}
+
+/* === FIX 2: затемняем и ШАПКУ тоже (оверлей на весь экран) === */
+.services-overlay{
+  top: 0 !important;  /* перекрывает inline-style top: var(--header-height) */
+  background: linear-gradient(to right, #454545 0%, #454545 100%) !important;
+}
+
+/* === FIX 3: (на всякий) одинаковая высота карточек 40px — слева и справа === */
+.services-panel .services-body .svc-left .svc-left-item,
+.services-panel .services-body .svc-right .svc-row{
+  height: 40px !important;
+  min-height: 40px !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+}
+
+/* === Связка левой и правой колонок (одни и те же смещения) === */
+:root{
+  --svc-col-fix-x: -30px;  /* горизонтальный сдвиг */
+  --svc-col-fix-y: -16px;  /* вертикальный сдвиг */
+}
+
+/* Левая колонка — оставляем ровно как ты прислал, но на переменных */
+.min-h-dvh .sticky .fixed .container-header .services-panel .services-body .svc-left a{
+  position: relative !important;
+  top: var(--svc-col-fix-y) !important;
+  left: var(--svc-col-fix-x) !important;
+}
+
+/* На всякий: сброс странных auto/right у ссылок слева */
+.services-body .svc-left a{ right:auto !important; }
+#root .min-h-dvh .sticky .fixed .container-header .services-panel .services-body .svc-left a{
+  bottom:auto !important;
+}
+
+/* Правую колонку «привязываем» к тем же смещениям, что и слева */
+.min-h-dvh .sticky .fixed .container-header .services-panel .services-body .svc-right{
+  position: relative !important;
+  top: var(--svc-col-fix-y) !important;
+  left: var(--svc-col-fix-x) !important;
+  margin-left: 0 !important;        /* убираем прежние подталкивания */
+  transform: none !important;
+}
+
+/* Дублируем самый специфичный селектор для надёжности (если у тебя бывает #root обёртка) */
+#root .min-h-dvh .sticky .fixed .container-header .services-panel .services-body .svc-right{
+  position: relative !important;
+  top: var(--svc-col-fix-y) !important;
+  left: var(--svc-col-fix-x) !important;
+  margin-left: 0 !important;
+  transform: none !important;
+}
+
+/* На всякий случай — строки справа не имеют собственных оффсетов */
+.services-panel .services-body .svc-right .svc-row{
+  position: relative !important;
+  top: auto !important;
+  left: auto !important;
+  transform: none !important;
+}

@@ -13,6 +13,10 @@ import {
 export default function Header() {
   const [servicesOpen, setServicesOpen] = React.useState(false);
 
+  // Активные пункты панелей (слева и справа)
+  const [activeLeft, setActiveLeft] = React.useState(0);   // 0: Awards — по умолчанию
+  const [activeRight, setActiveRight] = React.useState(2); // 2: Sites of the Day — как было
+
   // === РУЧКИ (строго по ТЗ) ===
   const VARS = {
     "--header-height": "54px",           // вся панель шапки: 54px
@@ -52,13 +56,13 @@ export default function Header() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
   React.useEffect(() => {
-    window.openServicesPanel = () => setServicesOpen(true);
-    window.closeServicesPanel = () => setServicesOpen(false);
-    window.toggleServicesPanel = () => setServicesOpen((v) => !v);
+    (window).openServicesPanel = () => setServicesOpen(true);
+    (window).closeServicesPanel = () => setServicesOpen(false);
+    (window).toggleServicesPanel = () => setServicesOpen((v) => !v);
     return () => {
-      delete window.openServicesPanel;
-      delete window.closeServicesPanel;
-      delete window.toggleServicesPanel;
+      delete (window).openServicesPanel;
+      delete (window).closeServicesPanel;
+      delete (window).toggleServicesPanel;
     };
   }, []);
   React.useEffect(() => {
@@ -170,13 +174,14 @@ export default function Header() {
       {/* ======= ПАНЕЛЬ (не сдвигаем: начинается БЕЗ изменений — от низа шапки) ======= */}
       {servicesOpen && (
         <>
-          {/* Затемнение — теперь накрывает ВЕСЬ экран, включая шапку */}
+          {/* Затемнение НИЖЕ шапки — панель не меняет свою позицию */}
           <div
-            className="services-overlay fixed inset-0 z-[60]"
+            className="services-overlay fixed inset-x-0 bottom-0 z-[60]"
+            style={{ top: "var(--header-height)" }}
             onClick={() => setServicesOpen(false)}
           />
 
-          {/* Панель под шапкой (top = высота шапки) — без изменений */}
+          {/* Панель под шапкой (top = высота шапки) */}
           <div className="fixed inset-x-0 z-[61]" style={{ top: "var(--header-height)" }}>
             <div className="container-header">
               <div
@@ -228,23 +233,51 @@ export default function Header() {
 
                 {/* Тело панели */}
                 <div className="services-body">
+                  {/* ЛЕВАЯ КОЛОНКА */}
                   <div className="svc-left">
-                    <a className="svc-left-item is-active"><Trophy size={18} className="svc-ico" /><span>Awards</span></a>
-                    <a className="svc-left-item"><Layers size={18} className="svc-ico" /><span>By Category</span></a>
-                    <a className="svc-left-item"><Cpu size={18} className="svc-ico" /><span>By Technology</span></a>
-                    <a className="svc-left-item"><FolderOpen size={18} className="svc-ico" /><span>Collections</span></a>
-                    <a className="svc-left-item"><Newspaper size={18} className="svc-ico" /><span>Blog</span></a>
+                    {[
+                      { ico:<Trophy size={18} className="svc-ico" />, label:"Awards" },
+                      { ico:<Layers size={18} className="svc-ico" />, label:"By Category" },
+                      { ico:<Cpu size={18} className="svc-ico" />, label:"By Technology" },
+                      { ico:<FolderOpen size={18} className="svc-ico" />, label:"Collections" },
+                      { ico:<Newspaper size={18} className="svc-ico" />, label:"Blog" },
+                    ].map((it, i)=>(
+                      <a
+                        key={it.label}
+                        className={`svc-left-item ${activeLeft===i ? "is-active" : ""}`}
+                        onClick={()=>setActiveLeft(i)}
+                        role="button" tabIndex={0}
+                      >
+                        {it.ico}<span>{it.label}</span>
+                      </a>
+                    ))}
                   </div>
 
+                  {/* ПРАВАЯ КОЛОНКА */}
                   <div className="svc-right">
-                    <div className="svc-row"><span className="svc-label">Honor Mentions</span><span className="svc-num">25K</span></div>
-                    <div className="svc-row"><span className="svc-label">Nominees</span><span className="svc-num">48K</span></div>
-                    <div className="svc-row is-active"><span className="svc-label">Sites of the Day</span><span className="svc-num">6076</span></div>
-                    <div className="svc-row"><span className="svc-label">Sites of the Month</span><span className="svc-num">195</span></div>
-                    <div className="svc-row"><span className="svc-label">Sites of the Year</span><span className="svc-num">64</span></div>
-                    <div className="svc-row"><span className="svc-label">Honors</span><span className="svc-num"><span className="badge-new">New</span></span></div>
-                    <div className="svc-row"><span className="svc-label">Most Awarded Profiles</span></div>
-                    <div className="svc-row"><span className="svc-label">Jury 2025</span></div>
+                    {[
+                      "Honor Mentions|25K",
+                      "Nominees|48K",
+                      "Sites of the Day|6076",
+                      "Sites of the Month|195",
+                      "Sites of the Year|64",
+                      "Honors|New",
+                      "Most Awarded Profiles|",
+                      "Jury 2025|",
+                    ].map((row, i)=>{
+                      const [label, num] = row.split("|");
+                      return (
+                        <div
+                          key={label}
+                          className={`svc-row ${activeRight===i ? "is-active" : ""}`}
+                          onClick={()=>setActiveRight(i)}
+                          role="button" tabIndex={0}
+                        >
+                          <span className="svc-label">{label}</span>
+                          <span className="svc-num">{num}</span>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               </div>
