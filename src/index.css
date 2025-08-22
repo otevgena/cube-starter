@@ -1688,3 +1688,47 @@ body, #root{
 
 /* Защита от перекрытий другими слоями */
 .services-overlay{ z-index: 60; }            /* оверлей ниже дока */
+
+
+/* ===== PRELOADER — ультратонкие точки (2px), радиус 18px, медленный спин ===== */
+.preloader{
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
+  background: var(--bg-page);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.preloader__spinner{
+  position: relative;
+  width: 64px;
+  height: 64px;
+  animation: preloader-spin 2s linear infinite;
+  will-change: transform;
+}
+
+/* 8 ультратонких точек */
+.preloader__spinner span{
+  --dot-size: 2px;      /* толщина точки */
+  --radius: 18px;       /* было 16px → +2px */
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: var(--dot-size);
+  height: var(--dot-size);
+  margin: calc(var(--dot-size)/-2) 0 0 calc(var(--dot-size)/-2);
+  border-radius: 50%;
+  background: #7a7a7a;
+  transform:
+    rotate(calc(var(--i) * 45deg))
+    translate(var(--radius))
+    rotate(calc(var(--i) * -45deg));
+}
+
+@keyframes preloader-spin {
+  to { transform: rotate(360deg); }
+}
+

@@ -1,7 +1,7 @@
 import React from "react";
 
 export default function StickyDock() {
-  const pills = ["Nominees", "Courses", "Collections", "Directory", "Market"];
+  const pills = ["Услуги", "О нас", "Проекты", "Контакты", "Отзывы"];
   const [active, setActive] = React.useState(null);
 
   return (
@@ -48,7 +48,7 @@ export default function StickyDock() {
           </div>
 
           {/* CTA */}
-          <a href="#" className="dock__cta" role="button">Visit Sotd.</a>
+          <a href="#" className="dock__cta" role="button">Купить</a>
         </div>
       </div>
     </div>
