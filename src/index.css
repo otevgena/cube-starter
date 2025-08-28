@@ -1732,3 +1732,153 @@ body, #root{
   to { transform: rotate(360deg); }
 }
 
+/* --- ABOUT: блок ниже ромба --- */
+.about-hero .about-hero-more{
+  margin-top: 96px;          /* расстояние от ромбика до текста */
+  text-align: center;
+  font-family: 'Inter Tight','Inter',system-ui,-apple-system,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;
+}
+
+/* Заголовки "УЗНАТЬ БОЛЬШЕ" / "О НАС" — как CUBE-TECH */
+.about-hero .about-hero-more .about-hero-title{
+  font-weight: 600;          /* как у CUBE-TECH */
+  margin: 0;                 /* чтобы две строки шли плотным блоком */
+  text-transform: uppercase; /* верхний регистр */
+  /* не задаём font-size/letter-spacing здесь — берутся из базового .about-hero-title */
+}
+
+/* Подзаголовок: "Наши проекты, опыт, решения." */
+.about-hero .about-hero-more .about-hero-more-sub{
+  margin-top: 15px;          /* отступ между "О НАС" и подзаголовком */
+  font-size: 20.9859px;
+  line-height: 28px;
+  font-weight: 300;          /* Light (300) */
+  letter-spacing: normal;
+  color: #222222;
+}
+
+/* About hero overview */
+.about-hero .about-hero-flow .about-hero-overview{
+  position: relative;
+  top: 71px;            /* визуальный сдвиг вниз */
+  margin-bottom: 71px;  /* столько же места в потоке, чтобы ниже не налезало */
+}
+
+
+/* === HEADER: скрывать при скролле, показывать только на самом верху === */
+#site-header{
+  position: fixed !important;
+  top: 0 !important;
+  left: 0; right: 0;
+  z-index: 70 !important;
+
+  /* плавный выезд/заезд */
+  transform: translateY(0);
+  transition: transform .22s ease-in-out;
+  will-change: transform;
+}
+
+/* когда НЕ на самом верху — уводим шапку вверх за пределы вьюпорта */
+#site-header.is-hidden{
+  transform: translateY(calc(-1 * var(--header-height)));
+}
+
+/* контент всегда отступает на высоту шапки, чтобы не прыгал */
+.min-h-dvh > main{
+  padding-top: var(--header-height) !important;
+}
+
+/* === Anti-shift / Anti-white-stripe ================================== */
+html {
+  /* Скроллбар всегда присутствует справа → ширина страницы стабильна */
+  overflow-y: scroll !important;
+  scrollbar-gutter: stable !important; /* ВАЖНО: НЕ both-edges */
+}
+
+/* Класс, который я вешаю на <html> при открытой панели */
+html.no-scroll {
+  overflow: hidden !important; /* блокируем скролл без паддингов и фиксов ширины */
+}
+
+/* На всякий случай: выключаем возможные компенсации ширины из старого кода */
+body { padding-right: 0 !important; }
+
+/* Оверлей точно во весь экран (если где-то перебивалось) */
+.services-overlay { position: fixed !important; inset: 0 !important; }
+
+/* === Dock: убрать видимую рамку у .dock__inner и .dock__group, размер не меняем === */
+#dock-root .dock__inner,
+#dock-root .dock__group{
+  /* не трогаем ширину/высоту бордера — только делаем его невидимым */
+  border-color: transparent !important;
+  outline-color: transparent !important;
+  border-image: none !important;
+  box-shadow: none !important;            /* на случай теней */
+  background-clip: padding-box !important;/* чтобы фон не "подсвечивал" кромку */
+}
+
+/* на всех состояниях тоже без рамок/ореолов */
+#dock-root .dock__inner:hover,
+#dock-root .dock__inner:focus,
+#dock-root .dock__group:hover,
+#dock-root .dock__group:focus{
+  border-color: transparent !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* если где-то рисуются псевдо-рамки — отключим */
+#dock-root .dock__inner::before,
+#dock-root .dock__inner::after,
+#dock-root .dock__group::before,
+#dock-root .dock__group::after{
+  content: none !important;
+}
+
+/* === Dock main: убрать остаточную рамку/ореол, габариты сохранить === */
+#dock-root .dock{
+  border: 1px solid transparent !important; /* размер тот же */
+  border-image: none !important;
+  outline: none !important;
+  box-shadow: none !important;              /* гасим inset-штрих 0 0 0 1px ... */
+  background-clip: padding-box !important;  /* фон не «подтекает» в зону бордера */
+}
+
+/* На всех состояниях тоже без обводок */
+#dock-root .dock:hover,
+#dock-root .dock:focus{
+  border-color: transparent !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Если рамка рисовалась псевдо-элементами — выключаем */
+#dock-root .dock::before,
+#dock-root .dock::after{
+  content: none !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+/* CTA "Купить": правая кромка уходит влево на 2px (левая остаётся на месте) */
+#dock-root .dock .dock__cta{
+  width: calc(var(--dock-right-btn) - 3px) !important; /* минус 2px от ширины кнопки */
+  box-sizing: border-box; /* чтобы учесть бордер, если он есть */
+}
+
+/* === Header (static) scoped resets === */
+#site-header-static .services-panel{
+  left: 0 !important;
+  top: 0 !important;
+  transform: none !important;
+  width: 100% !important;
+}
+#site-header-static .services-overlay{
+  inset: 0 !important;  /* ровно на весь экран */
+}
+
+/* Затемнённый полупрозрачный оверлей панели */
+#site-header-static .services-overlay{
+  background: linear-gradient(to right, rgba(0,0,0,.62), rgba(0,0,0,.62)) !important;
+}
+

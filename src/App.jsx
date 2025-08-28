@@ -1,3 +1,4 @@
+// src/App.jsx
 import React, { useEffect, useState } from 'react'
 import Header from '@/components/layout/Header.jsx'
 import Services from '@/components/blocks/Services.jsx'
@@ -8,16 +9,38 @@ import Footer from '@/components/layout/Footer.jsx'
 import StickyDock from "@/components/common/StickyDock";
 import Preloader from "@/components/common/Preloader";
 
+// ⚠️ новая страница
+import ProjectsPage from '@/pages/projects.jsx'
+
 export default function App(){
   const [loading, setLoading] = useState(true);
 
-  // помечаем главную классом на body (как раньше)
+  // Текущий путь без начального слэша: "" для "/"
+  const [path, setPath] = useState(() =>
+    (typeof window !== 'undefined'
+      ? window.location.pathname.replace(/^\/+/, '')
+      : '')
+  );
+
+  // Обновляем класс на <body> в зависимости от пути
   useEffect(() => {
-    const isHome = (window.location.pathname || "/") === "/";
-    document.body.classList.toggle("home", isHome);
+    const isHome = path === '' || path === '/';
+    document.body.classList.toggle('home', isHome);
+    document.body.classList.toggle('projects', path === 'pages/projects');
+    return () => {
+      document.body.classList.remove('home');
+      document.body.classList.remove('projects');
+    };
+  }, [path]);
+
+  // Слушаем SPA-навигацию (если решишь использовать pushState)
+  useEffect(() => {
+    const onPop = () => setPath(window.location.pathname.replace(/^\/+/, ''));
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
   }, []);
 
-  // показываем прелоадер 2 секунды
+  // показываем прелоадер 2 секунды один раз
   useEffect(() => {
     const id = setTimeout(() => setLoading(false), 2000);
     return () => clearTimeout(id);
@@ -26,12 +49,20 @@ export default function App(){
   return (
     <div className="min-h-dvh">
       <Header />
+
       <main>
-        <Services />
-        <About />
-        <Projects />
-        <Contact />
+        {path === 'pages/projects' ? (
+          <ProjectsPage />
+        ) : (
+          <>
+            <Services />
+            <About />
+            <Projects />
+            <Contact />
+          </>
+        )}
       </main>
+
       <Footer />
       <StickyDock />
 

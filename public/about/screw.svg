@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 100 100">
+  <style>
+    :root {
+      --gold: #fbbf24;
+    }
+    #nut {
+      transform-origin: 50% 50%;
+      animation: spinStop 2.5s infinite;
+      animation-timing-function: cubic-bezier(0.2,0.8,0.2,1);
+    }
+    @keyframes spinStop {
+      0%   { transform: rotate(0deg); }
+      60%  { transform: rotate(270deg); }   /* 0.75 оборота за 1.5с */
+      100% { transform: rotate(270deg); }   /* пауза ~1с */
+    }
+    /* Для стабильной толщины линий при трансформации */
+    .stroke { fill: none; stroke: var(--gold); vector-effect: non-scaling-stroke; }
+    /* Аккуратные углы и окончания */
+    .round { stroke-linejoin: round; stroke-linecap: round; }
+    /* Respect reduced motion */
+    @media (prefers-reduced-motion: reduce) {
+      #nut { animation: none; }
+    }
+  </style>
+  <g id="nut">
+    <!-- Внешний шестигранник -->
+    <polygon class="stroke round" points="50.000,12.000 82.909,31.000 82.909,69.000 50.000,88.000 17.091,69.000 17.091,31.000" stroke-width="6"/>
+    <!-- Внутреннее отверстие -->
+    <circle class="stroke round" cx="50" cy="50" r="20" stroke-width="4"/>
+  </g>
+</svg>
