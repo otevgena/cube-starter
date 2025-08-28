@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 100 100">
+  <style>
+    :root { --gold: #fbbf24; }
+    #nut { transform-origin: 50% 50%; animation: spinStop 2.5s infinite;
+           animation-timing-function: cubic-bezier(0.2,0.8,0.2,1); }
+    @keyframes spinStop {
+      0%   { transform: rotate(0deg); }
+      60%  { transform: rotate(270deg); }
+      100% { transform: rotate(270deg); }
+    }
+    .stroke { fill: none; stroke: var(--gold); vector-effect: non-scaling-stroke; }
+    .round  { stroke-linejoin: round; stroke-linecap: round; }
+    .subtle { opacity: 0.9; }
+    .thread { stroke-dasharray: 8 4; }
+    @media (prefers-reduced-motion: reduce) { #nut { animation: none; } }
+  </style>
+  <g id="nut">
+    <polygon class="stroke round" points="50.000,12.000 82.909,31.000 82.909,69.000 50.000,88.000 17.091,69.000 17.091,31.000" stroke-width="6"/>
+    <circle class="stroke round" cx="50" cy="50" r="20" stroke-width="4"/>
+    <g class="stroke round thread subtle" stroke-width="2">
+      <path d="M 66.742,47.048 A 17.000,17.000 0 0 1 64.417,59.009"/>
+      <path d="M 44.186,65.975 A 17.000,17.000 0 0 1 34.990,57.981"/>
+      <path d="M 39.073,36.977 A 17.000,17.000 0 0 1 50.593,33.010"/>
+    </g>
+  </g>
+</svg>
