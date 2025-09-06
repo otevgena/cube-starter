@@ -1,4 +1,5 @@
 import React from "react";
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
 const UI = "'Inter Tight','Inter',system-ui";
 
@@ -33,10 +34,6 @@ const OPTIONS = [
   "Общестрой и отделка",
   "Другое",
 ];
-
-// ======= ВСТАВЬ СВОЙ КЛЮЧ ОТСЮДА (Web3Forms) =======
-const WEB3FORMS_KEY = "2466faac-f689-423f-b754-a92b23cf5c9e";
-// ================================================
 
 /* Валидации */
 const isEmail = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((v || "").trim());
@@ -168,36 +165,37 @@ export default function Contact({ sectionRef }) {
     const ok = Object.values(next).every((v) => !v);
     if (!ok) return;
 
-    // ===== отправка через Web3Forms =====
+    // ===== отправка в вашу функцию (Yandex Cloud) =====
     try {
       setSending(true);
+
       const payload = {
-        access_key: WEB3FORMS_KEY,
-        from_name: name,
-        subject: "Новая заявка с сайта cube-tech.ru",
-        email, phone,
+        name,
+        email,
+        phone,
         option: opt,
         message: comment,
-        agree: agree ? "yes" : "no",
         page: typeof window !== "undefined" ? window.location.href : "unknown",
-        // honeypot
-        botcheck: ""
       };
 
-      const res = await fetch("https://api.web3forms.com/submit", {
+      const res = await fetch(BACKEND_URL, {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Accept": "application/json" },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
 
-      const data = await res.json();
-      if (!data?.success) throw new Error(data?.message || "Ошибка отправки");
+      // Универсальный разбор (YC может вернуть { ok: true } либо обёртку {statusCode, body})
+      let data = null;
+      try { data = await res.json(); } catch { /* пустое тело или не-JSON */ }
+      if (data && data.statusCode && data.body) {
+        try { data = JSON.parse(data.body); } catch { /* оставим как есть */ }
+      }
 
-      // успех — показываем тост
+      if (!res.ok || !data || data.ok !== true) throw new Error("send_failed");
+
+      // успех — показываем тост, поля не очищаем
       setModal(true);
       setTimeout(() => setModal(false), 2000);
-      // при желании поля можно очистить:
-      // setName(""); setEmail(""); setPhone(""); setComment(""); setOpt(PLACEHOLDER); setAgree(false);
     } catch (err) {
       console.error("Send error:", err);
       setSendError("Не удалось отправить заявку. Попробуйте ещё раз или напишите на info@cube-tech.ru");
