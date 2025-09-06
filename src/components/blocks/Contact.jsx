@@ -1,7 +1,10 @@
 import React from "react";
 
 // 1) URL функции: сначала берём из .env, если вдруг не подхватился — используем запасной
-const FALLBACK_URL = "https://functions.yandexcloud.net/d4emaopknkiq93o92km8?tag=$latest&integration=raw";
+//   В .env оставляй РОВНО одну строку, например (без $latest проще):
+//   VITE_BACKEND_URL=https://functions.yandexcloud.net/d4emaopknkiq93o92km8?versionId=ВАШ_VERSION_ID&integration=raw
+//   или, если с тегом — ОБЯЗАТЕЛЬНО экранированный: ?tag=%24latest
+const FALLBACK_URL = "https://functions.yandexcloud.net/d4emaopknkiq93o92km8?tag=%24latest&integration=raw";
 const BACKEND_URL = (import.meta.env?.VITE_BACKEND_URL || FALLBACK_URL).trim();
 
 const UI = "'Inter Tight','Inter',system-ui";
@@ -168,7 +171,7 @@ export default function Contact({ sectionRef }) {
     const ok = Object.values(next).every((v) => !v);
     if (!ok) return;
 
-    // ===== отправка в вашу функцию (Yandex Cloud) =====
+    // ===== отправка в вашу функцию (Yandex Cloud) — «простой» CORS, без preflight =====
     try {
       setSending(true);
 
@@ -181,34 +184,45 @@ export default function Contact({ sectionRef }) {
         page: typeof window !== "undefined" ? window.location.href : "unknown",
       };
 
-      const url = BACKEND_URL;
+      // авто-чиним $latest и пустой tag= (если вдруг прилетело криво из .env)
+      const url = (() => {
+        try {
+          let s = BACKEND_URL;
+          if (s.includes("tag=$latest")) s = s.replace("tag=$latest", "tag=%24latest");
+          if (/\btag=$(&|$)/.test(s)) s = s.replace("tag=$", "tag=%24");
+          return s;
+        } catch { return BACKEND_URL; }
+      })();
       console.log("[contact] POST →", url, payload);
 
       const res = await fetch(url, {
         method: "POST",
         mode: "cors",
-        headers: { "Content-Type": "application/json", "Accept": "application/json" },
+        // делаем «простой» запрос: text/plain, чтобы браузер НЕ делал preflight (OPTIONS)
+        headers: { "Content-Type": "text/plain;charset=UTF-8" },
         body: JSON.stringify(payload),
       });
 
       const text = await res.text();
       let data = null;
-      try { data = JSON.parse(text); } catch { /* не JSON — ок */ }
+      try { data = JSON.parse(text); } catch { /* может прийти пусто/текст — ок */ }
 
-      // облако иногда отдаёт {statusCode, body}, подхватим это
+      // YC иногда заворачивает {statusCode, body}; распакуем
       if (data && data.statusCode && typeof data.body === "string") {
-        try { data = JSON.parse(data.body); } catch { /* оставим как есть */ }
+        try { data = JSON.parse(data.body); } catch {}
       }
 
       console.log("[contact] resp", res.status, text);
 
-      // считаем успехом: HTTP 200/204 И (data.ok === true ИЛИ тела нет, но статус 200)
-      const looksOk = (res.ok && (!text || (data && data.ok === true)));
-      if (!looksOk) throw new Error(`send_failed_${res.status}`);
+      if (!res.ok || !(data && data.ok === true)) {
+        throw new Error(`send_failed_${res.status}`);
+      }
 
       // успех — показываем тост
       setModal(true);
       setTimeout(() => setModal(false), 2000);
+      // если хочешь — можно очистить поля:
+      // setName(""); setEmail(""); setPhone(""); setComment(""); setOpt(PLACEHOLDER); setAgree(false);
     } catch (err) {
       console.error("Send error:", err);
       setSendError("Не удалось отправить заявку. Попробуйте ещё раз или напишите на info@cube-tech.ru");
