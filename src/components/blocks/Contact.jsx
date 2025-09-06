@@ -1,5 +1,8 @@
 import React from "react";
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
+
+// 1) URL функции: сначала берём из .env, если вдруг не подхватился — используем запасной
+const FALLBACK_URL = "https://functions.yandexcloud.net/d4emaopknkiq93o92km8?tag=$latest&integration=raw";
+const BACKEND_URL = (import.meta.env?.VITE_BACKEND_URL || FALLBACK_URL).trim();
 
 const UI = "'Inter Tight','Inter',system-ui";
 
@@ -178,22 +181,32 @@ export default function Contact({ sectionRef }) {
         page: typeof window !== "undefined" ? window.location.href : "unknown",
       };
 
-      const res = await fetch(BACKEND_URL, {
+      const url = BACKEND_URL;
+      console.log("[contact] POST →", url, payload);
+
+      const res = await fetch(url, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        mode: "cors",
+        headers: { "Content-Type": "application/json", "Accept": "application/json" },
         body: JSON.stringify(payload),
       });
 
-      // Универсальный разбор (YC может вернуть { ok: true } либо обёртку {statusCode, body})
+      const text = await res.text();
       let data = null;
-      try { data = await res.json(); } catch { /* пустое тело или не-JSON */ }
-      if (data && data.statusCode && data.body) {
+      try { data = JSON.parse(text); } catch { /* не JSON — ок */ }
+
+      // облако иногда отдаёт {statusCode, body}, подхватим это
+      if (data && data.statusCode && typeof data.body === "string") {
         try { data = JSON.parse(data.body); } catch { /* оставим как есть */ }
       }
 
-      if (!res.ok || !data || data.ok !== true) throw new Error("send_failed");
+      console.log("[contact] resp", res.status, text);
 
-      // успех — показываем тост, поля не очищаем
+      // считаем успехом: HTTP 200/204 И (data.ok === true ИЛИ тела нет, но статус 200)
+      const looksOk = (res.ok && (!text || (data && data.ok === true)));
+      if (!looksOk) throw new Error(`send_failed_${res.status}`);
+
+      // успех — показываем тост
       setModal(true);
       setTimeout(() => setModal(false), 2000);
     } catch (err) {
