@@ -1,0 +1,17 @@
+{
+  "name": "ycf-send",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "nodemailer": "^6.9.0"
+  },
+  "devDependencies": {
+    "express": "^4.19.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5"
+  },
+  "scripts": {
+    "dev": "node dev-server.mjs",
+    "zip": "powershell -NoProfile -Command \"Compress-Archive -Path ./index.mjs, ./package.json -DestinationPath ./function.zip -Force\""
+  }
+}
