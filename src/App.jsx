@@ -12,6 +12,9 @@ import Preloader from "@/components/common/Preloader";
 // ⚠️ новая страница
 import ProjectsPage from '@/pages/projects.jsx'
 
+// ✅ НОВОЕ: главная карточка вынесена в отдельный блок
+import HomeMain from '@/components/blocks/HomeMain.jsx'
+
 export default function App(){
   const [loading, setLoading] = useState(true);
 
@@ -22,7 +25,6 @@ export default function App(){
       : '')
   );
 
-  // Обновляем класс на <body> в зависимости от пути
   useEffect(() => {
     const isHome = path === '' || path === '/';
     document.body.classList.toggle('home', isHome);
@@ -33,17 +35,10 @@ export default function App(){
     };
   }, [path]);
 
-  // Слушаем SPA-навигацию (если решишь использовать pushState)
   useEffect(() => {
     const onPop = () => setPath(window.location.pathname.replace(/^\/+/, ''));
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
-  }, []);
-
-  // показываем прелоадер 2 секунды один раз
-  useEffect(() => {
-    const id = setTimeout(() => setLoading(false), 2000);
-    return () => clearTimeout(id);
   }, []);
 
   return (
@@ -55,6 +50,7 @@ export default function App(){
           <ProjectsPage />
         ) : (
           <>
+            <HomeMain />
             <Services />
             <About />
             <Projects />
@@ -66,8 +62,8 @@ export default function App(){
       <Footer />
       <StickyDock />
 
-      {/* Оверлей прелоадера поверх всего */}
-      {loading && <Preloader />}
+      {/* Оверлей прелоадера поверх всего; снимем его, когда прогрев завершён */}
+      {loading && <Preloader onReady={() => setLoading(false)} minMs={1200} />}
     </div>
   )
 }

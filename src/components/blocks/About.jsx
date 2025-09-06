@@ -1,74 +1,31 @@
-// src/components/about/About.jsx
+// src/components/blocks/About.jsx
 import React from "react";
 
 export default function About() {
-  const MONTHS = ["Янв","Фев","Мар","Апр","Май","Июн","Июл","Авг","Сен","Окт","Ноя","Дек"];
-  const [now, setNow] = React.useState(new Date());
-
   // Нижние блоки
   const [imgHover, setImgHover] = React.useState(false);
   const [expanded, setExpanded] = React.useState(false);
   const [imgHover2, setImgHover2] = React.useState(false);
   const [expandedProc, setExpandedProc] = React.useState(false);
 
-  // Анимация винта (screw.svg) у «С» в «О НАС»
+  // Анимация винта (screw.gif) у «С» в «О НАС»
   const learnMoreRef = React.useRef(null);
   const screwWrapRef = React.useRef(null);
-  const [screwMarkup, setScrewMarkup] = React.useState("");
-  const [showScrew, setShowScrew] = React.useState(false);
 
-  // Обновление даты раз в сутки
-  React.useEffect(() => {
-    const t = new Date();
-    const msUntilMidnight =
-      new Date(t.getFullYear(), t.getMonth(), t.getDate() + 1, 0, 0, 0) - t;
-    const id = setTimeout(() => setNow(new Date()), msUntilMidnight);
-    return () => clearTimeout(id);
-  }, [now]);
-
-  // Загружаем SVG как текст
-  React.useEffect(() => {
-    fetch("/about/screw.svg")
-      .then((r) => r.text())
-      .then((txt) => {
-        setScrewMarkup(txt);
-        setShowScrew(true);
-      })
-      .catch(() => setScrewMarkup(""));
-  }, []);
-
-  // Функция однократного воспроизведения анимации
+  // Функция однократного воспроизведения анимации (перезапуск GIF)
   const replayScrew = React.useCallback(() => {
     const holder = screwWrapRef.current;
     if (!holder) return;
 
-    holder.classList.remove("paused");
-    const svg = holder.querySelector("svg");
-
-    try {
-      if (svg && typeof svg.unpauseAnimations === "function" && typeof svg.setCurrentTime === "function") {
-        svg.unpauseAnimations();
-        svg.setCurrentTime(0);
-      } else {
-        const html = screwMarkup;
-        holder.innerHTML = "";
-        // eslint-disable-next-line no-unused-expressions
-        holder.offsetWidth; // reflow
-        holder.innerHTML = html;
-      }
-    } catch {}
-
-    window.clearTimeout(holder.__stopTimer);
-    holder.__stopTimer = window.setTimeout(() => {
-      try {
-        const svgNow = holder.querySelector("svg");
-        if (svgNow && typeof svgNow.pauseAnimations === "function") {
-          svgNow.pauseAnimations();
-        }
-      } catch {}
-      holder.classList.add("paused");
-    }, 2000);
-  }, [screwMarkup]);
+    const img = holder.querySelector("img");
+    if (img) {
+      const src = img.src;
+      img.src = "";
+      // eslint-disable-next-line no-unused-expressions
+      img.offsetWidth; // reflow
+      img.src = src;
+    }
+  }, []);
 
   // Триггер при скролле
   React.useEffect(() => {
@@ -88,8 +45,6 @@ export default function About() {
     return () => io.disconnect();
   }, [replayScrew]);
 
-  const dateStr = `${MONTHS[now.getMonth()]} ${now.getDate()}, ${now.getFullYear()}`;
-
   // Клик по текстовой области «Бюрократия» (кроме ссылки «Узнать больше»)
   const handleProcTextClick = (e) => {
     if (e.target.closest && e.target.closest("a")) return; // не дублируем клик по ссылке
@@ -98,176 +53,155 @@ export default function About() {
 
   return (
     <section className="about-hero" aria-label="О нас">
-      {/* HEADER поднят на -74px */}
-      <div className="about-hero-header" style={{ transform: "translateY(-74px)", willChange: "transform" }}>
-        <div className="container-wide">
-          {/* Сегодня • [дата] • Загруженность */}
-          <div className="about-hero-meta">
-            <span className="about-hero-today">Сегодня</span>
-            <span className="about-hero-date">{dateStr}</span>
-            <span className="about-hero-load">Загруженность <b>7.49</b> из 10</span>
-          </div>
+      {/* === БЕЗ «Сегодня/дата/загруженность/директор/ромб» — это теперь в HomeMain === */}
 
-          {/* Заголовок */}
-          <h1 className="about-hero-title">CUBE-TECH</h1>
-
-          {/* Директор */}
-          <div className="about-hero-sign">
-            <img src="/about/director.png" alt="" className="about-hero-avatar" />
-            <a className="about-hero-role" href="#director">Генеральный директор</a>
-            <span className="about-hero-badge" aria-hidden="true">CUBE</span>
-          </div>
+      {/* === ОБЁРТКА: всё ниже смещено на 30px (как было) === */}
+      <div className="about-hero-flow" style={{ marginTop: "30px" }}>
+        {/* "Обзор" по центру */}
+        <div
+          className="about-hero-overview"
+          style={{
+            textAlign: "center",
+            fontFamily: "'Inter Tight','Inter',system-ui",
+            fontSize: "14px",
+            lineHeight: "28px",
+            fontWeight: 300,
+            color: "#222222",
+            margin: 0
+          }}
+        >
+          Обзор
         </div>
 
-        {/* «Ромб» с изображением */}
-        <div className="about-hero-diamond">
-          <img src="/about/about.png" alt="О компании" />
-        </div>
+        {/* Блок ниже — позиционирование для винта */}
+        <div
+          ref={learnMoreRef}
+          className="about-hero-more"
+          onMouseEnter={replayScrew}
+          style={{ textAlign: "center", fontFamily: "'Inter Tight','Inter',system-ui", position: "relative" }}
+        >
+          <h2 className="about-hero-title" style={{ margin: 0, textTransform: "uppercase" }}>
+            УЗНАТЬ БОЛЬШЕ
+          </h2>
 
-        {/* === ОБЁРТКА: всё ниже смещено на 30px === */}
-        <div className="about-hero-flow" style={{ marginTop: "30px" }}>
-          {/* "Обзор" по центру */}
-          <div
-            className="about-hero-overview"
+          {/* «О НАС» — кладём винт на «С» */}
+          <h2 className="about-hero-title" style={{ margin: 0, textTransform: "uppercase" }}>
+            О НА
+            <span style={{ position: "relative", display: "inline-block" }}>
+              С
+              <>
+                <style>
+                  {`
+                    .screw-wrap img {
+                      width: 60px !important;
+                      height: 60px !important;
+                      display: block;
+                      pointer-events: none;
+                      user-select: none;
+                    }
+                  `}
+                </style>
+                <span
+                  ref={screwWrapRef}
+                  className="screw-wrap"
+                  style={{
+                    position: "absolute",
+                    left: "calc(50% + 33px)",
+                    top: "calc(100% - 74px)",
+                    transform: "translate(-50%, -8%)",
+                    width: "60px",
+                    height: "60px",
+                    pointerEvents: "none",
+                    userSelect: "none",
+                    display: "block",
+                  }}
+                >
+                  <img src="/about/screw.gif" alt="" width="60" height="60" loading="lazy" decoding="async" />
+                </span>
+              </>
+            </span>
+          </h2>
+
+          <p
+            className="about-hero-more-sub"
             style={{
-              textAlign: "center",
-              fontFamily: "'Inter Tight','Inter',system-ui",
-              fontSize: "14px",
+              marginTop: "15px",
+              fontSize: "20.9859px",
               lineHeight: "28px",
               fontWeight: 300,
               color: "#222222",
-              margin: 0
             }}
           >
-            Обзор
-          </div>
+            Наши проекты, опыт, решения.
+          </p>
+        </div>
 
-          {/* Блок ниже ромба: позиционирование для винта */}
-          <div
-            ref={learnMoreRef}
-            className="about-hero-more"
-            onMouseEnter={replayScrew}
-            style={{ textAlign: "center", fontFamily: "'Inter Tight','Inter',system-ui", position: "relative" }}
-          >
-            <h2 className="about-hero-title" style={{ margin: 0, textTransform: "uppercase" }}>
-              УЗНАТЬ БОЛЬШЕ
-            </h2>
-
-            {/* «О НАС» — кладём винт на «С» */}
-            <h2 className="about-hero-title" style={{ margin: 0, textTransform: "uppercase" }}>
-              О НА
-              <span style={{ position: "relative", display: "inline-block" }}>
-                С
-                {showScrew && !!screwMarkup && (
-                  <>
-                    <style>
-                      {`
-                        .screw-wrap.paused svg * { animation-play-state: paused !important; }
-                        .screw-wrap svg { width: 60px !important; height: 60px !important; }
-                      `}
-                    </style>
-                    <span
-                      ref={screwWrapRef}
-                      className="screw-wrap"
-                      style={{
-                        position: "absolute",
-                        left: "calc(50% + 33px)",
-                        top: "calc(100% - 74px)",
-                        transform: "translate(-50%, -8%)",
-                        width: "60px",
-                        height: "60px",
-                        pointerEvents: "none",
-                        userSelect: "none",
-                        display: "block",
-                      }}
-                      dangerouslySetInnerHTML={{ __html: screwMarkup }}
-                    />
-                  </>
-                )}
-              </span>
-            </h2>
-
-            <p
-              className="about-hero-more-sub"
-              style={{
-                marginTop: "15px",
-                fontSize: "20.9859px",
-                lineHeight: "28px",
-                fontWeight: 300,
-                color: "#222222",
-              }}
-            >
-              Наши проекты, опыт, решения.
-            </p>
-          </div>
-
-          {/* Доп. изображение */}
-          <div className="about-hero-more-image" style={{ marginTop: "82px" }}>
-            <img
-              src="/about/about1.png"
-              alt="Дополнительное изображение о компании"
-              style={{
-                display: "block",
-                marginLeft: "80px",
-                height: "auto",
-                borderRadius: "14px",
-              }}
-              loading="lazy"
-            />
-          </div>
-
-          {/* Текстовый блок под изображением */}
-          <div
-            className="about-hero-desc"
+        {/* Доп. изображение */}
+        <div className="about-hero-more-image" style={{ marginTop: "82px" }}>
+          <img
+            src="/about/about1.png"
+            alt="Дополнительное изображение о компании"
             style={{
-              marginTop: "220px",
+              display: "block",
               marginLeft: "80px",
-              fontFamily: "'Inter Tight','Inter',system-ui",
-              color: "#222222",
-              textAlign: "left",
+              height: "auto",
+              borderRadius: "14px",
+            }}
+            loading="lazy"
+          />
+        </div>
+
+        {/* Текстовый блок под изображением */}
+        <div
+          className="about-hero-desc"
+          style={{
+            marginTop: "220px",
+            marginLeft: "80px",
+            fontFamily: "'Inter Tight','Inter',system-ui",
+            color: "#222222",
+            textAlign: "left",
+          }}
+        >
+          <p
+            style={{
+              margin: 0,
+              fontSize: "39.9155px",
+              lineHeight: "51.8901px",
+              fontWeight: 600,
             }}
           >
-            <p
-              style={{
-                margin: 0,
-                fontSize: "39.9155px",
-                lineHeight: "51.8901px",
-                fontWeight: 600,
-              }}
-            >
-              Признание и опыт, отмечающие вклад нашей команды в развитие инженерных систем.
-            </p>
-            <p
-              style={{
-                marginTop: "42px",
-                marginBottom: 0,
-                fontSize: "39.9155px",
-                lineHeight: "51.8901px",
-                fontWeight: 300,
-              }}
-            >
-              Пространство профессионалов, где инженеры и проектировщики делятся опытом, знаниями и техническими решениями, чтобы создавать надёжные и эффективные объекты.
-            </p>
-            <p
-              style={{
-                marginTop: "42px",
-                marginBottom: 0,
-                fontSize: "39.9155px",
-                lineHeight: "51.8901px",
-                fontWeight: 300,
-              }}
-            >
-              Наши ценности: <span style={{ fontWeight: 300 }}>"</span>
-              <span style={{ fontWeight: 600 }}>Всегда задаём вопросы</span>
-              <span style={{ fontWeight: 300 }}>"</span>, <span style={{ fontWeight: 300 }}>"</span>
-              <span style={{ fontWeight: 600 }}>Всегда развиваемся</span>
-              <span style={{ fontWeight: 300 }}>"</span>.
-            </p>
-          </div>
+            Признание и опыт, отмечающие вклад нашей команды в развитие инженерных систем.
+          </p>
+          <p
+            style={{
+              marginTop: "42px",
+              marginBottom: 0,
+              fontSize: "39.9155px",
+              lineHeight: "51.8901px",
+              fontWeight: 300,
+            }}
+          >
+            Пространство профессионалов, где инженеры и проектировщики делятся опытом, знаниями и техническими решениями, чтобы создавать надёжные и эффективные объекты.
+          </p>
+          <p
+            style={{
+              marginTop: "42px",
+              marginBottom: 0,
+              fontSize: "39.9155px",
+              lineHeight: "51.8901px",
+              fontWeight: 300,
+            }}
+          >
+            Наши ценности: <span style={{ fontWeight: 300 }}>"</span>
+            <span style={{ fontWeight: 600 }}>Всегда задаём вопросы</span>
+            <span style={{ fontWeight: 300 }}>"</span>, <span style={{ fontWeight: 300 }}>"</span>
+            <span style={{ fontWeight: 600 }}>Всегда развиваемся</span>
+            <span style={{ fontWeight: 300 }}>"</span>.
+          </p>
         </div>
       </div>
 
-      {/* === БЛОК «Команда», опущен на 172px === */}
+      {/* === БЛОК «Команда», опущен на 172px — без изменений === */}
       <div
         className="about-team"
         style={{
@@ -303,7 +237,7 @@ export default function About() {
             Команда
           </div>
 
-          {/* Заголовок 43px */}
+          {/* Заголовки */}
           <h2
             style={{
               marginTop: "14px",
@@ -444,7 +378,7 @@ export default function About() {
         </div>
       </div>
 
-      {/* === БЛОК «Бюрократия» — картинка слева, текст справа === */}
+      {/* === БЛОК «Бюрократия» — картинка слева, текст справа (без изменений) === */}
       <div
         className="about-process"
         style={{
@@ -477,7 +411,7 @@ export default function About() {
           />
         </div>
 
-        {/* ПРАВО: текст (КЛИКАБЕЛЬНО как раньше) */}
+        {/* ПРАВО: текст */}
         <div
           onClick={handleProcTextClick}
           style={{
@@ -517,7 +451,7 @@ export default function About() {
             Как делаем «под ключ» без лишней бюрократии?
           </h2>
 
-          {/* Абзац — весь текст на месте */}
+          {/* Абзац */}
           <p
             style={{
               marginTop: "47px",
@@ -539,7 +473,7 @@ export default function About() {
             Итог — готовая система и простая эксплуатация.
           </p>
 
-          {/* Узнать больше (остаётся отдельной ссылкой) */}
+          {/* Узнать больше */}
           <div
             style={{
               marginTop: "47px",
@@ -603,7 +537,7 @@ export default function About() {
           </div>
         </div>
 
-        {/* ↓↓↓ Центр страницы: строка на ширину сетки, под всей секцией, через 108px */}
+        {/* ↓↓↓ Центр страницы */}
         <div
           style={{
             gridColumn: "1 / -1",

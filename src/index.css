@@ -1882,3 +1882,15 @@ body { padding-right: 0 !important; }
   background: linear-gradient(to right, rgba(0,0,0,.62), rgba(0,0,0,.62)) !important;
 }
 
+/* === SHOW SERVICES ON HOME (override) === */
+body.home #services,
+body.home #services-first,
+body.home [data-section="services"]{
+  display: block !important;
+}
+
+/* Контакты: локально меняем фон секции на #f8f8f8 */
+.contact-hero{
+  --bg-page: linear-gradient(to right, #f8f8f8 0%, #f8f8f8 100%);
+}
+
