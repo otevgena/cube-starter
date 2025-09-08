@@ -234,8 +234,32 @@ export default function Header() {
           {/* ПЕРЕНОСИМЫЙ правый блок */}
           <div className="ml-auto hidden md:flex items-center gap-4" ref={actionsHomeRef}>
             <div ref={actionsNodeRef} className="flex items-center gap-4">
-              <a href="/login" className="nav-link"><span className="text-grad-222">Вход</span></a>
-              <a href="/register" className="nav-link"><span className="text-grad-222">Регистрация</span></a>
+              {/* раньше было: <a href="/login" className="nav-link"><span className="text-grad-222">Вход</span></a> */}
+<a
+  href="/login"
+  className="nav-link"
+  onClick={(e) => { e.preventDefault(); window.openModal && window.openModal("login"); }}
+>
+  <span className="text-grad-222">Вход</span>
+</a>
+
+              {/* >>> ЕДИНСТВЕННАЯ ПРАВКА: открываем модалку «Регистрация» <<< */}
+              <a
+                href="/register"
+                className="nav-link"
+                onClick={(e) => {
+                  e.preventDefault();
+                  if (typeof window.openModal === "function") {
+                    window.openModal("register", { email: "" }); // при желании подставь e-mail
+                  } else {
+                    // если по какой-то причине хост модалок не смонтирован — обычный переход
+                    window.location.href = "/register";
+                  }
+                }}
+              >
+                <span className="text-grad-222">Регистрация</span>
+              </a>
+
               <div className="actions-right flex items-center gap-4">
                 <a href="/pro" className="btn-pro">Ищу работу</a>
                 <a href="/submit" className="btn-submit">Оставить заявку</a>
