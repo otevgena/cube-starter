@@ -2,11 +2,24 @@
 import React from "react";
 
 export default function Footer() {
+  // универсальный SPA-навигационный клик
+  const go = (e, to) => {
+    if (e) e.preventDefault();
+    try {
+      window.history.pushState({}, "", to);
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    } catch {
+      // на всякий случай — обычный переход, если pushState недоступен
+      window.location.href = to;
+    }
+  };
+
   return (
     <footer className="text-[#222222]">
       {/* Основной блок футера */}
       <div className="bg-[#f8f8f8]">
-        <div className="mx-auto max-w-[1441px] h-[298px] relative">
+        {/* Сделали контейнер на всю ширину, чтобы боковые отступы были ровно 52px от краёв экрана */}
+        <div className="w-full h-[298px] relative">
           {/* «c.» — 30px, Extra-Bold, отступ слева 52px */}
           <div className="absolute left-[52px] top-0 leading-none select-none">
             <span className="inline-block align-top text-[30px] font-extrabold tracking-tight">c.</span>
@@ -41,9 +54,29 @@ export default function Footer() {
           <div className="absolute left-[52px] right-[52px] bottom-[24px]">
             <div className="mt-[52px] text-[14px] flex items-center flex-wrap gap-x-[24px]">
               {/* ЛЕВО: юр. ссылки (normal 400) */}
-              <a href="/legal/cookies" className="hover:underline font-normal">Политика cookie</a>
-              <a href="/legal/terms" className="hover:underline font-normal">Правовые положения</a>
-              <a href="/legal/privacy" className="hover:underline font-normal">Политика конфиденциальности</a>
+              <a
+                href="/legal/cookies"
+                className="hover:underline font-normal"
+                onClick={(e) => go(e, "/legal/cookies")}
+              >
+                Политика cookie
+              </a>
+
+              <a
+                href="/legal/terms"
+                className="hover:underline font-normal"
+                onClick={(e) => go(e, "/legal/terms")}
+              >
+                Правовые положения
+              </a>
+
+              <a
+                href="/legal/privacy"
+                className="hover:underline font-normal"
+                onClick={(e) => go(e, "/legal/privacy")}
+              >
+                Политика конфиденциальности
+              </a>
 
               {/* ПРАВО: контактная секция — выравнивание по правому краю */}
               <div className="ml-auto flex items-center flex-wrap gap-x-[24px] text-right">

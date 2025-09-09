@@ -1,5 +1,6 @@
 // src/components/blocks/Services.jsx
 import React from "react";
+import SpaLink from "@/components/common/SpaLink.jsx";
 
 /* =========================
    PRELOAD / WARM-UP HELPERS
@@ -18,18 +19,13 @@ function useHeadPreload({ images = [], svgDocs = [] }) {
       added.push(l);
     };
 
-    // Картинки карточек (img)
     images.forEach((href) => {
-      try {
-        add({ rel: "preload", as: "image", href });
-      } catch {}
+      try { add({ rel: "preload", as: "image", href }); } catch {}
     });
 
-    // SVG для <object> — важный момент: as="document" + type
     svgDocs.forEach((href) => {
       try {
         add({ rel: "preload", as: "document", href, type: "image/svg+xml" });
-        // На всякий добавим фоновый prefetch (низкий приоритет, любые destination)
         const pf = document.createElement("link");
         pf.rel = "prefetch";
         pf.href = href;
@@ -38,78 +34,37 @@ function useHeadPreload({ images = [], svgDocs = [] }) {
       } catch {}
     });
 
-    return () => {
-      added.forEach((el) => el.parentNode && el.parentNode.removeChild(el));
-    };
+    return () => { added.forEach((el) => el.parentNode && el.parentNode.removeChild(el)); };
   }, [images, svgDocs]);
 }
 
-/** Постепенно монтируем невидимые <object> 1×1px, чтобы прогреть:
-    - загрузку как document
-    - парсинг SVG + внутренние <animate> (дорогая часть)
-    Монтируем партиями в requestIdleCallback / setTimeout. */
+/** Тёплый прогрев SVG-объектов (как document) */
 function WarmSVGObjects({ svgs, batch = 4, delay = 60 }) {
   const [mounted, setMounted] = React.useState([]);
-
   React.useEffect(() => {
-    let i = 0;
-    let cancel = false;
-
+    let i = 0, cancel = false;
     const step = () => {
       if (cancel || i >= svgs.length) return;
-      setMounted((prev) => prev.concat(svgs.slice(i, i + batch)));
+      setMounted((p) => p.concat(svgs.slice(i, i + batch)));
       i += batch;
-
-      if ("requestIdleCallback" in window) {
-        requestIdleCallback(step, { timeout: 200 });
-      } else {
-        setTimeout(step, delay);
-      }
+      if ("requestIdleCallback" in window) requestIdleCallback(step, { timeout: 200 });
+      else setTimeout(step, delay);
     };
-
-    // запускаем сразу после onload — чтобы не мешать критическому пути
     const kickoff = () => step();
     if (document.readyState === "complete") kickoff();
     else window.addEventListener("load", kickoff, { once: true });
-
-    return () => {
-      cancel = true;
-      window.removeEventListener("load", kickoff);
-    };
+    return () => { cancel = true; window.removeEventListener("load", kickoff); };
   }, [svgs, batch, delay]);
 
-  // Невидимая область (НЕ display:none, чтобы загрузка точно состоялась)
   return (
-    <div
-      aria-hidden="true"
-      style={{
-        position: "fixed",
-        left: -9999,
-        top: -9999,
-        width: 1,
-        height: 1,
-        opacity: 0,
-        pointerEvents: "none",
-        overflow: "hidden",
-      }}
-    >
+    <div aria-hidden="true" style={{ position:"fixed", left:-9999, top:-9999, width:1, height:1, opacity:0, pointerEvents:"none", overflow:"hidden" }}>
       {mounted.map((src) => (
-        <object
-          key={src}
-          data={src}
-          type="image/svg+xml"
-          width={1}
-          height={1}
-          tabIndex={-1}
-          title=""
-          aria-hidden="true"
-        />
+        <object key={src} data={src} type="image/svg+xml" width={1} height={1} tabIndex={-1} title="" aria-hidden="true" />
       ))}
     </div>
   );
 }
 
-/** Общий компонент: прелоадим ресурсы + тёплый прогрев <object>-иконок. */
 function PreloadServicesAssets({ images, svgDocs }) {
   useHeadPreload({ images, svgDocs });
   return <WarmSVGObjects svgs={svgDocs} />;
@@ -128,7 +83,6 @@ export default function Services() {
     { key: "construction", title: "Общестрой",            img: "/services/construction.png" },
   ];
 
-  // Список всех SVG-иконок, которые используются внизу карточек (через <object>)
   const ICON_SVGS = [
     "/services/icon/thumbs_up.svg",
     "/services/icon/calendar.svg",
@@ -174,16 +128,11 @@ export default function Services() {
         marginTop: "255px",
         paddingTop: 0,
         paddingBottom: "96px",
-        // фон сразу непрозрачный, чтобы не мелькал «белый» следом за картинками
         backgroundColor: "#e9e9e9",
       }}
       data-section="services"
     >
-      {/* === ВАЖНО: прелоад ресурсов (иконки как document + картинки) === */}
-      <PreloadServicesAssets
-        images={SERVICES.map((s) => s.img)}
-        svgDocs={ICON_SVGS}
-      />
+      <PreloadServicesAssets images={SERVICES.map((s) => s.img)} svgDocs={ICON_SVGS} />
 
       {/* Заголовок по центру + GIF на «И» */}
       <div className="container-wide" style={{ position: "relative" }}>
@@ -240,28 +189,45 @@ export default function Services() {
             const isFourth = idx === 3;
             const isFifth  = idx === 4;
 
+            const isElectrical = s.key === "electrical";
+            const electricalTo = "/services/electrical";
+
             return (
               <article
                 key={s.key}
                 style={{
                   width: 467,
                   height: 537,
-                  background: "#fefefe", // фон карточки
+                  background: "#fefefe",
                   borderRadius: 14,
                   overflow: "hidden",
                   display: "flex",
                   flexDirection: "column",
                 }}
               >
-                {/* Изображение 467×263 — затемнение при ховере и «кликабельность» */}
-                <ServiceImageLink
-                  img={s.img}
-                  title={s.title}
-                  href={`/${s.key}`}           // позже заменишь на реальную страницу/роут
-                  preventNav={true}             // сейчас переход не совершаем
-                  height={263}
-                  eager={idx < 3}               // первые три — приоритетно
-                />
+                {/* Верхнее изображение.
+                    Для электромонтажа — SPA-оверлей из SpaLink (без перезагрузки).
+                    Для остальных — заглушка с preventNav (пока страниц нет). */}
+                <div style={{ width: "100%", height: 263, position: "relative" }}>
+                  <ServiceImageBase img={s.img} title={s.title} eager={idx < 3} />
+                  {isElectrical ? (
+                    <SpaLink
+                      to={electricalTo}
+                      ariaLabel={s.title}
+                      title={s.title}
+                      className="block"
+                      style={{ position: "absolute", inset: 0, zIndex: 3, cursor: "pointer" }}
+                    />
+                  ) : (
+                    <a
+                      href={`/${s.key}`}
+                      onClick={(e)=>e.preventDefault()}
+                      aria-label={s.title}
+                      title={s.title}
+                      style={{ position: "absolute", inset: 0, zIndex: 3, display: "block", cursor: "not-allowed" }}
+                    />
+                  )}
+                </div>
 
                 {/* Заголовок 129px — слева */}
                 <div
@@ -288,7 +254,7 @@ export default function Services() {
                   </h4>
                 </div>
 
-                {/* Средняя полоса (58px): для всех 5 блоков — «Подробно» */}
+                {/* Средняя полоса: «Подробно» */}
                 {(isFirst || isSecond || isThird || isFourth || isFifth) ? (
                   <div
                     style={{
@@ -302,32 +268,45 @@ export default function Services() {
                       boxSizing: "border-box",
                     }}
                   >
-                    <a
-                      href={`/#services-${s.key}`}
-                      className="about-hero-role"
-                      style={{
-                        fontSize: 16,
-                        lineHeight: "24px",
-                        fontWeight: 600,
-                        textDecorationLine: "underline",
-                        textDecorationThickness: "2px",
-                        textUnderlineOffset: 4,
-                        textDecorationColor: "#fbbf24",
-                        color: "#111",
-                      }}
-                    >
-                      Подробно
-                    </a>
+                    {isElectrical ? (
+                      <SpaLink
+                        to={electricalTo}
+                        className="about-hero-role"
+                        style={{
+                          fontSize: 16,
+                          lineHeight: "24px",
+                          fontWeight: 600,
+                          textDecorationLine: "underline",
+                          textDecorationThickness: "2px",
+                          textUnderlineOffset: 4,
+                          textDecorationColor: "#fbbf24",
+                          color: "#111",
+                        }}
+                      >
+                        Подробно
+                      </SpaLink>
+                    ) : (
+                      <a
+                        href={`/#services-${s.key}`}
+                        className="about-hero-role"
+                        style={{
+                          fontSize: 16,
+                          lineHeight: "24px",
+                          fontWeight: 600,
+                          textDecorationLine: "underline",
+                          textDecorationThickness: "2px",
+                          textUnderlineOffset: 4,
+                          textDecorationColor: "#fbbf24",
+                          color: "#111",
+                        }}
+                        onClick={(e)=>e.preventDefault()}
+                      >
+                        Подробно
+                      </a>
+                    )}
                     <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" style={{ display: "block" }}>
                       <path d="M4 12h13" stroke="#222" strokeWidth="1.4" strokeLinecap="round" />
-                      <path
-                        d="M11 6l6 6-6 6"
-                        fill="none"
-                        stroke="#222"
-                        strokeWidth="1.4"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
+                      <path d="M11 6l6 6-6 6" fill="none" stroke="#222" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                   </div>
                 ) : (
@@ -350,150 +329,44 @@ export default function Services() {
                   </div>
                 )}
 
-                {/* Нижняя полоса (85px): иконки по блокам — твоя «умная» анимация оставлена */}
+                {/* Нижняя полоса (85px): иконки по блокам */}
                 {isFirst ? (
                   <div style={iconsRowStyle}>
-                    <IconItemHoverPlay
-                      src="/services/icon/thumbs_up.svg"
-                      labelTop="Долговечный"
-                      labelBottom="результат"
-                      speedMult={1.5}
-                      offsetStartSec={0.3}
-                    />
-                    <IconItemHoverPlay
-                      src="/services/icon/calendar.svg"
-                      labelTop="Планирование"
-                      labelBottom="этапов"
-                      speedMult={1.5}
-                      offsetStartSec={1.8}
-                    />
-                    <IconItemHoverPlay
-                      src="/services/icon/graduation_hat.svg"
-                      labelTop="Профессиональная"
-                      labelBottom="команда"
-                      speedMult={1.5}
-                      offsetStartSec={0.3}
-                    />
+                    <IconItemHoverPlay src="/services/icon/thumbs_up.svg"   labelTop="Долговечный"   labelBottom="результат"   speedMult={1.5} offsetStartSec={0.3} />
+                    <IconItemHoverPlay src="/services/icon/calendar.svg"     labelTop="Планирование"  labelBottom="этапов"      speedMult={1.5} offsetStartSec={1.8} />
+                    <IconItemHoverPlay src="/services/icon/graduation_hat.svg" labelTop="Профессиональная" labelBottom="команда" speedMult={1.5} offsetStartSec={0.3} />
                   </div>
                 ) : isSecond ? (
                   <div style={iconsRowStyle}>
-                    <IconItemHoverPlay
-                      src="/services/icon/phone.svg"
-                      labelTop="Надёжная"
-                      labelBottom="связь"
-                      speedMult={1.5}
-                      offsetStartSec={0.1}
-                    />
-                    <IconItemHoverPlay
-                      src="/services/icon/lock.svg"
-                      labelTop="Безопасность"
-                      labelBottom="объекта"
-                      speedMult={1.5}
-                      offsetStartSec={0.1}
-                    />
-                    <IconItemHoverPlay
-                      src="/services/icon/list.svg"
-                      labelTop="Интеграция"
-                      labelBottom="систем"
-                      speedMult={1.5}
-                      offsetStartSec={0.1}
-                    />
+                    <IconItemHoverPlay src="/services/icon/phone.svg" labelTop="Надёжная" labelBottom="связь" speedMult={1.5} offsetStartSec={0.1} />
+                    <IconItemHoverPlay src="/services/icon/lock.svg"  labelTop="Безопасность" labelBottom="объекта" speedMult={1.5} offsetStartSec={0.1} />
+                    <IconItemHoverPlay src="/services/icon/list.svg"  labelTop="Интеграция" labelBottom="систем" speedMult={1.5} offsetStartSec={0.1} />
                   </div>
                 ) : isThird ? (
                   <div style={iconsRowStyle}>
-                    <IconItemHoverPlay
-                      src="/services/icon/drop.svg"
-                      labelTop="Эффективное"
-                      labelBottom="охлаждение"
-                      speedMult={1.5}
-                      offsetStartSec={0.1}
-                    />
-                    <IconItemHoverPlay
-                      src="/services/icon/clock.svg"
-                      labelTop="Свежий"
-                      labelBottom="воздух"
-                      speedMult={1.5}
-                      offsetStartSec={1.8}
-                    />
-                    <IconItemHoverPlay
-                      src="/services/icon/bolt.svg"
-                      labelTop="Экономия"
-                      labelBottom="ресурсов"
-                      speedMult={1.5}
-                      offsetStartSec={1.6}
-                    />
+                    <IconItemHoverPlay src="/services/icon/drop.svg"  labelTop="Эффективное" labelBottom="охлаждение" speedMult={1.5} offsetStartSec={0.1} />
+                    <IconItemHoverPlay src="/services/icon/clock.svg" labelTop="Свежий" labelBottom="воздух" speeMult={1.5} offsetStartSec={1.8} />
+                    <IconItemHoverPlay src="/services/icon/bolt.svg"  labelTop="Экономия" labelBottom="ресурсов" speedMult={1.5} offsetStartSec={1.6} />
                   </div>
                 ) : isFourth ? (
                   <div style={iconsRowStyle}>
-                    <IconItemHoverPlay
-                      src="/services/icon/expand.svg"
-                      labelTop="Точные"
-                      labelBottom="расчёты"
-                      speedMult={1.5}
-                      offsetStartSec={1.7}
-                    />
-                    <IconItemHoverPlay
-                      src="/services/icon/doc.svg"
-                      labelTop="Соответствие"
-                      labelBottom="нормам"
-                      speedMult={1.5}
-                      offsetStartSec={0.0}
-                    />
-                    <IconItemHoverPlay
-                      src="/services/icon/bulb.svg"
-                      labelTop="Оптимальные"
-                      labelBottom="решения"
-                      speedMult={1.5}
-                      offsetStartSec={0.1}
-                    />
+                    <IconItemHoverPlay src="/services/icon/expand.svg" labelTop="Точные" labelBottom="расчёты" speedMult={1.5} offsetStartSec={1.7} />
+                    <IconItemHoverPlay src="/services/icon/doc.svg"    labelTop="Соответствие" labelBottom="нормам" speedMult={1.5} offsetStartSec={0.0} />
+                    <IconItemHoverPlay src="/services/icon/bulb.svg"   labelTop="Оптимальные" labelBottom="решения" speedMult={1.5} offsetStartSec={0.1} />
                   </div>
                 ) : isFifth ? (
                   <div style={iconsRowStyle}>
-                    <IconItemHoverPlay
-                      src="/services/icon/home.svg"
-                      labelTop="Надёжное"
-                      labelBottom="строительство"
-                      speedMult={1.5}
-                      offsetStartSec={1.7}
-                    />
-                    <IconItemHoverPlay
-                      src="/services/icon/clock2.svg"
-                      labelTop="Соблюдение"
-                      labelBottom="сроков"
-                      speedMult={1.5}
-                      offsetStartSec={1.7}
-                    />
-                    <IconItemHoverPlay
-                      src="/services/icon/tool.svg"
-                      labelTop="Качество"
-                      labelBottom="работ"
-                      speedMult={1.5}
-                      offsetStartSec={1.7}
-                    />
+                    <IconItemHoverPlay src="/services/icon/home.svg"  labelTop="Надёжное" labelBottom="строительство" speedMult={1.5} offsetStartSec={1.7} />
+                    <IconItemHoverPlay src="/services/icon/clock2.svg" labelTop="Соблюдение" labelBottom="сроков" speedMult={1.5} offsetStartSec={1.7} />
+                    <IconItemHoverPlay src="/services/icon/tool.svg"  labelTop="Качество" labelBottom="работ" speedMult={1.5} offsetStartSec={1.7} />
                   </div>
                 ) : (
-                  <div
-                    style={{
-                      height: 85,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      padding: "0 20px",
-                    }}
-                  >
+                  <div style={{ height: 85, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 20px" }}>
                     <a
                       href={`/#services-${s.key}`}
                       className="about-hero-role"
-                      style={{
-                        fontSize: 16,
-                        lineHeight: "24px",
-                        fontWeight: 600,
-                        textDecorationLine: "underline",
-                        textDecorationThickness: "2px",
-                        textUnderlineOffset: 4,
-                        textDecorationColor: "#fbbf24",
-                        color: "#111",
-                      }}
+                      style={{ fontSize: 16, lineHeight: "24px", fontWeight: 600, textDecoration: "underline", textUnderlineOffset: 4, textDecorationThickness: "2px", textDecorationColor: "#fbbf24", color: "#111" }}
+                      onClick={(e)=>e.preventDefault()}
                     >
                       Подробно
                     </a>
@@ -524,31 +397,12 @@ export default function Services() {
         }}
       >
         <span>Каждая деталь имеет </span>
-        <span
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: "6px",
-            verticalAlign: "middle",
-          }}
-        >
+        <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", verticalAlign: "middle" }}>
           <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" style={{ display: "block" }}>
             <path d="M4 12h13" stroke="#222" strokeWidth="1.4" strokeLinecap="round" />
-            <path
-              d="M11 6l6 6-6 6"
-              fill="none"
-              stroke="#222"
-              strokeWidth="1.4"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
+            <path d="M11 6l6 6-6 6" fill="none" stroke="#222" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
-          <a
-            href="#value"
-            className="about-hero-role"
-            style={{ fontSize: "16px", lineHeight: "24px", fontWeight: 600, textDecoration: "underline" }}
-            onClick={(e) => e.preventDefault()}
-          >
+          <a href="#value" className="about-hero-role" style={{ fontSize: "16px", lineHeight: "24px", fontWeight: 600, textDecoration: "underline" }} onClick={(e) => e.preventDefault()}>
             Значение
           </a>
         </span>
@@ -557,23 +411,15 @@ export default function Services() {
   );
 }
 
-/* ——— изображение карточки с затемнением и кликабельным оверлеем ——— */
-function ServiceImageLink({ img, title, href, preventNav = true, height = 263, eager = false }) {
+/* ——— Блок изображения карточки с затемнением и ховером (без <a> внутри) ——— */
+function ServiceImageBase({ img, title, eager = false }) {
   const [hover, setHover] = React.useState(false);
-
   return (
     <div
-      style={{ width: "100%", height, position: "relative", overflow: "hidden", background: "#f0f0f0" }}
+      style={{ width: "100%", height: "100%", position: "relative", overflow: "hidden", background: "#f0f0f0" }}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
     >
-      <a
-        href={href}
-        onClick={preventNav ? (e) => e.preventDefault() : undefined}
-        aria-label={title}
-        title={title}
-        style={{ position: "absolute", inset: 0, zIndex: 3, display: "block", cursor: "pointer" }}
-      />
       <img
         src={img}
         alt={title}
@@ -650,7 +496,6 @@ function IconItemHoverPlay({
 
         const eps = 1e-4;
         const offset = clamp(offsetStartSec, 0, Math.max(0, durSecRef.current - eps));
-
         svg.pauseAnimations && svg.pauseAnimations();
         svg.setCurrentTime && svg.setCurrentTime(offset);
       } catch {}
@@ -706,10 +551,7 @@ function IconItemHoverPlay({
   }, [speedMult, offsetStartSec]);
 
   React.useEffect(() => {
-    return () => {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
-      playingRef.current = false;
-    };
+    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); playingRef.current = false; };
   }, []);
 
   return (

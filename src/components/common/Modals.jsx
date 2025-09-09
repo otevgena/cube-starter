@@ -21,12 +21,39 @@ export default function ModalsHost() {
   }, [view]);
 
   // блокируем скролл под модалкой
-  React.useEffect(() => {
-    if (!view) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = prev; };
-  }, [view]);
+// Блокируем скролл без "прыжка": фикс-лок со сохранением Y
+React.useEffect(() => {
+  if (!view) return;
+
+  const scrollY = window.scrollY || window.pageYOffset || 0;
+
+  const prev = {
+    overflow: document.body.style.overflow,
+    position: document.body.style.position,
+    top:      document.body.style.top,
+    width:    document.body.style.width,
+  };
+
+  // фиксируем body, сохраняем текущую позицию в top
+  document.body.style.overflow = "hidden";
+  document.body.style.position = "fixed";
+  document.body.style.top      = `-${scrollY}px`;
+  document.body.style.width    = "100%";
+
+  return () => {
+    // восстанавливаем стили
+    document.body.style.overflow = prev.overflow;
+    document.body.style.position = prev.position;
+    const top = document.body.style.top;
+    document.body.style.top      = prev.top;
+    document.body.style.width    = prev.width;
+
+    // возвращаемся туда же
+    const y = Math.max(0, parseInt((top || "0").replace("px",""), 10) * -1);
+    window.scrollTo(0, y);
+  };
+}, [view]);
+
 
   if (!view) return null;
 
@@ -36,6 +63,7 @@ export default function ModalsHost() {
       {view === "login"    && <LoginForm />}
       {view === "forgot"   && <ForgotForm />}
       {view === "custom"   && <CustomCard {...props} />}
+      {view === "review"   && <div style={{ padding: 0 }}>{props.content}</div>} {/* НОВОЕ */}
     </ModalShell>,
     document.body
   );

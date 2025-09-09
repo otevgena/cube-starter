@@ -165,6 +165,10 @@ export default function Header() {
   ];
   const rightRows = dataRightByLeft[activeLeft];
 
+  // === ЕДИНСТВЕННОЕ ИЗМЕНЕНИЕ ЦВЕТА ДЛЯ ШАПКИ ===
+  const HEADER_SEARCH_BG = "#f8f8f8"; // было #e9e9e9
+  // ==============================================
+
   return (
     <header
       id="site-header-static"
@@ -219,6 +223,8 @@ export default function Header() {
                 maxWidth: "var(--header-search-max)",
                 height: "var(--header-search-height)",
                 borderRadius: 10,
+                // --- ВАЖНО: принудительно задаём фон поля поиска в шапке ---
+                background: HEADER_SEARCH_BG,
               }}
             >
               <Search size={18} className="text-[#4a4a4a]" />
@@ -227,6 +233,8 @@ export default function Header() {
                 className="search-input"
                 placeholder="Поиск"
                 aria-label="Поиск"
+                // на случай если в CSS задан фон инпута
+                style={{ background: "transparent" }}
               />
             </div>
           </div>
@@ -235,13 +243,13 @@ export default function Header() {
           <div className="ml-auto hidden md:flex items-center gap-4" ref={actionsHomeRef}>
             <div ref={actionsNodeRef} className="flex items-center gap-4">
               {/* раньше было: <a href="/login" className="nav-link"><span className="text-grad-222">Вход</span></a> */}
-<a
-  href="/login"
-  className="nav-link"
-  onClick={(e) => { e.preventDefault(); window.openModal && window.openModal("login"); }}
->
-  <span className="text-grad-222">Вход</span>
-</a>
+              <a
+                href="/login"
+                className="nav-link"
+                onClick={(e) => { e.preventDefault(); window.openModal && window.openModal("login"); }}
+              >
+                <span className="text-grad-222">Вход</span>
+              </a>
 
               {/* >>> ЕДИНСТВЕННАЯ ПРАВКА: открываем модалку «Регистрация» <<< */}
               <a
@@ -341,6 +349,7 @@ export default function Header() {
                         height: "var(--header-search-height)",
                         borderRadius: 10,
                         clipPath: "inset(0 16px 0 0 round 10px)", // уменьшаем справа на 16px
+                        // NB: цвет поиска в ПАНЕЛИ не меняем (оставляем как задано в CSS)
                       }}
                     >
                       <Search size={18} className="text-[#4a4a4a]" />
@@ -349,6 +358,7 @@ export default function Header() {
                         className="search-input search-input--dark"
                         placeholder="Поиск"
                         aria-label="Поиск"
+                        style={{ background: "transparent" }}
                       />
                     </div>
                   </div>

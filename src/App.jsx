@@ -8,13 +8,22 @@ import Contact from '@/components/blocks/Contact.jsx'
 import Footer from '@/components/layout/Footer.jsx'
 import StickyDock from "@/components/common/StickyDock";
 import Preloader from "@/components/common/Preloader";
+import Reviews from "@/components/blocks/Reviews.jsx";
 
-// ⚠️ новая страница
+// ⚠️ новая страница (проекты)
 import ProjectsPage from '@/pages/projects.jsx'
 // ✅ главная карточка вынесена в отдельный блок
 import HomeMain from '@/components/blocks/HomeMain.jsx'
 // ⬇️ Хост модалок
 import ModalsHost from "@/components/common/Modals.jsx";
+
+// ⬇️ LEGAL-страницы
+import TermsPage from '@/pages/legal/terms.jsx'
+import CookiesPage from '@/pages/legal/cookies.jsx'
+import PrivacyPage from '@/pages/legal/privacy.jsx'
+
+// ⬇️ Страница услуг "Электромонтаж"
+import ElectricalServicesPage from '@/pages/services/electrical/index.jsx';
 
 export default function App(){
   const [loading, setLoading] = useState(true);
@@ -30,9 +39,11 @@ export default function App(){
     const isHome = path === '' || path === '/';
     document.body.classList.toggle('home', isHome);
     document.body.classList.toggle('projects', path === 'pages/projects');
+    document.body.classList.toggle('legal', path.startsWith('legal/'));
     return () => {
       document.body.classList.remove('home');
       document.body.classList.remove('projects');
+      document.body.classList.remove('legal');
     };
   }, [path]);
 
@@ -42,11 +53,43 @@ export default function App(){
     return () => window.removeEventListener('popstate', onPop);
   }, []);
 
+  // ——— ПРОКРУТКА НАВЕРХ + ТИТУЛ + сброс hero-zone при смене маршрута ———
+  useEffect(() => {
+    try {
+      // двойной кадр гарантирует прокрутку наверх после рендера
+      requestAnimationFrame(() => {
+        window.scrollTo(0, 0);
+        requestAnimationFrame(() => window.scrollTo(0, 0));
+      });
+      document.body.classList.remove('hero-zone');
+    } catch {}
+
+    const titles = {
+      '': 'Главная — CUBE',
+      '/': 'Главная — CUBE',
+      'pages/projects': 'Проекты — CUBE',
+      'legal/terms': 'Правовые положения — CUBE',
+      'legal/cookies': 'Политика cookie — CUBE',
+      'legal/privacy': 'Политика конфиденциальности — CUBE',
+      'services/electrical': 'Электромонтаж — CUBE',
+    };
+    document.title = titles[path] || 'CUBE';
+
+    // фокус на main (ощущение «перехода» + доступность)
+    const m = document.querySelector('main');
+    if (m && typeof m.focus === 'function') m.focus();
+  }, [path]);
+
   // === HERO-GUARD: выше секции services визуально ничего не подсвечивается ===
-  // Никаких манипуляций с .dock__pill — только флаг на <body>.
   useEffect(() => {
     const servicesEl = document.getElementById('services');
-    if (!servicesEl) return;
+
+    const off = () => { document.body.classList.remove('hero-zone'); };
+
+    if (!servicesEl) {
+      off();
+      return; // на legal-страницах и пр. не вешаем обработчики
+    }
 
     const num = (attr, fallback) => {
       const v = servicesEl.getAttribute(attr);
@@ -76,11 +119,11 @@ export default function App(){
     return () => {
       window.removeEventListener('scroll', calc);
       window.removeEventListener('resize', calc);
+      off();
     };
-  }, []);
+  }, [path]);
 
   // Считываем БАЗОВЫЕ стили неактивной пилюли (рамка + цвет текста)
-  // чтобы в hero-зоне выглядеть ровно как «неактивная».
   useEffect(() => {
     const dock = document.getElementById('dock-root');
     if (!dock) return;
@@ -101,88 +144,90 @@ export default function App(){
     }
   }, []);
 
+  // Рендер по пути
+  const renderRoute = () => {
+    if (path === 'pages/projects')    return <ProjectsPage />;
+    if (path === 'legal/terms')       return <TermsPage />;
+    if (path === 'legal/cookies')     return <CookiesPage />;
+    if (path === 'legal/privacy')     return <PrivacyPage />;
+    if (path === 'services/electrical') return <ElectricalServicesPage />;
+
+    // Главная
+    return (
+      <>
+        {/* Хиро-блок (без подсветки в доке) */}
+        <section id="hero" aria-label="hero">
+          <HomeMain />
+        </section>
+
+        {/* Якоря для скролл-спая */}
+        <section
+          id="services"
+          data-section="services"
+          aria-label="services"
+          data-header-offset="30"
+          data-spy-offset="120"
+          data-click-offset="16"
+          data-hero-silence="80"
+        >
+          <Services />
+        </section>
+
+        <section
+          id="about"
+          data-section="about"
+          aria-label="about"
+          data-header-offset="-150"
+          data-spy-offset="120"
+          data-click-offset="16"
+        >
+          <About />
+        </section>
+
+        <section
+          id="projects"
+          data-section="projects"
+          aria-label="projects"
+          data-header-offset="80"
+          data-spy-offset="120"
+          data-click-offset="16"
+        >
+          <Projects />
+        </section>
+
+        <section
+          id="contact"
+          data-section="contact"
+          aria-label="contact"
+          data-header-offset="-60"
+          data-spy-offset="120"
+          data-click-offset="16"
+        >
+          <Contact />
+        </section>
+
+        {/* ОТЗЫВЫ */}
+        <section
+          id="reviews"
+          data-section="reviews"
+          aria-label="reviews"
+          data-header-offset="80"
+          data-spy-offset="120"
+          data-click-offset="16"
+        >
+          <Reviews />
+        </section>
+      </>
+    );
+  };
+
   return (
     <div className="min-h-dvh">
       <Header />
 
-      <main>
-        {path === 'pages/projects' ? (
-          <ProjectsPage />
-        ) : (
-          <>
-            {/* Хиро-блок (без подсветки в доке) */}
-            <section id="hero" aria-label="hero">
-              <HomeMain />
-            </section>
-
-            {/* Якоря для скролл-спая (id совпадают со StickyDock) */}
-            {/* Настройка по умолчанию:
-                data-header-offset="16"  — компенсация фикс-хедера
-                data-spy-offset="120"    — когда считать секцию «достигнутой» при скролле
-                data-click-offset="16"   — на сколько «недокрутить» при клике
-                Только для первой секции (services):
-                data-hero-silence="80"   — «тихая зона» над услугами, где ничего не подсвечиваем
-            */}
-            <section
-              id="services"
-              data-section="services"
-              aria-label="services"
-              data-header-offset="30"
-              data-spy-offset="120"
-              data-click-offset="16"
-              data-hero-silence="80"
-            >
-              <Services />
-            </section>
-
-            <section
-              id="about"
-              data-section="about"
-              aria-label="about"
-              data-header-offset="-150"
-              data-spy-offset="120"
-              data-click-offset="16"
-            >
-              <About />
-            </section>
-
-            <section
-              id="projects"
-              data-section="projects"
-              aria-label="projects"
-              data-header-offset="80"
-              data-spy-offset="120"
-              data-click-offset="16"
-            >
-              <Projects />
-            </section>
-
-            <section
-              id="contact"
-              data-section="contact"
-              aria-label="contact"
-              data-header-offset="-60"
-              data-spy-offset="120"
-              data-click-offset="16"
-            >
-              <Contact />
-            </section>
-
-            {/* Если появятся отзывы — просто раскомментируй и при желании настрой пороги */}
-            {/*
-            <section
-              id="reviews"
-              data-section="reviews"
-              aria-label="reviews"
-              data-header-offset="16"
-              data-spy-offset="120"
-              data-click-offset="16"
-            >
-              <Reviews />
-            </section>
-            */}
-          </>
-        )}
+      {/* tabindex для фокуса при смене маршрута */}
+      <main tabIndex="-1" style={{ outline: 'none' }}>
+        {renderRoute()}
       </main>
 
       <Footer />
@@ -191,11 +236,10 @@ export default function App(){
       {/* Глобальный хост модалок */}
       <ModalsHost />
 
-      {/* Оверлей прелоадера поверх всего; снимем его, когда прогрев завершён */}
+      {/* Прелоадер */}
       {loading && <Preloader onReady={() => setLoading(false)} minMs={1200} />}
 
-      {/* === CSS-оверрайд: в hero-зоне активная пилюля выглядит как НЕактивная,
-            рамка и текст — ровно базовых цветов, считанных сверху. === */}
+      {/* CSS-оверрайд: в hero-зоне активная пилюля выглядит как НЕактивная */}
       <style>{`
         body.hero-zone .dock__pill.is-active,
         body.hero-zone .dock__pill[aria-selected="true"] {

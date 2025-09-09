@@ -2,13 +2,52 @@
 import React from "react";
 
 export default function StickyDock() {
-  const pills = ["Услуги", "О нас", "Проекты", "Контакты", "Отзывы"];
+  // —— helper: мы в /legal/* ?
+  const getIsLegal = () => {
+    try { return /^\/legal(\/|$)/.test(window.location.pathname || "/"); }
+    catch { return false; }
+  };
+
+  // Обычные "пилюли" для главной
+  const defaultPills = ["Услуги", "О нас", "Проекты", "Контакты", "Отзывы"];
+
+  // Навигация для legal-страниц (обновлённые названия)
+  const legalNav = [
+    { label: "Cookie", path: "/legal/cookies" },
+    { label: "Права",  path: "/legal/terms" },
+    { label: "Данные", path: "/legal/privacy" },
+  ];
+  const legalIndexByPath = {
+    "/legal/cookies": 0,
+    "/legal/terms":   1,
+    "/legal/privacy": 2,
+  };
+
+  // Состояния
+  const [isLegal, setIsLegal] = React.useState(getIsLegal());
+  const pills = isLegal ? legalNav.map(x => x.label) : defaultPills;
   const [active, setActive] = React.useState(null);
 
   const SHOW_AFTER = 500;
   const [showUp, setShowUp] = React.useState(false);
 
-  // Глобальные дефолты (можно оставить как есть)
+  // ===== Анимация появления «снизу» при смене типа панели =====
+  const [entered, setEntered] = React.useState(false);
+  React.useEffect(() => {
+    // 1) ставим состояние входа
+    setEntered(false);
+
+    // 2) принудительно «прожигаем» reflow, чтобы класс применился
+    const node = document.getElementById("dock-panel");
+    if (node) { void node.offsetWidth; } // reflow
+
+    // 3) на следующий кадр включаем окончательное состояние — старт анимации
+    const id = requestAnimationFrame(() => setEntered(true));
+    return () => cancelAnimationFrame(id);
+  }, [isLegal]);
+  // ============================================================
+
+  // Глобальные дефолты
   const DEFAULT_HEADER_OFFSET = 16;
   const DEFAULT_SPY_OFFSET = 120;
   const DEFAULT_CLICK_OFFSET = 16;
@@ -43,17 +82,28 @@ export default function StickyDock() {
   const scrollToSection = React.useCallback((label) => {
     const el = getSectionEl(label);
     if (!el) return;
-
     const headerOffset = getNumber(el, "data-header-offset", DEFAULT_HEADER_OFFSET);
     const clickOffset  = getNumber(el, "data-click-offset",  DEFAULT_CLICK_OFFSET);
-
     const rect = el.getBoundingClientRect();
     const pageY = window.pageYOffset || document.documentElement.scrollTop || 0;
     const top = pageY + rect.top - headerOffset - clickOffset;
-
     window.scrollTo({ top, behavior: "smooth" });
   }, [getSectionEl]);
 
+  // SPA-переход
+  const go = React.useCallback((to) => {
+    try {
+      window.history.pushState({}, "", to);
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    } catch {
+      window.location.href = to;
+    }
+  }, []);
+
+  // Стрелка на панели — всегда ведёт на главную
+  const goHome = React.useCallback(() => { go("/"); }, [go]);
+
+  // Стрелка «вверх»
   React.useEffect(() => {
     const onScroll = () => {
       const y = window.pageYOffset || document.documentElement.scrollTop || 0;
@@ -64,54 +114,58 @@ export default function StickyDock() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  // Scroll-spy с «жёсткой» тихой зоной над services
+  // Отслеживаем URL — режим /legal и активная вкладка
   React.useEffect(() => {
-    const items = pills
+    const syncFromLocation = () => {
+      const legal = getIsLegal();
+      setIsLegal(legal);
+      if (legal) {
+        const p = window.location.pathname || "";
+        const idx = legalIndexByPath[p];
+        setActive(Number.isFinite(idx) ? idx : null);
+      } else {
+        setActive(null);
+      }
+    };
+    syncFromLocation();
+    window.addEventListener("popstate", syncFromLocation);
+    return () => window.removeEventListener("popstate", syncFromLocation);
+  }, []);
+
+  // Scroll-spy — только для НЕ-legal
+  React.useEffect(() => {
+    if (isLegal) return;
+
+    const items = defaultPills
       .map((label, idx) => {
         const el = getSectionEl(label);
         if (!el) return null;
         return {
-          label,
-          idx,
-          el,
+          label, idx, el,
           headerOffset: getNumber(el, "data-header-offset", DEFAULT_HEADER_OFFSET),
           spyOffset:    getNumber(el, "data-spy-offset",    DEFAULT_SPY_OFFSET),
         };
       })
       .filter(Boolean);
-
     if (!items.length) return;
 
-    const first = items[0]; // services
+    const first = items[0];
     const heroSilence = getNumber(first.el, "data-hero-silence", DEFAULT_HERO_SILENCE);
 
     const recompute = () => {
       const scrollY = Math.max(0, window.scrollY || window.pageYOffset || 0);
-
-      // Абсолютный top первой секции
       const firstTopAbs = first.el.getBoundingClientRect().top + scrollY;
-
-      // ВЫСШИЙ ПРИОРИТЕТ: тихая зона над services
-      // Берём max(heroSilence, spyOffset), чтобы точно не загорались "Услуги" до порога
       const silenceUntil = firstTopAbs - first.headerOffset - Math.max(heroSilence, first.spyOffset);
-
-      if (scrollY < silenceUntil) {
-        if (active !== null) setActive(null);
-        return;
-      }
-
-      // Иначе выбираем последнюю секцию, чей top <= текущей "контрольной" линии
+      if (scrollY < silenceUntil) { if (active !== null) setActive(null); return; }
       let currentIdx = first.idx;
       for (const s of items) {
         const topAbs = s.el.getBoundingClientRect().top + scrollY;
         const reached = (topAbs - s.headerOffset - s.spyOffset) <= scrollY;
         if (reached) currentIdx = s.idx;
       }
-
       if (currentIdx !== active) setActive(currentIdx);
     };
 
-    // init + listeners
     recompute();
     window.addEventListener("scroll", recompute, { passive: true });
     window.addEventListener("resize", recompute);
@@ -120,9 +174,45 @@ export default function StickyDock() {
       window.removeEventListener("resize", recompute);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pills.join("|")]);
+  }, [isLegal, defaultPills.join("|")]);
+
+  const onPillClick = (label, idx) => {
+    if (isLegal) {
+      const item = legalNav.find(x => x.label === label);
+      if (!item) return;
+      setActive(idx);
+      go(item.path);
+      return;
+    }
+    setActive(idx);
+    scrollToSection(label);
+  };
 
   const scrollToTop = () => window.scrollTo({ top: 0, behavior: "smooth" });
+
+  // Размеры док-панели
+  const legalVars = {
+    "--dock-w": "346px", // 360 - 14 (ужали справа на 14px)
+    "--dock-h": "72px",
+    "--dock-radius": "12px",
+    "--dock-bottom": "21px",
+    "--dock-left-tile": "60px",
+    "--dock-group-w": "270px",
+    "--dock-right-btn": "0px",
+    "--pill-h": "48px",
+    "--pill-gap": "6px",
+  };
+  const defaultVars = {
+    "--dock-w": "595.602px",
+    "--dock-h": "72px",
+    "--dock-radius": "12px",
+    "--dock-bottom": "21px",
+    "--dock-left-tile": "60px",
+    "--dock-group-w": "426.812px",
+    "--dock-right-btn": "90.7891px",
+    "--pill-h": "48px",
+    "--pill-gap": "6px",
+  };
 
   return (
     <div id="dock-root">
@@ -135,58 +225,49 @@ export default function StickyDock() {
         className={`dock-up${showUp ? " is-visible" : ""}`}
       >
         <svg viewBox="0 0 24 24" className="dock-up__icon" aria-hidden="true">
-          <path
-            d="M6 11l6-6 6 6"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-          <line
-            x1="12"
-            y1="5"
-            x2="12"
-            y2="19"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-          />
+          {/* исходная иконка «вверх» */}
+          <path d="M6 11l6-6 6 6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          <line x1="12" y1="5" x2="12" y2="19" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
         </svg>
       </button>
 
       {/* Панель */}
       <div
-        className="dock"
-        style={{
-          ["--dock-w"]: "595.602px",
-          ["--dock-h"]: "72px",
-          ["--dock-radius"]: "12px",
-          ["--dock-bottom"]: "21px",
-
-          ["--dock-left-tile"]: "60px",
-          ["--dock-group-w"]: "426.812px",
-          ["--dock-right-btn"]: "90.7891px",
-
-          ["--pill-h"]: "48px",
-          ["--pill-gap"]: "6px",
-        }}
+        id="dock-panel"
+        className={`dock${isLegal ? " is-legal" : ""} ${entered ? " is-entered" : " is-enter"}`}
+        style={isLegal ? legalVars : defaultVars}
       >
         <div className="dock__inner">
-          {/* БРЕНД: клик = скролл к верху + сброс подсветки */}
-          <a
-            href="/"
-            className="dock__brand"
-            aria-label="Home"
-            onClick={(e) => {
-              e.preventDefault();
-              setActive(null);
-              scrollToTop();
-            }}
-          >
-            <span className="dock__brand-text">c.</span>
-          </a>
+          {/* Левый «ромб»: на legal — стрелка «домой», иначе — бренд c. */}
+          {isLegal ? (
+            <button
+              type="button"
+              className="dock__brand"
+              aria-label="На главную"
+              onClick={(e) => { e.preventDefault(); goHome(); }}
+              title="На главную"
+              style={{ display: "grid", placeItems: "center", transform: "translateX(4px)" }}  // сдвиг на +4px
+            >
+              {/* точная копия «вверх», повернутая влево (с хвостиком) и белая */}
+              <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+                <g transform="rotate(-90 12 12)">
+                  <path d="M6 11l6-6 6 6" fill="none" stroke="#ffffff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  <line x1="12" y1="5" x2="12" y2="19" stroke="#ffffff" strokeWidth="2" strokeLinecap="round" />
+                </g>
+              </svg>
+            </button>
+          ) : (
+            <a
+              href="/"
+              className="dock__brand"
+              aria-label="Home"
+              onClick={(e) => { e.preventDefault(); setActive(null); scrollToTop(); }}
+            >
+              <span className="dock__brand-text">c.</span>
+            </a>
+          )}
 
+          {/* Центральная группа */}
           <div className="dock__group" role="tablist" aria-label="Dock">
             {pills.map((t, i) => (
               <button
@@ -195,42 +276,35 @@ export default function StickyDock() {
                 role="tab"
                 aria-selected={active === i}
                 className={`dock__pill${active === i ? " is-active" : ""}`}
-                onClick={() => {
-                  setActive(i);
-                  scrollToSection(t);
-                }}
+                onClick={() => onPillClick(t, i)}
               >
                 {t}
               </button>
             ))}
           </div>
 
-          <a
-            href="#contact"
-            onClick={(e) => {
-              e.preventDefault();
-              scrollToSection("Контакты");
-            }}
-            className="dock__cta"
-            role="button"
-          >
-            Купить
-          </a>
+          {/* CTA справа — скрыт в /legal/* */}
+          {!isLegal && (
+            <a
+              href="#contact"
+              onClick={(e) => { e.preventDefault(); scrollToSection("Контакты"); }}
+              className="dock__cta"
+              role="button"
+            >
+              Купить
+            </a>
+          )}
         </div>
       </div>
 
-      {/* Локальные стили стрелки */}
+      {/* Локальные стили */}
       <style>{`
-        /* ⤵️Когда открыта модалка (body.has-modal ставит Modals.jsx), прячем весь док */
         body.has-modal #dock-root { display: none !important; }
 
         .dock-up{
           position: fixed;
           left: 24px;
-          bottom: calc(
-            var(--dock-bottom, 21px)
-            + (var(--dock-h, 72px) - var(--dock-left-tile, 60px)) / 2
-          );
+          bottom: calc(var(--dock-bottom, 21px) + (var(--dock-h, 72px) - var(--dock-left-tile, 60px)) / 2);
           width: var(--dock-left-tile, 60px);
           height: var(--dock-left-tile, 60px);
           background: #1f1f1f;
@@ -245,12 +319,23 @@ export default function StickyDock() {
           transition: opacity .2s ease, transform .15s ease;
           z-index: 60;
         }
-        .dock-up.is-visible{
-          opacity: 1;
-          pointer-events: auto;
-        }
+        .dock-up.is-visible{ opacity: 1; pointer-events: auto; }
         .dock-up:hover{ transform: translateY(-1px); }
         .dock-up__icon{ width: 22px; height: 22px; }
+
+        /* ---- АНИМАЦИЯ ПАНЕЛИ ----
+           Управляем сдвигом по Y переменной, чтобы не ломать translateX(-50%). */
+        .dock{
+          transform: translateX(-50%) translateY(var(--dock-ty, 0)) !important;
+          transition: transform .28s cubic-bezier(.2,.8,.2,1), opacity .22s ease;
+          will-change: transform, opacity;
+        }
+        .dock.is-enter  { --dock-ty: 22px; opacity: 0; }
+        .dock.is-entered{ --dock-ty: 0;   opacity: 1; }
+
+        /* Компактный док на /legal/* */
+        .dock.is-legal .dock__group{ width: var(--dock-group-w); }
+        .dock.is-legal .dock__cta{ display: none !important; }
       `}</style>
     </div>
   );
