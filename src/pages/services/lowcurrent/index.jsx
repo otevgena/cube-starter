@@ -1,4 +1,4 @@
-// src/pages/services/electrical/index.jsx
+// src/pages/services/lowcurrent/index.jsx
 import React from "react";
 import SpaLink from "@/components/common/SpaLink.jsx";
 
@@ -7,32 +7,34 @@ const GUTTER = 80;
 const BLACK = "#000";
 const MUTED = "#A7A7A7";
 
-// ----- Данные услуг для таблицы -----
+// src/pages/services/lowcurrent/index.jsx
 const LINES = [
-  { key: "grid-connect",   title: "Подключение объектов к электросетям",     dir: "Внешние сети",   href: "/services/electrical#grid-connect" },
-  { key: "power-upgrade",  title: "Увеличение мощности и модернизация сетей", dir: "Распред. сети", href: "/services/electrical#power-upgrade" },
-  { key: "indoor",         title: "Внутренние электромонтажные работы",       dir: "Внутренние сети",href: "/services/electrical#indoor" },
-  { key: "outdoor",        title: "Наружные электросети и уличное освещение", dir: "Наружные сети",  href: "/services/electrical#outdoor" },
-  { key: "switchgear",     title: "Монтаж электрощитов и ВРУ",                dir: "Щитовое",        href: "/services/electrical#switchgear" },
-  { key: "earthing",       title: "Системы заземления и молниезащиты",        dir: "Безопасность",   href: "/services/electrical#earthing" },
-  { key: "automation",     title: "Автоматизация и учёт электроэнергии",      dir: "Автоматизация",  href: "/services/electrical#automation" },
-  { key: "backup",         title: "Резервное электроснабжение",               dir: "Надёжность",     href: "/services/electrical#backup" },
+  { key: "sks",        title: "Структурированные кабельные системы",                     dir: "СКС",          href: "/services/lowcurrent#sks" },
+  { key: "cctv",       title: "Системы видеонаблюдения",                                 dir: "CCTV",         href: "/services/lowcurrent#cctv" },
+  { key: "ops",        title: "Системы охранно-пожарной сигнализации",                   dir: "ОПС",          href: "/services/lowcurrent#ops" },
+  { key: "skud",       title: "Системы контроля и управления доступом",                  dir: "СКУД",         href: "/services/lowcurrent#skud" },
+  { key: "intercom",   title: "Домофонные системы и интерком",                           dir: "Домофония",    href: "/services/lowcurrent#intercom" },
+  { key: "server",     title: "Организация серверных и кроссовых узлов",                 dir: "Серверные",    href: "/services/lowcurrent#server" },
+  { key: "lan",        title: "Локально-вычислительные сети и сетевое оборудование",     dir: "ЛВС/Сеть",     href: "/services/lowcurrent#lan" },
+  { key: "pa",         title: "Системы оповещения и звукового вещания",                  dir: "Оповещение",   href: "/services/lowcurrent#pa" },
 ];
 
-// ----- Данные для графика -----
+
+/* ===== ГРАФИК (доли + оценки) ===== */
+// src/pages/services/lowcurrent/index.jsx
 const METRICS = [
-  { key: "montage",  label: "Монтаж",            sharePct: 40, score10: 4.0 },
+  { key: "montage",  label: "Монтаж",            sharePct: 45, score10: 4.5 },
   { key: "design",   label: "Проектирование",    sharePct: 25, score10: 2.5 },
-  { key: "auto",     label: "Автоматизация",     sharePct: 15, score10: 1.5 },
-  { key: "qa",       label: "Контроль качества", sharePct: 12, score10: 1.2 },
-  { key: "service",  label: "Сервис",            sharePct: 8,  score10: 0.8 },
+  { key: "qa",       label: "Контроль качества", sharePct: 10, score10: 1.0 },
+  { key: "service",  label: "Сервис",            sharePct: 20, score10: 2.0 },
 ];
+
 
 const HEADER_H = 72;
 const ROW_H = 104;
 const TEXT_SHIFT = 28;
 
-// --- горизонтальная пунктирная (как в Project.jsx) ---
+/* --- горизонтальная пунктирная (как в Project.jsx) --- */
 function DottedLine() {
   return (
     <div
@@ -46,7 +48,7 @@ function DottedLine() {
   );
 }
 
-// --- Кнопка «Подробнее»: чёрный hover, без подчёркивания ---
+/* --- «Подробнее»: чёрный hover, без подчёркивания --- */
 function CellButtonLink({ to }) {
   const R = 12;
   const baseStyle = {
@@ -167,7 +169,7 @@ function DataRow({ title, dir, href }) {
   );
 }
 
-// --- формат даты "Сен 09, 2025" ---
+/* --- формат даты "Сен 09, 2025" --- */
 function formatRuDate(d = new Date()) {
   const months = ["Янв","Фев","Мар","Апр","Май","Июн","Июл","Авг","Сен","Окт","Ноя","Дек"];
   const dd = String(d.getDate()).padStart(2, "0");
@@ -176,12 +178,7 @@ function formatRuDate(d = new Date()) {
   return `${mm} ${dd}, ${yy}`;
 }
 
-/* ===== ГРАФИК =====
-   - без скруглений
-   - пунктирные разделители только СВЕРХУ (на 58px выше графика)
-   - подписи (Название + %) тоже подняты на 58px и сдвинуты вправо на 11px
-   - цифры под графиком: 14px
-*/
+/* ====== ГРАФИК (как в электромонтаже) ====== */
 function ActivityGraph() {
   const wrapRef = React.useRef(null);
   const [animate, setAnimate] = React.useState(false);
@@ -202,7 +199,7 @@ function ActivityGraph() {
 
   return (
     <div ref={wrapRef} style={{ marginLeft: GUTTER, marginRight: GUTTER, position: "relative" }}>
-      {/* Полоса графика (без скруглений) */}
+      {/* сама полоса без скруглений */}
       <div
         style={{
           position: "relative",
@@ -211,11 +208,11 @@ function ActivityGraph() {
           alignItems: "stretch",
           border: "1px solid #e5e5e5",
           borderRadius: 0,
-          overflow: "visible", // чтобы верхние подписи/пунктир выходили над графиком
+          overflow: "visible",
           background: "#fff",
         }}
       >
-        {/* Левая крайняя пунктирная линия, поднятая на 58px */}
+        {/* левая пунктирная, поднята на 58px */}
         <div
           aria-hidden="true"
           style={{
@@ -236,10 +233,10 @@ function ActivityGraph() {
               flexBasis: `${m.sharePct}%`,
               flexGrow: 0,
               flexShrink: 0,
-              background: "#f5f5f5", // трек сегмента
+              background: "#f5f5f5",
             }}
           >
-            {/* подпись над сегментом */}
+            {/* подпись сверху (название + %) */}
             <div
               style={{
                 position: "absolute",
@@ -257,7 +254,7 @@ function ActivityGraph() {
               </div>
             </div>
 
-            {/* вертикальная пунктирная граница ТОЛЬКО сверху (не внутри графика) */}
+            {/* разделители сверху (пунктир) */}
             {idx > 0 && (
               <div
                 aria-hidden="true"
@@ -272,7 +269,7 @@ function ActivityGraph() {
               />
             )}
 
-            {/* внутренняя заливка — анимированная */}
+            {/* внутренняя заливка — анимация от 0 к (оценка/10) */}
             <div
               style={{
                 position: "absolute",
@@ -289,7 +286,7 @@ function ActivityGraph() {
         ))}
       </div>
 
-      {/* Подписи оценок под полосой (14px) */}
+      {/* оценки под графиком — 14px */}
       <div style={{ marginTop: 30, display: "flex" }}>
         {METRICS.map((m) => (
           <div key={m.key} style={{ flexBasis: `${m.sharePct}%`, flexGrow: 0, flexShrink: 0 }}>
@@ -303,8 +300,8 @@ function ActivityGraph() {
   );
 }
 
-/** CUBE / ИНДЕКС (число выровнено под «К», «/ 10» приподнято) */
-function CubeIndex({ score = 2.0, dateText }) {
+/** CUBE / ИНДЕКС — число под «К», «/ 10» приподнято */
+function CubeIndex({ score = 2.6, dateText }) {
   const title = "CUBE / ИНДЕКС";
   const kPos = title.lastIndexOf("К");
   const before = kPos >= 0 ? title.slice(0, kPos) : title;
@@ -355,7 +352,7 @@ function CubeIndex({ score = 2.0, dateText }) {
         </div>
 
         <div style={{ position: "relative", marginTop: 24 }}>
-          {/* стрелка слева от числа (не влияет на выравнивание) */}
+          {/* стрелка слева от числа (можно заменить на strelka2.png при желании) */}
           <div
             aria-hidden="true"
             style={{
@@ -396,8 +393,8 @@ function CubeIndex({ score = 2.0, dateText }) {
   );
 }
 
-export default function ElectricalServicesPage() {
-  const SCORE = 2.0;
+export default function LowCurrentServicesPage() {
+  const SCORE = 2.6;
   const today = formatRuDate();
 
   return (
@@ -424,7 +421,7 @@ export default function ElectricalServicesPage() {
         .electro-tabs-wrap{ display:inline-flex; flex-wrap:wrap; max-width:1080px; justify-content:center; }
       `}</style>
 
-      {/* Верхняя зона */}
+      {/* Верхняя зона (та же компоновка) */}
       <div style={{ transform: "translateY(-61px)", willChange: "transform" }}>
         <div className="electro-tabs">
           <div className="electro-tabs-wrap">
@@ -436,13 +433,16 @@ export default function ElectricalServicesPage() {
 
         <div style={{ textAlign: "center", position: "relative", marginTop: 2 }}>
           <h2 className="electro-title about-hero-title">
-            <span style={{ display: "block" }}>ЭЛЕКТРОМОНТАЖ</span>
+            <span style={{ display: "block" }}>СЛАБОТОЧНЫЕ</span>
+            <span style={{ display: "block" }}>СИСТЕМЫ</span>
           </h2>
         </div>
 
         <div style={{ background: "#f8f8f8", marginTop: 12, marginBottom: 0, padding: 0 }}>
           <p className="electro-sub">
-            Энергия проектов рождается<br/>из точности каждого соединения.
+            Безопасность, как и доверие,<br/>
+            рождается не в момент тревоги,<br/>
+            а в тишине, где всё под контролем.
           </p>
         </div>
       </div>
@@ -460,13 +460,13 @@ export default function ElectricalServicesPage() {
           color: "#222",
         }}
       >
-        <p style={{ margin: 0 }}>Мы делаем электромонтаж прозрачным и удобным:</p>
+        <p style={{ margin: 0 }}>Мы делаем слаботочные системы понятными и масштабируемыми:</p>
         <p style={{ margin: 0 }}>
-          все услуги собраны в одном месте. Выберите нужный раздел и найдите решение под свою задачу.
+          все направления собраны в одном месте. Выберите нужный раздел и найдите решение под свою задачу.
         </p>
       </div>
 
-      {/* ===== УСЛУГИ ===== */}
+      {/* ===== УСЛУГИ (таблица) ===== */}
       <div style={{ marginTop: 120, marginLeft: GUTTER, marginRight: GUTTER }}>
         <HeaderRow />
         {LINES.map((it) => (
@@ -482,12 +482,12 @@ export default function ElectricalServicesPage() {
         </div>
       </div>
 
-      {/* Секция CUBE / ИНДЕКС — сразу после заголовков */}
+      {/* CUBE / ИНДЕКС */}
       <div style={{ marginTop: 150 }}>
         <CubeIndex score={SCORE} dateText={today} />
       </div>
 
-      {/* Сам график */}
+      {/* График */}
       <div style={{ marginTop: 200 }}>
         <ActivityGraph />
       </div>

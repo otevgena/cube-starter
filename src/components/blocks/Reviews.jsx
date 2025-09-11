@@ -7,31 +7,27 @@ export default function Reviews() {
   const PAD = 62;
   const BTM = 32;
 
-  function openReviewModal(payload) {
-    const y = window.scrollY || window.pageYOffset || 0;               // <- запоминаем позицию
-    const width = Math.max(820, Math.min(1600, Math.round(window.innerWidth * 0.7)));
+  // Локальный стейт для модалки отзыва
+  const [review, setReview] = React.useState(null);
 
-    // открываем БЕЗ "Понятно" — см. крошечную вставку в Modals.jsx ниже
-window.openModal?.("review", {
-  width,
-  backdropOpacity: 0.35,   // ← НОВОЕ: чуть светлее, фон «просматривается»
-  content: (
-    <ReviewPopup
-      imageSrc={payload.imageSrc}
-      fallbackSrc={payload.fallbackSrc}
-      name={payload.name}
-      company={payload.company}
-      date={payload.date}
-      city={payload.city}
-    />
-  ),
-});
+// внутри Reviews.jsx
+function openReviewModal(payload) {
+  const y = window.scrollY || window.pageYOffset || 0;
+  ReviewPopup.open(
+    {
+      imageSrc: payload.imageSrc,
+      fallbackSrc: payload.fallbackSrc,
+      name: payload.name,
+      company: payload.company,
+      date: payload.date,
+      city: payload.city,
+    },
+    { backdropOpacity: 0.35 } // ← фон «просматривается»
+  );
+  requestAnimationFrame(() => window.scrollTo(0, y));
+  setTimeout(() => window.scrollTo(0, y), 0);
+}
 
-
-    // на всякий — возвращаемся ровно туда же
-    requestAnimationFrame(() => window.scrollTo(0, y));
-    setTimeout(() => window.scrollTo(0, y), 0);
-  }
 
   function ReadButton({ onClick }) {
     return (
@@ -39,7 +35,7 @@ window.openModal?.("review", {
         type="button"
         onClick={(e) => {
           e.preventDefault();
-          e.stopPropagation(); // не даём «прыгать»
+          e.stopPropagation();         // не даём «прыгать»
           onClick?.(e);
         }}
         onMouseDown={(e) => { e.preventDefault(); }} // блок фокуса-скролла
@@ -270,6 +266,20 @@ window.openModal?.("review", {
 
         <div style={{ height: 120 }} />
       </div>
+
+      {/* Модалка отзыва — независимая от Modals.jsx */}
+      {review && (
+        <ReviewPopup
+          imageSrc={review.imageSrc}
+          fallbackSrc={review.fallbackSrc}
+          name={review.name}
+          company={review.company}
+          date={review.date}
+          city={review.city}
+          backdropOpacity={review.backdropOpacity}
+          onClose={() => setReview(null)}
+        />
+      )}
     </section>
   );
 }

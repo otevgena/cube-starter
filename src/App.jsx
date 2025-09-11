@@ -9,6 +9,7 @@ import Footer from '@/components/layout/Footer.jsx'
 import StickyDock from "@/components/common/StickyDock";
 import Preloader from "@/components/common/Preloader";
 import Reviews from "@/components/blocks/Reviews.jsx";
+import ProJobsPage from '@/pages/pro.jsx';
 
 // ⚠️ новая страница (проекты)
 import ProjectsPage from '@/pages/projects.jsx'
@@ -22,8 +23,12 @@ import TermsPage from '@/pages/legal/terms.jsx'
 import CookiesPage from '@/pages/legal/cookies.jsx'
 import PrivacyPage from '@/pages/legal/privacy.jsx'
 
-// ⬇️ Страница услуг "Электромонтаж"
-import ElectricalServicesPage from '@/pages/services/electrical/index.jsx';
+// ⬇️ Страницы услуг
+import ElectricalServicesPage from '@/pages/services/electrical/index.jsx'
+import LowCurrentServicesPage from '@/pages/services/lowcurrent/index.jsx'
+import VentilationServicesPage from '@/pages/services/ventilation/index.jsx'
+import DesignServicesPage from '@/pages/services/design/index.jsx' // NEW
+import ConstructionServicesPage from '@/pages/services/construction/index.jsx' // NEW
 
 export default function App(){
   const [loading, setLoading] = useState(true);
@@ -40,10 +45,12 @@ export default function App(){
     document.body.classList.toggle('home', isHome);
     document.body.classList.toggle('projects', path === 'pages/projects');
     document.body.classList.toggle('legal', path.startsWith('legal/'));
+    document.body.classList.toggle('service', path.startsWith('services/')); // для страниц услуг
     return () => {
       document.body.classList.remove('home');
       document.body.classList.remove('projects');
       document.body.classList.remove('legal');
+      document.body.classList.remove('service');
     };
   }, [path]);
 
@@ -56,7 +63,6 @@ export default function App(){
   // ——— ПРОКРУТКА НАВЕРХ + ТИТУЛ + сброс hero-zone при смене маршрута ———
   useEffect(() => {
     try {
-      // двойной кадр гарантирует прокрутку наверх после рендера
       requestAnimationFrame(() => {
         window.scrollTo(0, 0);
         requestAnimationFrame(() => window.scrollTo(0, 0));
@@ -72,10 +78,13 @@ export default function App(){
       'legal/cookies': 'Политика cookie — CUBE',
       'legal/privacy': 'Политика конфиденциальности — CUBE',
       'services/electrical': 'Электромонтаж — CUBE',
+      'services/lowcurrent': 'Слаботочные системы — CUBE',
+      'services/ventilation': 'Климат-системы — CUBE',
+      'services/design': 'Проектирование — CUBE', // NEW
+      'services/construction': 'Общестрой — CUBE', // NEW
     };
     document.title = titles[path] || 'CUBE';
 
-    // фокус на main (ощущение «перехода» + доступность)
     const m = document.querySelector('main');
     if (m && typeof m.focus === 'function') m.focus();
   }, [path]);
@@ -88,7 +97,7 @@ export default function App(){
 
     if (!servicesEl) {
       off();
-      return; // на legal-страницах и пр. не вешаем обработчики
+      return; // на legal/страницах и страницах услуг не вешаем обработчики
     }
 
     const num = (attr, fallback) => {
@@ -106,7 +115,6 @@ export default function App(){
       const rect = servicesEl.getBoundingClientRect();
       const topAbs = rect.top + scrollY;
 
-      // Порог «тихой зоны»: до него — считаем, что ещё hero
       const silenceUntil = topAbs - headerOffset - Math.max(heroSilence, spyOffset);
       const inHero = scrollY < Math.max(0, silenceUntil);
 
@@ -146,11 +154,17 @@ export default function App(){
 
   // Рендер по пути
   const renderRoute = () => {
-    if (path === 'pages/projects')    return <ProjectsPage />;
-    if (path === 'legal/terms')       return <TermsPage />;
-    if (path === 'legal/cookies')     return <CookiesPage />;
-    if (path === 'legal/privacy')     return <PrivacyPage />;
-    if (path === 'services/electrical') return <ElectricalServicesPage />;
+    if (path === 'pages/projects')        return <ProjectsPage />;
+    if (path === 'legal/terms')           return <TermsPage />;
+    if (path === 'legal/cookies')         return <CookiesPage />;
+    if (path === 'legal/privacy')         return <PrivacyPage />;
+    if (path === 'services/electrical')   return <ElectricalServicesPage />;
+    if (path === 'services/lowcurrent')   return <LowCurrentServicesPage />;
+    if (path === 'services/ventilation')  return <VentilationServicesPage />;
+    if (path === 'services/design')       return <DesignServicesPage />; // NEW
+    if (path === 'services/construction') return <ConstructionServicesPage />; // NEW
+    if (path === 'pro') return <ProJobsPage />;
+
 
     // Главная
     return (

@@ -1,4 +1,3 @@
-// src/pages/services/electrical/index.jsx
 import React from "react";
 import SpaLink from "@/components/common/SpaLink.jsx";
 
@@ -7,32 +6,37 @@ const GUTTER = 80;
 const BLACK = "#000";
 const MUTED = "#A7A7A7";
 
-// ----- Данные услуг для таблицы -----
+/* ===== УСЛУГИ (таблица) ===== */
 const LINES = [
-  { key: "grid-connect",   title: "Подключение объектов к электросетям",     dir: "Внешние сети",   href: "/services/electrical#grid-connect" },
-  { key: "power-upgrade",  title: "Увеличение мощности и модернизация сетей", dir: "Распред. сети", href: "/services/electrical#power-upgrade" },
-  { key: "indoor",         title: "Внутренние электромонтажные работы",       dir: "Внутренние сети",href: "/services/electrical#indoor" },
-  { key: "outdoor",        title: "Наружные электросети и уличное освещение", dir: "Наружные сети",  href: "/services/electrical#outdoor" },
-  { key: "switchgear",     title: "Монтаж электрощитов и ВРУ",                dir: "Щитовое",        href: "/services/electrical#switchgear" },
-  { key: "earthing",       title: "Системы заземления и молниезащиты",        dir: "Безопасность",   href: "/services/electrical#earthing" },
-  { key: "automation",     title: "Автоматизация и учёт электроэнергии",      dir: "Автоматизация",  href: "/services/electrical#automation" },
-  { key: "backup",         title: "Резервное электроснабжение",               dir: "Надёжность",     href: "/services/electrical#backup" },
+  { key: "power",       title: "Проектирование электроснабжения (ЭОМ)",                                          dir: "Электроснабжение (ЭОМ)", href: "/services/design#power" },
+  { key: "hvac",        title: "Проектирование отопления, вентиляции и водоснабжения (ОВ, ВК)",                 dir: "ОВ / ВК",               href: "/services/design#hvac" },
+  { key: "lowcurrent",  title: "Проектирование слаботочных систем (СКС, ОПС, СКУД, видеонаблюдение и др.)",      dir: "Слаботочные",          href: "/services/design#lowcurrent" },
+  { key: "automation",  title: "Проектирование систем автоматики и АСУ ТП",                                      dir: "Автоматика / АСУ ТП",  href: "/services/design#automation" },
+  { key: "lightning",   title: "Молниезащита и системы заземления",                                              dir: "Молниезащита",         href: "/services/design#lightning" },
+  { key: "estimate",    title: "Разработка сметной документации",                                                dir: "Сметы",                href: "/services/design#estimate" },
+  { key: "supervision", title: "Авторский надзор за проектом",                                                   dir: "Авторский надзор",     href: "/services/design#supervision" },
+  { key: "approvals",   title: "Согласования в ресурсоснабжающих и сетевых организациях",                       dir: "Согласования",         href: "/services/design#approvals" },
 ];
 
-// ----- Данные для графика -----
+/* ===== ГРАФИК =====
+   Разработка проектной документации → 4.5 /10 (45%)
+   Технические решения и расчёты     → 2.5 /10 (25%)
+   Согласования и экспертизы         → 1.5 /10 (15%)
+   Авторский надзор                  → 1.0 /10 (10%)
+   Сопровождение проекта             → 0.5 /10 (5%)
+*/
 const METRICS = [
-  { key: "montage",  label: "Монтаж",            sharePct: 40, score10: 4.0 },
-  { key: "design",   label: "Проектирование",    sharePct: 25, score10: 2.5 },
-  { key: "auto",     label: "Автоматизация",     sharePct: 15, score10: 1.5 },
-  { key: "qa",       label: "Контроль качества", sharePct: 12, score10: 1.2 },
-  { key: "service",  label: "Сервис",            sharePct: 8,  score10: 0.8 },
+  { key: "docs",     label: "Разработка проектной документации", sharePct: 45, score10: 4.5 },
+  { key: "calc",     label: "Технические решения и расчёты",     sharePct: 25, score10: 2.5 },
+  { key: "expert",   label: "Согласования и экспертизы",         sharePct: 15, score10: 1.5 },
+  { key: "author",   label: "Авторский надзор",                  sharePct: 10, score10: 1.0 },
+  { key: "support",  label: "Сопровождение проекта",             sharePct: 5,  score10: 0.5 },
 ];
 
 const HEADER_H = 72;
 const ROW_H = 104;
 const TEXT_SHIFT = 28;
 
-// --- горизонтальная пунктирная (как в Project.jsx) ---
 function DottedLine() {
   return (
     <div
@@ -46,7 +50,6 @@ function DottedLine() {
   );
 }
 
-// --- Кнопка «Подробнее»: чёрный hover, без подчёркивания ---
 function CellButtonLink({ to }) {
   const R = 12;
   const baseStyle = {
@@ -167,7 +170,6 @@ function DataRow({ title, dir, href }) {
   );
 }
 
-// --- формат даты "Сен 09, 2025" ---
 function formatRuDate(d = new Date()) {
   const months = ["Янв","Фев","Мар","Апр","Май","Июн","Июл","Авг","Сен","Окт","Ноя","Дек"];
   const dd = String(d.getDate()).padStart(2, "0");
@@ -176,12 +178,7 @@ function formatRuDate(d = new Date()) {
   return `${mm} ${dd}, ${yy}`;
 }
 
-/* ===== ГРАФИК =====
-   - без скруглений
-   - пунктирные разделители только СВЕРХУ (на 58px выше графика)
-   - подписи (Название + %) тоже подняты на 58px и сдвинуты вправо на 11px
-   - цифры под графиком: 14px
-*/
+/* ===== ГРАФИК ===== */
 function ActivityGraph() {
   const wrapRef = React.useRef(null);
   const [animate, setAnimate] = React.useState(false);
@@ -191,8 +188,7 @@ function ActivityGraph() {
     if (!el) return;
     const io = new IntersectionObserver(
       (entries) => {
-        const vis = entries.some((e) => e.isIntersecting);
-        if (vis) setAnimate(true);
+        if (entries.some((e) => e.isIntersecting)) setAnimate(true);
       },
       { threshold: 0.35 }
     );
@@ -202,7 +198,6 @@ function ActivityGraph() {
 
   return (
     <div ref={wrapRef} style={{ marginLeft: GUTTER, marginRight: GUTTER, position: "relative" }}>
-      {/* Полоса графика (без скруглений) */}
       <div
         style={{
           position: "relative",
@@ -210,86 +205,33 @@ function ActivityGraph() {
           display: "flex",
           alignItems: "stretch",
           border: "1px solid #e5e5e5",
-          borderRadius: 0,
-          overflow: "visible", // чтобы верхние подписи/пунктир выходили над графиком
+          overflow: "visible",
           background: "#fff",
         }}
       >
-        {/* Левая крайняя пунктирная линия, поднятая на 58px */}
-        <div
-          aria-hidden="true"
-          style={{
-            position: "absolute",
-            left: 0,
-            top: -58,
-            height: 58,
-            width: 0,
-            borderLeft: "1px dashed rgba(0,0,0,.12)",
-          }}
-        />
-
+        <div aria-hidden="true" style={{ position: "absolute", left: 0, top: -58, height: 58, width: 0, borderLeft: "1px dashed rgba(0,0,0,.12)" }} />
         {METRICS.map((m, idx) => (
-          <div
-            key={m.key}
-            style={{
-              position: "relative",
-              flexBasis: `${m.sharePct}%`,
-              flexGrow: 0,
-              flexShrink: 0,
-              background: "#f5f5f5", // трек сегмента
-            }}
-          >
-            {/* подпись над сегментом */}
-            <div
-              style={{
-                position: "absolute",
-                left: 11,
-                top: -58,
-                textAlign: "left",
-                pointerEvents: "none",
-              }}
-            >
-              <div style={{ fontSize: 14, lineHeight: "20px", fontWeight: 300, color: "#222" }}>
-                {m.label}
-              </div>
-              <div style={{ fontSize: 14, lineHeight: "20px", fontWeight: 600, color: "#222" }}>
-                {m.sharePct}%
-              </div>
+          <div key={m.key} style={{ position: "relative", flexBasis: `${m.sharePct}%`, flexGrow: 0, flexShrink: 0, background: "#f5f5f5" }}>
+            <div style={{ position: "absolute", left: 11, top: -58, textAlign: "left", pointerEvents: "none" }}>
+              <div style={{ fontSize: 14, lineHeight: "20px", fontWeight: 300, color: "#222" }}>{m.label}</div>
+              <div style={{ fontSize: 14, lineHeight: "20px", fontWeight: 600, color: "#222" }}>{m.sharePct}%</div>
             </div>
-
-            {/* вертикальная пунктирная граница ТОЛЬКО сверху (не внутри графика) */}
             {idx > 0 && (
-              <div
-                aria-hidden="true"
-                style={{
-                  position: "absolute",
-                  left: 0,
-                  top: -58,
-                  height: 58,
-                  width: 0,
-                  borderLeft: "1px dashed rgba(0,0,0,.12)",
-                }}
-              />
+              <div aria-hidden="true" style={{ position: "absolute", left: 0, top: -58, height: 58, width: 0, borderLeft: "1px dashed rgba(0,0,0,.12)" }} />
             )}
-
-            {/* внутренняя заливка — анимированная */}
             <div
+              aria-hidden="true"
               style={{
-                position: "absolute",
-                left: 0,
-                top: 0,
-                bottom: 0,
+                position: "absolute", left: 0, top: 0, bottom: 0,
                 width: animate ? `${(m.score10 / 10) * 100}%` : "0%",
                 background: "#ededed",
                 transition: `width 900ms ${150 + idx * 120}ms ease`,
               }}
-              aria-hidden="true"
             />
           </div>
         ))}
       </div>
 
-      {/* Подписи оценок под полосой (14px) */}
       <div style={{ marginTop: 30, display: "flex" }}>
         {METRICS.map((m) => (
           <div key={m.key} style={{ flexBasis: `${m.sharePct}%`, flexGrow: 0, flexShrink: 0 }}>
@@ -303,8 +245,8 @@ function ActivityGraph() {
   );
 }
 
-/** CUBE / ИНДЕКС (число выровнено под «К», «/ 10» приподнято) */
-function CubeIndex({ score = 2.0, dateText }) {
+/** CUBE / ИНДЕКС */
+function CubeIndex({ score = 1.5, dateText }) {
   const title = "CUBE / ИНДЕКС";
   const kPos = title.lastIndexOf("К");
   const before = kPos >= 0 ? title.slice(0, kPos) : title;
@@ -327,10 +269,7 @@ function CubeIndex({ score = 2.0, dateText }) {
     const ro = new ResizeObserver(calc);
     if (wrapRef.current) ro.observe(wrapRef.current);
     window.addEventListener("resize", calc);
-    return () => {
-      ro.disconnect();
-      window.removeEventListener("resize", calc);
-    };
+    return () => { ro.disconnect(); window.removeEventListener("resize", calc); };
   }, []);
 
   return (
@@ -355,36 +294,13 @@ function CubeIndex({ score = 2.0, dateText }) {
         </div>
 
         <div style={{ position: "relative", marginTop: 24 }}>
-          {/* стрелка слева от числа (не влияет на выравнивание) */}
-          <div
-            aria-hidden="true"
-            style={{
-              position: "absolute",
-              left: offset,
-              transform: "translateX(calc(-100% - 16px))",
-              top: 0,
-            }}
-          >
+          <div aria-hidden="true" style={{ position: "absolute", left: offset, transform: "translateX(calc(-100% - 16px))", top: 0 }}>
             <span style={{ fontSize: 96, fontWeight: 600, lineHeight: 1 }}>→</span>
           </div>
 
-          <div
-            style={{
-              marginLeft: offset,
-              display: "flex",
-              alignItems: "flex-start",
-              gap: 8,
-              color: "#111",
-              fontFamily: UI,
-              whiteSpace: "nowrap",
-            }}
-          >
-            <span style={{ fontSize: 96, fontWeight: 600, lineHeight: 1 }}>
-              {Number(score).toFixed(1)}
-            </span>
-            <span style={{ fontSize: 28, fontWeight: 300, lineHeight: 1, transform: "translateY(-6px)" }}>
-              / 10
-            </span>
+          <div style={{ marginLeft: offset, display: "flex", alignItems: "flex-start", gap: 8, color: "#111", whiteSpace: "nowrap" }}>
+            <span style={{ fontSize: 96, fontWeight: 600, lineHeight: 1 }}>{Number(score).toFixed(1)}</span>
+            <span style={{ fontSize: 28, fontWeight: 300, lineHeight: 1, transform: "translateY(-6px)" }}>/ 10</span>
           </div>
         </div>
       </div>
@@ -396,15 +312,15 @@ function CubeIndex({ score = 2.0, dateText }) {
   );
 }
 
-export default function ElectricalServicesPage() {
-  const SCORE = 2.0;
+export default function DesignServicesPage() {
+  const SCORE = 1.5;
   const today = formatRuDate();
 
   return (
     <main style={{ fontFamily: UI, color: BLACK, background: "#f8f8f8" }}>
       <style>{`
-        .electro-tabs { text-align:center; margin-top:30px; }
-        .electro-tabs a{
+        .des-tabs { text-align:center; margin-top:30px; }
+        .des-tabs a{
           color:${MUTED};
           text-decoration:none;
           transition:color .16s ease;
@@ -418,16 +334,16 @@ export default function ElectricalServicesPage() {
           margin:0 4px 8px 4px;
           cursor:pointer;
         }
-        .electro-tabs a:hover{ color:${BLACK}; }
-        .electro-title{ margin:0; text-transform:uppercase; font-weight:600; text-align:center; }
-        .electro-sub{ margin:0; text-align:center; font-size:21px; line-height:28px; font-weight:600; color:#222222; }
-        .electro-tabs-wrap{ display:inline-flex; flex-wrap:wrap; max-width:1080px; justify-content:center; }
+        .des-tabs a:hover{ color:${BLACK}; }
+        .des-title{ margin:0; text-transform:uppercase; font-weight:600; text-align:center; }
+        .des-sub{ margin:0; text-align:center; font-size:21px; line-height:28px; font-weight:600; color:#222222; }
+        .des-tabs-wrap{ display:inline-flex; flex-wrap:wrap; max-width:1080px; justify-content:center; }
       `}</style>
 
-      {/* Верхняя зона */}
+      {/* верхняя зона */}
       <div style={{ transform: "translateY(-61px)", willChange: "transform" }}>
-        <div className="electro-tabs">
-          <div className="electro-tabs-wrap">
+        <div className="des-tabs">
+          <div className="des-tabs-wrap">
             {LINES.map((it) => (
               <SpaLink key={it.key} to={it.href}>{it.title}</SpaLink>
             ))}
@@ -435,19 +351,20 @@ export default function ElectricalServicesPage() {
         </div>
 
         <div style={{ textAlign: "center", position: "relative", marginTop: 2 }}>
-          <h2 className="electro-title about-hero-title">
-            <span style={{ display: "block" }}>ЭЛЕКТРОМОНТАЖ</span>
+          <h2 className="des-title about-hero-title">
+            <span style={{ display: "block" }}>ПРОЕКТИРОВАНИЕ</span>
           </h2>
         </div>
 
         <div style={{ background: "#f8f8f8", marginTop: 12, marginBottom: 0, padding: 0 }}>
-          <p className="electro-sub">
-            Энергия проектов рождается<br/>из точности каждого соединения.
+          <p className="des-sub">
+            Любая инженерная система начинается с идеи,<br/>
+            воплощённой в проекте.
           </p>
         </div>
       </div>
 
-      {/* Вступительный текст — 600 / 43px */}
+      {/* вступительный текст */}
       <div
         style={{
           marginTop: 150,
@@ -460,13 +377,13 @@ export default function ElectricalServicesPage() {
           color: "#222",
         }}
       >
-        <p style={{ margin: 0 }}>Мы делаем электромонтаж прозрачным и удобным:</p>
+        <p style={{ margin: 0 }}>Мы делаем проектирование понятным и доступным: от идеи до согласований.</p>
         <p style={{ margin: 0 }}>
-          все услуги собраны в одном месте. Выберите нужный раздел и найдите решение под свою задачу.
+          Все инженерные разделы — в одном месте, чтобы вы получили комплексное решение под вашу задачу.
         </p>
       </div>
 
-      {/* ===== УСЛУГИ ===== */}
+      {/* услуги */}
       <div style={{ marginTop: 120, marginLeft: GUTTER, marginRight: GUTTER }}>
         <HeaderRow />
         {LINES.map((it) => (
@@ -474,20 +391,20 @@ export default function ElectricalServicesPage() {
         ))}
       </div>
 
-      {/* Заголовки к графику */}
+      {/* заголовки к графику */}
       <div style={{ marginTop: 150, marginLeft: GUTTER, marginRight: GUTTER }}>
         <div style={{ fontSize: 14, lineHeight: "28px", fontWeight: 300, color: "#222" }}>График</div>
         <div style={{ marginTop: 14, fontSize: 43, lineHeight: "51px", fontWeight: 600, color: "#111" }}>
-          Что мы делаем чаще всего
+          Как распределяется наша работа
         </div>
       </div>
 
-      {/* Секция CUBE / ИНДЕКС — сразу после заголовков */}
+      {/* CUBE / ИНДЕКС */}
       <div style={{ marginTop: 150 }}>
         <CubeIndex score={SCORE} dateText={today} />
       </div>
 
-      {/* Сам график */}
+      {/* сам график */}
       <div style={{ marginTop: 200 }}>
         <ActivityGraph />
       </div>

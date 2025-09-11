@@ -2,73 +2,54 @@
 import React from "react";
 
 export default function StickyDock() {
-  // —— helper: мы в /legal/* ?
-  const getIsLegal = () => {
-    try { return /^\/legal(\/|$)/.test(window.location.pathname || "/"); }
-    catch { return false; }
-  };
+  const getIsLegal = () => { try { return /^\/legal(\/|$)/.test(window.location.pathname || "/"); } catch { return false; } };
+  const getIsElectroOnly = () => { try { return /^\/services\/electrical(\/|$)/.test(window.location.pathname || "/"); } catch { return false; } };
+  const getIsLow = () => { try { return /^\/services\/lowcurrent(\/|$)/.test(window.location.pathname || "/"); } catch { return false; } };
+  const getIsVent = () => { try { return /^\/services\/ventilation(\/|$)/.test(window.location.pathname || "/"); } catch { return false; } };
+  const getIsDesign = () => { try { return /^\/services\/design(\/|$)/.test(window.location.pathname || "/"); } catch { return false; } };
+  const getIsConstruction = () => { try { return /^\/services\/construction(\/|$)/.test(window.location.pathname || "/"); } catch { return false; } };
 
-  // Обычные "пилюли" для главной
   const defaultPills = ["Услуги", "О нас", "Проекты", "Контакты", "Отзывы"];
-
-  // Навигация для legal-страниц (обновлённые названия)
   const legalNav = [
     { label: "Cookie", path: "/legal/cookies" },
     { label: "Права",  path: "/legal/terms" },
     { label: "Данные", path: "/legal/privacy" },
   ];
-  const legalIndexByPath = {
-    "/legal/cookies": 0,
-    "/legal/terms":   1,
-    "/legal/privacy": 2,
-  };
+  const legalIndexByPath = { "/legal/cookies":0, "/legal/terms":1, "/legal/privacy":2 };
 
-  // Состояния
   const [isLegal, setIsLegal] = React.useState(getIsLegal());
+  // один флаг для «компактного сервиса»: электромонтаж / слаботочка / климат / проектирование / общестрой
+  const [isElectro, setIsElectro] = React.useState(
+    getIsElectroOnly() || getIsLow() || getIsVent() || getIsDesign() || getIsConstruction()
+  );
   const pills = isLegal ? legalNav.map(x => x.label) : defaultPills;
   const [active, setActive] = React.useState(null);
 
   const SHOW_AFTER = 500;
   const [showUp, setShowUp] = React.useState(false);
 
-  // ===== Анимация появления «снизу» при смене типа панели =====
   const [entered, setEntered] = React.useState(false);
   React.useEffect(() => {
-    // 1) ставим состояние входа
     setEntered(false);
-
-    // 2) принудительно «прожигаем» reflow, чтобы класс применился
     const node = document.getElementById("dock-panel");
-    if (node) { void node.offsetWidth; } // reflow
-
-    // 3) на следующий кадр включаем окончательное состояние — старт анимации
+    if (node) { void node.offsetWidth; }
     const id = requestAnimationFrame(() => setEntered(true));
     return () => cancelAnimationFrame(id);
-  }, [isLegal]);
-  // ============================================================
+  }, [isLegal, isElectro]);
 
-  // Глобальные дефолты
   const DEFAULT_HEADER_OFFSET = 16;
   const DEFAULT_SPY_OFFSET = 120;
   const DEFAULT_CLICK_OFFSET = 16;
   const DEFAULT_HERO_SILENCE = 80;
 
-  const idByLabel = {
-    "Услуги": "services",
-    "О нас": "about",
-    "Проекты": "projects",
-    "Контакты": "contact",
-    "Отзывы": "reviews",
-  };
+  const idByLabel = { "Услуги":"services","О нас":"about","Проекты":"projects","Контакты":"contact","Отзывы":"reviews" };
 
   const getSectionEl = React.useCallback((label) => {
     const id = idByLabel[label];
     if (!id) return null;
-    return (
-      document.getElementById(id) ||
-      document.querySelector(`[data-section="${id}"]`) ||
-      document.querySelector(`[aria-label="${id}"]`)
-    );
+    return document.getElementById(id)
+        || document.querySelector(`[data-section="${id}"]`)
+        || document.querySelector(`[aria-label="${id}"]`);
   }, []);
 
   const getNumber = (el, attr, fallback) => {
@@ -90,7 +71,6 @@ export default function StickyDock() {
     window.scrollTo({ top, behavior: "smooth" });
   }, [getSectionEl]);
 
-  // SPA-переход
   const go = React.useCallback((to) => {
     try {
       window.history.pushState({}, "", to);
@@ -99,11 +79,8 @@ export default function StickyDock() {
       window.location.href = to;
     }
   }, []);
-
-  // Стрелка на панели — всегда ведёт на главную
   const goHome = React.useCallback(() => { go("/"); }, [go]);
 
-  // Стрелка «вверх»
   React.useEffect(() => {
     const onScroll = () => {
       const y = window.pageYOffset || document.documentElement.scrollTop || 0;
@@ -114,11 +91,12 @@ export default function StickyDock() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  // Отслеживаем URL — режим /legal и активная вкладка
   React.useEffect(() => {
     const syncFromLocation = () => {
       const legal = getIsLegal();
+      const compactService = getIsElectroOnly() || getIsLow() || getIsVent() || getIsDesign() || getIsConstruction();
       setIsLegal(legal);
+      setIsElectro(compactService);
       if (legal) {
         const p = window.location.pathname || "";
         const idx = legalIndexByPath[p];
@@ -132,10 +110,9 @@ export default function StickyDock() {
     return () => window.removeEventListener("popstate", syncFromLocation);
   }, []);
 
-  // Scroll-spy — только для НЕ-legal
+  // scroll-spy на главной (не в legal и не в «компактных сервисах»)
   React.useEffect(() => {
-    if (isLegal) return;
-
+    if (isLegal || isElectro) return;
     const items = defaultPills
       .map((label, idx) => {
         const el = getSectionEl(label);
@@ -174,7 +151,7 @@ export default function StickyDock() {
       window.removeEventListener("resize", recompute);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLegal, defaultPills.join("|")]);
+  }, [isLegal, isElectro, defaultPills.join("|")]);
 
   const onPillClick = (label, idx) => {
     if (isLegal) {
@@ -190,9 +167,9 @@ export default function StickyDock() {
 
   const scrollToTop = () => window.scrollTo({ top: 0, behavior: "smooth" });
 
-  // Размеры док-панели
+  // размеры панели
   const legalVars = {
-    "--dock-w": "346px", // 360 - 14 (ужали справа на 14px)
+    "--dock-w": "346px",
     "--dock-h": "72px",
     "--dock-radius": "12px",
     "--dock-bottom": "21px",
@@ -213,10 +190,25 @@ export default function StickyDock() {
     "--pill-h": "48px",
     "--pill-gap": "6px",
   };
+  /* компактные сервисы — убираем «воздух» справа на 48px */
+  const electroVars = {
+    "--dock-w": "197px", // 245 - 48
+    "--dock-h": "72px",
+    "--dock-radius": "12px",
+    "--dock-bottom": "21px",
+    "--dock-left-tile": "60px",
+    "--dock-group-w": "0px",
+    "--dock-right-btn": "0px",
+    "--pill-h": "48px",
+    "--pill-gap": "6px",
+  };
+
+  const dockClass = `dock${isLegal ? " is-legal" : ""}${isElectro ? " is-electro" : ""} ${entered ? " is-entered" : " is-enter"}`;
+  const dockVars = isLegal ? legalVars : isElectro ? electroVars : defaultVars;
 
   return (
     <div id="dock-root">
-      {/* Стрелка вверх */}
+      {/* стрелка вверх */}
       <button
         type="button"
         aria-label="Наверх"
@@ -225,20 +217,15 @@ export default function StickyDock() {
         className={`dock-up${showUp ? " is-visible" : ""}`}
       >
         <svg viewBox="0 0 24 24" className="dock-up__icon" aria-hidden="true">
-          {/* исходная иконка «вверх» */}
           <path d="M6 11l6-6 6 6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
           <line x1="12" y1="5" x2="12" y2="19" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
         </svg>
       </button>
 
-      {/* Панель */}
-      <div
-        id="dock-panel"
-        className={`dock${isLegal ? " is-legal" : ""} ${entered ? " is-entered" : " is-enter"}`}
-        style={isLegal ? legalVars : defaultVars}
-      >
+      {/* панель */}
+      <div id="dock-panel" className={dockClass} style={dockVars}>
         <div className="dock__inner">
-          {/* Левый «ромб»: на legal — стрелка «домой», иначе — бренд c. */}
+          {/* левый ромб */}
           {isLegal ? (
             <button
               type="button"
@@ -246,9 +233,8 @@ export default function StickyDock() {
               aria-label="На главную"
               onClick={(e) => { e.preventDefault(); goHome(); }}
               title="На главную"
-              style={{ display: "grid", placeItems: "center", transform: "translateX(4px)" }}  // сдвиг на +4px
+              style={{ display: "grid", placeItems: "center", transform: "translateX(4px)" }}
             >
-              {/* точная копия «вверх», повернутая влево (с хвостиком) и белая */}
               <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
                 <g transform="rotate(-90 12 12)">
                   <path d="M6 11l6-6 6 6" fill="none" stroke="#ffffff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -260,15 +246,16 @@ export default function StickyDock() {
             <a
               href="/"
               className="dock__brand"
-              aria-label="Home"
-              onClick={(e) => { e.preventDefault(); setActive(null); scrollToTop(); }}
+              aria-label={isElectro ? "На главную" : "Home"}
+              onClick={(e) => { e.preventDefault(); if (isElectro) goHome(); else { setActive(null); scrollToTop(); } }}
+              title={isElectro ? "На главную" : "Home"}
             >
               <span className="dock__brand-text">c.</span>
             </a>
           )}
 
-          {/* Центральная группа */}
-          <div className="dock__group" role="tablist" aria-label="Dock">
+          {/* центр — скрыт в компактных сервисах */}
+          <div className="dock__group" role="tablist" aria-label="Dock" style={isElectro ? { display: "none" } : undefined}>
             {pills.map((t, i) => (
               <button
                 key={t}
@@ -283,21 +270,32 @@ export default function StickyDock() {
             ))}
           </div>
 
-          {/* CTA справа — скрыт в /legal/* */}
+          {/* CTA справа */}
           {!isLegal && (
-            <a
-              href="#contact"
-              onClick={(e) => { e.preventDefault(); scrollToSection("Контакты"); }}
-              className="dock__cta"
-              role="button"
-            >
-              Купить
-            </a>
+            isElectro ? (
+              <a
+                href="#contact"
+                onClick={(e) => { e.preventDefault(); scrollToSection("Контакты"); }}
+                className="electro-cta"
+                role="button"
+              >
+                Оставить заявку
+              </a>
+            ) : (
+              <a
+                href="#contact"
+                onClick={(e) => { e.preventDefault(); scrollToSection("Контакты"); }}
+                className="dock__cta"
+                role="button"
+              >
+                Купить
+              </a>
+            )
           )}
         </div>
       </div>
 
-      {/* Локальные стили */}
+      {/* локальные стили */}
       <style>{`
         body.has-modal #dock-root { display: none !important; }
 
@@ -323,8 +321,7 @@ export default function StickyDock() {
         .dock-up:hover{ transform: translateY(-1px); }
         .dock-up__icon{ width: 22px; height: 22px; }
 
-        /* ---- АНИМАЦИЯ ПАНЕЛИ ----
-           Управляем сдвигом по Y переменной, чтобы не ломать translateX(-50%). */
+        /* анимация панели */
         .dock{
           transform: translateX(-50%) translateY(var(--dock-ty, 0)) !important;
           transition: transform .28s cubic-bezier(.2,.8,.2,1), opacity .22s ease;
@@ -333,9 +330,29 @@ export default function StickyDock() {
         .dock.is-enter  { --dock-ty: 22px; opacity: 0; }
         .dock.is-entered{ --dock-ty: 0;   opacity: 1; }
 
-        /* Компактный док на /legal/* */
+        /* compact: legal */
         .dock.is-legal .dock__group{ width: var(--dock-group-w); }
         .dock.is-legal .dock__cta{ display: none !important; }
+
+        /* compact services: electrical / lowcurrent / ventilation / design / construction */
+        .dock.is-electro .dock__group{ display: none !important; }
+        .dock.is-electro .electro-cta{
+          width: 121px !important;
+          height: 60px !important;
+          display: inline-grid !important;
+          place-items: center !important;
+          background: #FA5D29 !important;   /* яркий акцент */
+          color: #000 !important;
+          border: 1px solid #FA5D29 !important;
+          border-radius: 6px !important;    /* как у «Купить» (зафиксировано) */
+          font-weight: 600 !important;
+          text-decoration: none !important;
+          white-space: nowrap !important;
+          box-shadow: none !important;
+          transform: translateX(-5px);      /* сдвиг на 5px влево */
+        }
+        .dock.is-electro .electro-cta:hover{ filter: brightness(0.96); }
+        .dock.is-electro .electro-cta:active{ filter: brightness(0.92); }
       `}</style>
     </div>
   );

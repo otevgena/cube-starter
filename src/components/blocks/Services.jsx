@@ -6,39 +6,30 @@ import SpaLink from "@/components/common/SpaLink.jsx";
    PRELOAD / WARM-UP HELPERS
    ========================= */
 
-/** Кладём <link rel="preload"> в <head> для картинок и SVG-объектов. */
 function useHeadPreload({ images = [], svgDocs = [] }) {
   React.useEffect(() => {
     const head = document.head;
     const added = [];
-
     const add = (attrs) => {
       const l = document.createElement("link");
       Object.entries(attrs).forEach(([k, v]) => (l[k] = v));
       head.appendChild(l);
       added.push(l);
     };
-
-    images.forEach((href) => {
-      try { add({ rel: "preload", as: "image", href }); } catch {}
-    });
-
+    images.forEach((href) => { try { add({ rel: "preload", as: "image", href }); } catch {} });
     svgDocs.forEach((href) => {
       try {
         add({ rel: "preload", as: "document", href, type: "image/svg+xml" });
         const pf = document.createElement("link");
-        pf.rel = "prefetch";
-        pf.href = href;
+        pf.rel = "prefetch"; pf.href = href;
         document.head.appendChild(pf);
         added.push(pf);
       } catch {}
     });
-
     return () => { added.forEach((el) => el.parentNode && el.parentNode.removeChild(el)); };
   }, [images, svgDocs]);
 }
 
-/** Тёплый прогрев SVG-объектов (как document) */
 function WarmSVGObjects({ svgs, batch = 4, delay = 60 }) {
   const [mounted, setMounted] = React.useState([]);
   React.useEffect(() => {
@@ -189,8 +180,23 @@ export default function Services() {
             const isFourth = idx === 3;
             const isFifth  = idx === 4;
 
-            const isElectrical = s.key === "electrical";
-            const electricalTo = "/services/electrical";
+            const isElectrical   = s.key === "electrical";
+            const isLowCurrent   = s.key === "low_current";
+            const isVentilation  = s.key === "ventilation";
+            const isDesign       = s.key === "design";
+            const isConstruction = s.key === "construction";
+
+            const serviceTo = isElectrical
+              ? "/services/electrical"
+              : isLowCurrent
+              ? "/services/lowcurrent"
+              : isVentilation
+              ? "/services/ventilation"
+              : isDesign
+              ? "/services/design"
+              : isConstruction
+              ? "/services/construction"
+              : null;
 
             return (
               <article
@@ -205,14 +211,12 @@ export default function Services() {
                   flexDirection: "column",
                 }}
               >
-                {/* Верхнее изображение.
-                    Для электромонтажа — SPA-оверлей из SpaLink (без перезагрузки).
-                    Для остальных — заглушка с preventNav (пока страниц нет). */}
+                {/* Верхнее изображение с кликом через SpaLink для доступных разделов */}
                 <div style={{ width: "100%", height: 263, position: "relative" }}>
                   <ServiceImageBase img={s.img} title={s.title} eager={idx < 3} />
-                  {isElectrical ? (
+                  {serviceTo ? (
                     <SpaLink
-                      to={electricalTo}
+                      to={serviceTo}
                       ariaLabel={s.title}
                       title={s.title}
                       className="block"
@@ -268,9 +272,9 @@ export default function Services() {
                       boxSizing: "border-box",
                     }}
                   >
-                    {isElectrical ? (
+                    {serviceTo ? (
                       <SpaLink
-                        to={electricalTo}
+                        to={serviceTo}
                         className="about-hero-role"
                         style={{
                           fontSize: 16,
@@ -345,7 +349,7 @@ export default function Services() {
                 ) : isThird ? (
                   <div style={iconsRowStyle}>
                     <IconItemHoverPlay src="/services/icon/drop.svg"  labelTop="Эффективное" labelBottom="охлаждение" speedMult={1.5} offsetStartSec={0.1} />
-                    <IconItemHoverPlay src="/services/icon/clock.svg" labelTop="Свежий" labelBottom="воздух" speeMult={1.5} offsetStartSec={1.8} />
+                    <IconItemHoverPlay src="/services/icon/clock.svg" labelTop="Свежий" labelBottom="воздух" speedMult={1.5} offsetStartSec={1.8} />
                     <IconItemHoverPlay src="/services/icon/bolt.svg"  labelTop="Экономия" labelBottom="ресурсов" speedMult={1.5} offsetStartSec={1.6} />
                   </div>
                 ) : isFourth ? (
@@ -411,7 +415,7 @@ export default function Services() {
   );
 }
 
-/* ——— Блок изображения карточки с затемнением и ховером (без <a> внутри) ——— */
+/* ——— Блок изображения карточки с затемнением и ховером ——— */
 function ServiceImageBase({ img, title, eager = false }) {
   const [hover, setHover] = React.useState(false);
   return (
