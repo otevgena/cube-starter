@@ -6,11 +6,18 @@ import SpaLink from "@/components/common/SpaLink.jsx";
    PRELOAD / WARM-UP HELPERS
    ========================= */
 
+const unique = (arr = []) => [...new Set(arr.filter(Boolean))];
+
 function useHeadPreload({ images = [], svgDocs = [] }) {
   React.useEffect(() => {
     const head = document.head;
     const added = [];
     const add = (attrs) => {
+      // не добавляем, если уже есть ровно такой link
+      const exists = head.querySelector(
+        `link[rel="${attrs.rel}"][as="${attrs.as}"][href="${attrs.href}"]`
+      );
+      if (exists) return;
       const l = document.createElement("link");
       Object.entries(attrs).forEach(([k, v]) => (l[k] = v));
       head.appendChild(l);
@@ -18,52 +25,106 @@ function useHeadPreload({ images = [], svgDocs = [] }) {
     };
 
     try {
-      // Прелоад картинок — ок
-      images.forEach((href) => { add({ rel: "preload", as: "image", href }); });
+      unique(images).forEach((href) => {
+        add({ rel: "preload", as: "image", href });
+      });
 
-      // БЫЛО: as: "document" (некорректно для preload).
-      // СТАЛО: as: "image" (валидно и без варнингов).
-      svgDocs.forEach((href) => {
+      unique(svgDocs).forEach((href) => {
         add({ rel: "preload", as: "image", href, type: "image/svg+xml" });
       });
     } catch {}
 
     return () => {
-      try { added.forEach((l) => l.remove()); } catch {}
+      try {
+        added.forEach((l) => l.remove());
+      } catch {}
     };
   }, [images, svgDocs]);
 }
 
-
 function WarmSVGObjects({ svgs, batch = 4, delay = 60 }) {
+  const uniqueSvgs = React.useMemo(() => unique(svgs), [svgs]);
   const [mounted, setMounted] = React.useState([]);
+  const seenRef = React.useRef(new Set());
+
   React.useEffect(() => {
-    let i = 0, cancel = false;
+    // при смене списка — сброс
+    setMounted([]);
+    seenRef.current = new Set();
+
+    let i = 0,
+      cancel = false;
+
     const step = () => {
-      if (cancel || i >= svgs.length) return;
-      setMounted((p) => p.concat(svgs.slice(i, i + batch)));
+      if (cancel || i >= uniqueSvgs.length) return;
+
+      const nextSlice = uniqueSvgs.slice(i, i + batch).filter((src) => {
+        if (seenRef.current.has(src)) return false;
+        seenRef.current.add(src);
+        return true;
+      });
+
+      if (nextSlice.length) {
+        setMounted((p) => p.concat(nextSlice));
+      }
+
       i += batch;
-      if ("requestIdleCallback" in window) requestIdleCallback(step, { timeout: 200 });
-      else setTimeout(step, delay);
+      if ("requestIdleCallback" in window) {
+        requestIdleCallback(step, { timeout: 200 });
+      } else {
+        setTimeout(step, delay);
+      }
     };
+
     const kickoff = () => step();
-    if (document.readyState === "complete") kickoff();
-    else window.addEventListener("load", kickoff, { once: true });
-    return () => { cancel = true; window.removeEventListener("load", kickoff); };
-  }, [svgs, batch, delay]);
+
+    if (document.readyState === "complete") {
+      kickoff();
+    } else {
+      window.addEventListener("load", kickoff, { once: true });
+    }
+
+    return () => {
+      cancel = true;
+      window.removeEventListener("load", kickoff);
+    };
+  }, [uniqueSvgs, batch, delay]);
 
   return (
-    <div aria-hidden="true" style={{ position:"fixed", left:-9999, top:-9999, width:1, height:1, opacity:0, pointerEvents:"none", overflow:"hidden" }}>
+    <div
+      aria-hidden="true"
+      style={{
+        position: "fixed",
+        left: -9999,
+        top: -9999,
+        width: 1,
+        height: 1,
+        opacity: 0,
+        pointerEvents: "none",
+        overflow: "hidden",
+      }}
+    >
       {mounted.map((src) => (
-        <object key={src} data={src} type="image/svg+xml" width={1} height={1} tabIndex={-1} title="" aria-hidden="true" />
+        <object
+          key={src}
+          data={src}
+          type="image/svg+xml"
+          width={1}
+          height={1}
+          tabIndex={-1}
+          title=""
+          aria-hidden="true"
+        />
       ))}
     </div>
   );
 }
 
 function PreloadServicesAssets({ images, svgDocs }) {
-  useHeadPreload({ images, svgDocs });
-  return <WarmSVGObjects svgs={svgDocs} />;
+  const imgs = React.useMemo(() => unique(images), [images]);
+  const svgs = React.useMemo(() => unique(svgDocs), [svgDocs]);
+  useHeadPreload({ images: imgs, svgDocs: svgs });
+  return <WarmSVGObjects svgs={svgs} />;
 }
 
 /* =========================

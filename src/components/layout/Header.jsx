@@ -2,37 +2,41 @@
 import React from "react";
 import { ChevronDown, Search } from "lucide-react";
 
-/* === API base (важно для localhost:5173) ===
-   Можно переопределить в index.html:
-   <script>window.__API_BASE__='https://api.cube-tech.ru'</script>
-*/
+/* === API base === */
 const API_BASE =
   (typeof window !== "undefined" && window.__API_BASE__) ||
   "https://api.cube-tech.ru";
-
 const api = (p) => `${API_BASE}${p}`;
 
-/* ---------- минимальный API-клиент ---------- */
-async function apiRefresh() {
+/* ---- non-blocking refresh with timeout ---- */
+async function apiRefresh(timeoutMs = 1200) {
+  const ctrl = new AbortController();
+  const to = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
     const r = await fetch(api("/auth/refresh"), {
       method: "POST",
-      credentials: "include", // нужно для куки rt
-      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      // ВАЖНО: без body и без Content-Type!
+      signal: ctrl.signal,
+      cache: "no-store",
     });
+    clearTimeout(to);
     if (!r.ok) return null;
     const j = await r.json().catch(() => null);
     return j?.accessToken || null;
   } catch {
+    clearTimeout(to);
     return null;
   }
 }
+
 async function apiMe(token) {
   try {
     const r = await fetch(api("/auth/me"), {
       method: "GET",
       headers: { Authorization: `Bearer ${token}` },
       credentials: "include",
+      cache: "no-store",
     });
     if (!r.ok) return null;
     const j = await r.json().catch(() => null);
@@ -42,11 +46,9 @@ async function apiMe(token) {
   }
 }
 
-/* ---------- аватар + выпадающее меню ---------- */
 function AvatarMenu({ user, onLogout }) {
   const [open, setOpen] = React.useState(false);
   const wrapRef = React.useRef(null);
-
   React.useEffect(() => {
     function onDoc(e) {
       if (!wrapRef.current) return;
@@ -55,14 +57,12 @@ function AvatarMenu({ user, onLogout }) {
     document.addEventListener("mousedown", onDoc);
     return () => document.removeEventListener("mousedown", onDoc);
   }, []);
-
   return (
     <div
       ref={wrapRef}
       className="relative"
       onMouseEnter={() => setOpen(true)}
       onMouseLeave={() => setOpen(false)}
-      style={{ cursor: "pointer" }}
     >
       <img
         src="/profile/profile.png"
@@ -104,14 +104,11 @@ function AvatarMenu({ user, onLogout }) {
                 overflow: "hidden",
                 textOverflow: "ellipsis",
               }}
-              title={user?.email}
             >
               {user?.name || user?.email || "Пользователь"}
             </div>
           </div>
-
           <div style={{ height: 1, background: "#2a2a2a", margin: "6px 0" }} />
-
           <a
             href="/account"
             style={{
@@ -150,9 +147,7 @@ function AvatarMenu({ user, onLogout }) {
           >
             Уведомления
           </a>
-
           <div style={{ height: 1, background: "#2a2a2a", margin: "10px 0" }} />
-
           <a
             href="/dashboard"
             style={{
@@ -165,9 +160,7 @@ function AvatarMenu({ user, onLogout }) {
           >
             Панель
           </a>
-
           <div style={{ height: 1, background: "#2a2a2a", margin: "10px 0" }} />
-
           <button
             type="button"
             onClick={onLogout}
@@ -191,7 +184,6 @@ function AvatarMenu({ user, onLogout }) {
   );
 }
 
-/* ---------- шапка ---------- */
 export default function Header() {
   const [servicesOpen, setServicesOpen] = React.useState(false);
   const [activeLeft, setActiveLeft] = React.useState(0);
@@ -200,144 +192,86 @@ export default function Header() {
   // === auth state ===
   const [user, setUser] = React.useState(null);
   const accessRef = React.useRef(null);
+  const bootRef = React.useRef(false); // защита от двойного запуска в StrictMode
 
-  // Инициализация: пробуем взять токен из session/localStorage (локалка),
-  // если нет — делаем refresh (прод).
   React.useEffect(() => {
-    (async () => {
+    if (bootRef.current) return;
+    bootRef.current = true;
+
+    const bootstrap = async () => {
       try {
-        accessRef.current =
-          sessionStorage.getItem("auth:accessToken") ||
-          localStorage.getItem("auth:accessToken") ||
-          null;
-      } catch {}
+        // 1) пробуем взять access из sessionStorage (быстрый путь)
+        const t0 = sessionStorage.getItem("auth:accessToken");
+        if (t0) accessRef.current = t0;
 
-      if (!accessRef.current) {
-        const t = await apiRefresh(); // вернёт новый access, если есть rt-кука
-        if (t) {
-          accessRef.current = t;
-          try {
-            sessionStorage.setItem("auth:accessToken", t);
-          } catch {}
+        // 2) если нет — деликатно пробуем refresh (с таймаутом)
+        if (!accessRef.current) {
+          const t = await apiRefresh(1200);
+          if (t) {
+            accessRef.current = t;
+            try { sessionStorage.setItem("auth:accessToken", t); } catch {}
+          }
         }
-      }
 
-      if (accessRef.current) {
-        const u =
-          // если логин модалка уже положила user в хранилище — используем сразу
-          (() => {
-            try {
-              const raw =
-                sessionStorage.getItem("auth:user") ||
-                localStorage.getItem("auth:user");
-              return raw ? JSON.parse(raw) : null;
-            } catch {
-              return null;
-            }
-          })() || (await apiMe(accessRef.current));
-
-        if (u) {
-          setUser(u);
-          // синхронизируем user в sessionStorage
-          try {
-            sessionStorage.setItem("auth:user", JSON.stringify(u));
-          } catch {}
-        } else {
-          // на всякий случай — ещё одна попытка через refresh
-          const t2 = await apiRefresh();
-          if (t2) {
-            accessRef.current = t2;
-            try {
-              sessionStorage.setItem("auth:accessToken", t2);
-            } catch {}
-            const u2 = await apiMe(t2);
-            if (u2) {
-              setUser(u2);
-              try {
-                sessionStorage.setItem("auth:user", JSON.stringify(u2));
-              } catch {}
+        // 3) если токен есть — грузим профиль
+        if (accessRef.current) {
+          const u = await apiMe(accessRef.current);
+          if (u) setUser(u);
+          else {
+            // одноразовая повторная попытка refresh→me
+            const t2 = await apiRefresh(1200);
+            if (t2) {
+              accessRef.current = t2;
+              try { sessionStorage.setItem("auth:accessToken", t2); } catch {}
+              const u2 = await apiMe(t2);
+              if (u2) setUser(u2);
             }
           }
         }
-      }
-    })();
+      } catch {}
+    };
 
-    // При возврате во вкладку — обновим состояние (полезно после логина в другой вкладке)
+    // запускаем после первого пэйнта, чтобы не мешать старту UI
+    const start = () => bootstrap();
+    if ("requestIdleCallback" in window) {
+      window.requestIdleCallback(start, { timeout: 500 });
+    } else {
+      setTimeout(start, 0);
+    }
+
+    // автоактуализация при возврате во вкладку (лёгкая попытка)
     const onFocus = async () => {
       if (user) return;
-      const t =
-        (sessionStorage.getItem("auth:accessToken") ||
-          localStorage.getItem("auth:accessToken")) ??
-        (await apiRefresh());
+      const t = await apiRefresh(800);
       if (t) {
         accessRef.current = t;
-        try {
-          sessionStorage.setItem("auth:accessToken", t);
-        } catch {}
-        const u =
-          (() => {
-            try {
-              const raw =
-                sessionStorage.getItem("auth:user") ||
-                localStorage.getItem("auth:user");
-              return raw ? JSON.parse(raw) : null;
-            } catch {
-              return null;
-            }
-          })() || (await apiMe(t));
-        if (u) {
-          setUser(u);
-          try {
-            sessionStorage.setItem("auth:user", JSON.stringify(u));
-          } catch {}
-        }
+        try { sessionStorage.setItem("auth:accessToken", t); } catch {}
+        const u = await apiMe(t);
+        if (u) setUser(u);
       }
     };
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
   }, []); // eslint-disable-line
 
-  // Слушатель внешнего события + helper для модалок логина/регистрации
+  // внешнее событие из модалок
   React.useEffect(() => {
     const onAuth = (e) => {
       const newUser = e?.detail?.user || null;
       const newToken = e?.detail?.accessToken || null;
-
       if (newToken) {
         accessRef.current = newToken;
-        try {
-          sessionStorage.setItem("auth:accessToken", newToken);
-        } catch {}
-        try {
-          localStorage.setItem("auth:accessToken", newToken);
-        } catch {}
+        try { sessionStorage.setItem("auth:accessToken", newToken); } catch {}
       }
-      if (newUser) {
-        try {
-          sessionStorage.setItem("auth:user", JSON.stringify(newUser));
-        } catch {}
-        try {
-          localStorage.setItem("auth:user", JSON.stringify(newUser));
-        } catch {}
-      }
-
       setUser(newUser);
       if (!newUser) {
-        try {
-          sessionStorage.removeItem("auth:accessToken");
-          sessionStorage.removeItem("auth:user");
-          localStorage.removeItem("auth:accessToken");
-          localStorage.removeItem("auth:user");
-        } catch {}
+        try { sessionStorage.removeItem("auth:accessToken"); } catch {}
         accessRef.current = null;
       }
     };
-
     window.addEventListener("auth:changed", onAuth);
     window.setHeaderUser = (u, token) =>
-      window.dispatchEvent(
-        new CustomEvent("auth:changed", { detail: { user: u, accessToken: token } })
-      );
+      window.dispatchEvent(new CustomEvent("auth:changed", { detail: { user: u, accessToken: token } }));
     return () => {
       window.removeEventListener("auth:changed", onAuth);
       delete window.setHeaderUser;
@@ -345,20 +279,13 @@ export default function Header() {
   }, []);
 
   async function handleLogout() {
-    try {
-      await fetch(api("/auth/logout"), { method: "POST", credentials: "include" });
-    } catch {}
+    try { await fetch(api("/auth/logout"), { method: "POST", credentials: "include" }); } catch {}
     setUser(null);
     accessRef.current = null;
-    try {
-      sessionStorage.removeItem("auth:accessToken");
-      sessionStorage.removeItem("auth:user");
-      localStorage.removeItem("auth:accessToken");
-      localStorage.removeItem("auth:user");
-    } catch {}
+    try { sessionStorage.removeItem("auth:accessToken"); } catch {}
   }
 
-  // ==== дальше — твоя шапка как была ====
+  // ==== далее — твоя шапка как была ====
   const actionsNodeRef = React.useRef(null);
   const actionsHomeRef = React.useRef(null);
   const panelActionsRef = React.useRef(null);
@@ -383,10 +310,7 @@ export default function Header() {
   React.useEffect(() => {
     const onKey = (e) => {
       const key = (e.key || "").toLowerCase();
-      if (e.altKey && key === "s") {
-        e.preventDefault();
-        setServicesOpen((v) => !v);
-      }
+      if (e.altKey && key === "s") { e.preventDefault(); setServicesOpen(v => !v); }
       if (key === "escape") setServicesOpen(false);
     };
     window.addEventListener("keydown", onKey);
@@ -396,7 +320,7 @@ export default function Header() {
   React.useEffect(() => {
     window.openServicesPanel = () => setServicesOpen(true);
     window.closeServicesPanel = () => setServicesOpen(false);
-    window.toggleServicesPanel = () => setServicesOpen((v) => !v);
+    window.toggleServicesPanel = () => setServicesOpen(v => !v);
     return () => {
       delete window.openServicesPanel;
       delete window.closeServicesPanel;
@@ -407,10 +331,7 @@ export default function Header() {
   React.useEffect(() => {
     try {
       const p = new URLSearchParams(window.location.search);
-      if (
-        p.get("open") === "services" ||
-        (window.location.hash || "").includes("open-services")
-      ) {
+      if (p.get("open") === "services" || (window.location.hash || "").includes("open-services")) {
         setServicesOpen(true);
       }
     } catch {}
@@ -420,9 +341,7 @@ export default function Header() {
     if (!servicesOpen) return;
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = prev;
-    };
+    return () => { document.body.style.overflow = prev; };
   }, [servicesOpen]);
 
   React.useEffect(() => {
@@ -498,9 +417,7 @@ export default function Header() {
       "Пуско-наладка инженерных систем|",
     ],
   };
-  React.useEffect(() => {
-    setActiveRight(0);
-  }, [activeLeft]);
+  React.useEffect(() => { setActiveRight(0); }, [activeLeft]);
 
   const leftItems = [
     { img: "/electricity.png", label: "Электромонтаж" },
@@ -509,30 +426,20 @@ export default function Header() {
     { img: "/design.png", label: "Проектирование" },
     { img: "/construction.png", label: "Общестрой" },
   ];
+  const rightRows = dataRightByLeft[activeLeft];
 
   const HEADER_SEARCH_BG = "#f8f8f8";
 
   return (
-    <header
-      id="site-header-static"
-      className="z-50"
-      style={{ position: "relative", background: "transparent", ...VARS }}
-    >
+    <header id="site-header-static" className="z-50" style={{ position: "relative", background: "transparent", ...VARS }}>
       <div className="container-header" style={{ height: "var(--header-height)" }}>
         <div className="header-row flex items-center gap-4">
           {/* ЛОГО */}
-          <div
-            className="logo-wrap"
-            ref={logoHomeRef}
-            style={{ display: "flex", alignItems: "center" }}
-          >
+          <div className="logo-wrap" ref={logoHomeRef} style={{ display: "flex", alignItems: "center" }}>
             {servicesOpen && <div style={{ width: (logoPlaceholderW || 24), height: 1 }} />}
             <div
               ref={logoNodeRef}
-              style={{
-                transform: servicesOpen ? "translateX(-90px)" : "none",
-                transition: "transform .22s ease",
-              }}
+              style={{ transform: servicesOpen ? "translateX(-90px)" : "none", transition: "transform .22s ease" }}
             >
               <a href="/" className="flex items-center gap-2">
                 <span className="logo-c">c.</span>
@@ -545,48 +452,25 @@ export default function Header() {
             <a
               href="#services"
               className="nav-link"
-              onClick={(e) => {
-                e.preventDefault();
-                setServicesOpen((v) => !v);
-              }}
+              onClick={(e) => { e.preventDefault(); setServicesOpen(v => !v); }}
             >
               <span className="text-grad-452f2d">Услуги</span>
               <ChevronDown size={16} className="text-[#452f2d]" />
             </a>
-            <a href="#about" className="nav-link">
-              <span className="text-grad-452f2d">О нас</span>
-            </a>
+            <a href="#about" className="nav-link"><span className="text-grad-452f2d">О нас</span></a>
             <a href="#projects" className="nav-link">
               <span className="text-grad-452f2d">Проекты</span>
               <span className="badge-new">New</span>
             </a>
-            <a href="#contact" className="nav-link">
-              <span className="text-grad-452f2d">Контакты</span>
-            </a>
-            <a href="#reviews" className="nav-link">
-              <span className="text-grad-452f2d">Отзывы</span>
-            </a>
+            <a href="#contact" className="nav-link"><span className="text-grad-452f2d">Контакты</span></a>
+            <a href="#reviews" className="nav-link"><span className="text-grad-452f2d">Отзывы</span></a>
           </nav>
 
           {/* Поиск */}
           <div className="flex-1 hidden md:flex justify-center">
-            <div
-              className="search-wrap w-full"
-              style={{
-                maxWidth: "var(--header-search-max)",
-                height: "var(--header-search-height)",
-                borderRadius: 10,
-                background: HEADER_SEARCH_BG,
-              }}
-            >
+            <div className="search-wrap w-full" style={{ maxWidth: "var(--header-search-max)", height: "var(--header-search-height)", borderRadius: 10, background: HEADER_SEARCH_BG }}>
               <Search size={18} className="text-[#4a4a4a]" />
-              <input
-                type="text"
-                className="search-input"
-                placeholder="Поиск"
-                aria-label="Поиск"
-                style={{ background: "transparent" }}
-              />
+              <input type="text" className="search-input" placeholder="Поиск" aria-label="Поиск" style={{ background: "transparent" }} />
             </div>
           </div>
 
@@ -598,10 +482,7 @@ export default function Header() {
                   <a
                     href="/login"
                     className="nav-link"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      window.openModal && window.openModal("login");
-                    }}
+                    onClick={(e) => { e.preventDefault(); window.openModal && window.openModal("login"); }}
                   >
                     <span className="text-grad-222">Вход</span>
                   </a>
@@ -620,12 +501,8 @@ export default function Header() {
                     <span className="text-grad-222">Регистрация</span>
                   </a>
                   <div className="actions-right flex items-center gap-4">
-                    <a href="/pro" className="btn-pro">
-                      Ищу работу
-                    </a>
-                    <a href="/submit" className="btn-submit">
-                      Оставить заявку
-                    </a>
+                    <a href="/pro" className="btn-pro">Ищу работу</a>
+                    <a href="/submit" className="btn-submit">Оставить заявку</a>
                   </div>
                 </>
               ) : (
@@ -636,9 +513,7 @@ export default function Header() {
 
           {/* Мобилка */}
           <div className="ml-auto flex md:hidden items-center gap-2">
-            <a href="/pro" className="btn-pro" style={{ height: "var(--header-search-height)" }}>
-              Ищу работу
-            </a>
+            <a href="/pro" className="btn-pro" style={{ height: "var(--header-search-height)" }}>Ищу работу</a>
           </div>
         </div>
       </div>
@@ -648,105 +523,38 @@ export default function Header() {
         <>
           <div
             className="services-overlay"
-            style={{
-              position: "fixed",
-              inset: 0,
-              zIndex: 60,
-              background: "linear-gradient(to right,#454545 0%,#454545 100%)",
-            }}
+            style={{ position: "fixed", inset: 0, zIndex: 60, background: "linear-gradient(to right,#454545 0%,#454545 100%)" }}
             onClick={() => setServicesOpen(false)}
           />
-          <div
-            className="services-layer"
-            style={{ position: "absolute", left: 0, right: 0, top: "calc(100% - 57px)", zIndex: 61 }}
-            onClick={() => setServicesOpen(false)}
-          >
-            <div
-              className="panel-gutter"
-              style={{ padding: "0 52px", boxSizing: "border-box", width: "100%" }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div
-                className="services-panel services-panel--extend-left"
-                style={{
-                  position: "relative",
-                  left: 0,
-                  top: 0,
-                  transform: "none",
-                  width: "100%",
-                  marginTop: "var(--panel-top-shift)",
-                  marginBottom: "var(--panel-bottom-gap)",
-                }}
-              >
+          <div className="services-layer" style={{ position: "absolute", left: 0, right: 0, top: "calc(100% - 57px)", zIndex: 61 }} onClick={() => setServicesOpen(false)}>
+            <div className="panel-gutter" style={{ padding: "0 52px", boxSizing: "border-box", width: "100%" }} onClick={(e) => e.stopPropagation()}>
+              <div className="services-panel services-panel--extend-left" style={{ position: "relative", left: 0, top: 0, transform: "none", width: "100%", marginTop: "var(--panel-top-shift)", marginBottom: "var(--panel-bottom-gap)" }}>
                 <div className="panel-bar flex items-center justify-between mb-3">
                   <div className="panel-bar-left flex items-center gap-2" ref={panelLogoRef} />
                   <div className="panel-bar-right flex items-center gap-4" ref={panelActionsRef} />
                 </div>
-
                 <div className="services-top">
-                  <div
-                    className="services-search-holder"
-                    style={{
-                      maxWidth: "var(--panel-search-max)",
-                      marginLeft: "var(--panel-search-left)",
-                      marginRight: "var(--panel-search-right)",
-                      width: "100%",
-                    }}
-                  >
-                    <div
-                      className="search-wrap search-wrap--white"
-                      style={{
-                        height: "var(--header-search-height)",
-                        borderRadius: 10,
-                        clipPath: "inset(0 16px 0 0 round 10px)",
-                      }}
-                    >
+                  <div className="services-search-holder" style={{ maxWidth: "var(--panel-search-max)", marginLeft: "var(--panel-search-left)", marginRight: "var(--panel-search-right)", width: "100%" }}>
+                    <div className="search-wrap search-wrap--white" style={{ height: "var(--header-search-height)", borderRadius: 10, clipPath: "inset(0 16px 0 0 round 10px)" }}>
                       <Search size={18} className="text-[#4a4a4a]" />
-                      <input
-                        type="text"
-                        className="search-input search-input--dark"
-                        placeholder="Поиск"
-                        aria-label="Поиск"
-                        style={{ background: "transparent" }}
-                      />
+                      <input type="text" className="search-input search-input--dark" placeholder="Поиск" aria-label="Поиск" style={{ background: "transparent" }} />
                     </div>
                   </div>
                 </div>
-
                 <div className="services-body">
                   <div className="svc-left">
                     {leftItems.map((it, i) => (
-                      <a
-                        key={it.label}
-                        className={`svc-left-item ${activeLeft === i ? "is-active" : ""}`}
-                        onClick={() => setActiveLeft(i)}
-                        role="button"
-                        tabIndex={0}
-                      >
-                        <img
-                          src={it.img}
-                          alt=""
-                          width={16}
-                          height={16}
-                          className="svc-ico-img"
-                          loading="eager"
-                        />
+                      <a key={it.label} className={`svc-left-item ${activeLeft === i ? "is-active" : ""}`} onClick={() => setActiveLeft(i)} role="button" tabIndex={0}>
+                        <img src={it.img} alt="" width={16} height={16} className="svc-ico-img" loading="eager" />
                         <span>{it.label}</span>
                       </a>
                     ))}
                   </div>
-
                   <div className="svc-right">
-                    {dataRightByLeft[activeLeft].map((row, i) => {
+                    {rightRows.map((row, i) => {
                       const [label, num = ""] = row.split("|");
                       return (
-                        <div
-                          key={`${activeLeft}-${label}`}
-                          className={`svc-row ${activeRight === i ? "is-active" : ""}`}
-                          onClick={() => setActiveRight(i)}
-                          role="button"
-                          tabIndex={0}
-                        >
+                        <div key={`${activeLeft}-${label}`} className={`svc-row ${activeRight === i ? "is-active" : ""}`} onClick={() => setActiveRight(i)} role="button" tabIndex={0}>
                           <span className="svc-label">{label}</span>
                           <span className="svc-num">{num}</span>
                         </div>
