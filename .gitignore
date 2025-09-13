@@ -1,2 +1,7 @@
 server/ycf-send/.env
 server/ycf-send/function.zip
+
+# env files
+.env
+.env.local
+
