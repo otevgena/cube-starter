@@ -13,10 +13,21 @@
       href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@300;400;500;600;700&display=swap"
       rel="stylesheet"
     />
+
+    <!-- Укажем базу API для локальной разработки -->
+    <script>
+      (function () {
+        var host = location.hostname;
+        var isLocal = host === 'localhost' || host === '127.0.0.1';
+        // В проде ничего не трогаем — Header возьмёт дефолт https://api.cube-tech.ru
+        if (isLocal) {
+          window.__API_BASE__ = 'https://api.cube-tech.ru';
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
-
