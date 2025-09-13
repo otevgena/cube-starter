@@ -1,6 +1,7 @@
 // src/components/common/Modals.jsx
 import React from "react";
 import { createPortal } from "react-dom";
+import { registerUser, loginUser, auth } from '@/lib/auth';
 
 /* ===== Хост модалок (API: window.openModal("register" | "login" | "forgot", { ... })) ===== */
 export default function ModalsHost() {
@@ -21,39 +22,38 @@ export default function ModalsHost() {
   }, [view]);
 
   // блокируем скролл под модалкой
-// Блокируем скролл без "прыжка": фикс-лок со сохранением Y
-React.useEffect(() => {
-  if (!view) return;
+  // Блокируем скролл без "прыжка": фикс-лок со сохранением Y
+  React.useEffect(() => {
+    if (!view) return;
 
-  const scrollY = window.scrollY || window.pageYOffset || 0;
+    const scrollY = window.scrollY || window.pageYOffset || 0;
 
-  const prev = {
-    overflow: document.body.style.overflow,
-    position: document.body.style.position,
-    top:      document.body.style.top,
-    width:    document.body.style.width,
-  };
+    const prev = {
+      overflow: document.body.style.overflow,
+      position: document.body.style.position,
+      top:      document.body.style.top,
+      width:    document.body.style.width,
+    };
 
-  // фиксируем body, сохраняем текущую позицию в top
-  document.body.style.overflow = "hidden";
-  document.body.style.position = "fixed";
-  document.body.style.top      = `-${scrollY}px`;
-  document.body.style.width    = "100%";
+    // фиксируем body, сохраняем текущую позицию в top
+    document.body.style.overflow = "hidden";
+    document.body.style.position = "fixed";
+    document.body.style.top      = `-${scrollY}px`;
+    document.body.style.width    = "100%";
 
-  return () => {
-    // восстанавливаем стили
-    document.body.style.overflow = prev.overflow;
-    document.body.style.position = prev.position;
-    const top = document.body.style.top;
-    document.body.style.top      = prev.top;
-    document.body.style.width    = prev.width;
+    return () => {
+      // восстанавливаем стили
+      document.body.style.overflow = prev.overflow;
+      document.body.style.position = prev.position;
+      const top = document.body.style.top;
+      document.body.style.top      = prev.top;
+      document.body.style.width    = prev.width;
 
-    // возвращаемся туда же
-    const y = Math.max(0, parseInt((top || "0").replace("px",""), 10) * -1);
-    window.scrollTo(0, y);
-  };
-}, [view]);
-
+      // возвращаемся туда же
+      const y = Math.max(0, parseInt((top || "0").replace("px",""), 10) * -1);
+      window.scrollTo(0, y);
+    };
+  }, [view]);
 
   if (!view) return null;
 
@@ -227,12 +227,15 @@ function RegisterForm({ email = "" }) {
     user: "", email, pass: "", pass2: "", news: false, agree: false,
   });
   const [errors, setErrors] = React.useState({});
+  const [busy, setBusy] = React.useState(false);
 
   const set = (k, v) => setForm((s) => ({ ...s, [k]: v }));
   const isEmail = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((v || "").trim());
 
-  const onSubmit = (e) => {
+  const onSubmit = async (e) => {
     e.preventDefault();
+    if (busy) return;
+
     const es = {};
     if (!form.user.trim()) es.user = "Это значение не должно быть пустым.";
     if (!form.email.trim()) es.email = "Это значение не должно быть пустым.";
@@ -244,11 +247,36 @@ function RegisterForm({ email = "" }) {
     setErrors(es);
     if (Object.keys(es).length) return;
 
-    window.openModal("custom", {
-      title: "Черновой сабмит",
-      content: <div>Готово! Подключу реальную отправку, когда дадите эндпоинт.</div>,
-      width: 560,
-    });
+    try {
+      setBusy(true);
+      const { user, accessToken } = await registerUser({
+        name: form.user.trim(),
+        email: form.email.trim(),
+        password: form.pass
+      });
+      auth.set(accessToken, false);
+
+      window.openModal("custom", {
+        title: "Аккаунт создан",
+        content: (
+          <div>
+            Добро пожаловать, {user.name || user.email}!<br/>
+            Вы вошли автоматически. Можно закрыть это окно.
+          </div>
+        ),
+        width: 560,
+      });
+    } catch (err) {
+      if (err.status === 409) {
+        setErrors({ ...es, email: "Аккаунт с такой почтой уже зарегистрирован." });
+      } else if (err.status === 400) {
+        setErrors({ ...es, email: "Проверьте корректность введённых данных." });
+      } else {
+        window.openModal("custom", { title: "Ошибка", content: <div>{err.message}</div>, width: 560 });
+      }
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -361,7 +389,7 @@ function RegisterForm({ email = "" }) {
 
           {/* Кнопка */}
           <div className="r-actions r-span2">
-            <button className="m-btn r-submit" type="submit">
+            <button className="m-btn r-submit" type="submit" disabled={busy}>
               Создать аккаунт
             </button>
           </div>
@@ -390,22 +418,43 @@ function LoginForm() {
     id: "", pass: "", keep: false,
   });
   const [errors, setErrors] = React.useState({});
+  const [busy, setBusy] = React.useState(false);
 
   const set = (k, v) => setForm((s)=>({ ...s, [k]: v }));
 
-  const onSubmit = (e) => {
+  const onSubmit = async (e) => {
     e.preventDefault();
+    if (busy) return;
+
     const es = {};
     if (!form.id.trim())   es.id   = "Это значение не должно быть пустым.";
     if (!form.pass.trim()) es.pass = "Это значение не должно быть пустым.";
     setErrors(es);
     if (Object.keys(es).length) return;
 
-    window.openModal("custom", {
-      title: "Вход (демо)",
-      content: <div>Пользователь «{form.id}» вошёл (демо). Подключим API по готовности.</div>,
-      width: 560,
-    });
+    try {
+      setBusy(true);
+      const { user } = await loginUser({
+        idOrEmail: form.id.trim(),
+        password:  form.pass,
+        remember:  !!form.keep
+      });
+      window.openModal("custom", {
+        title: "Готово",
+        content: <div>Здравствуйте, {user.name || user.email}! Вы успешно вошли.</div>,
+        width: 560,
+      });
+    } catch (err) {
+      if (err.status === 400) {
+        setErrors({ ...es, id: "Введите e-mail (сейчас вход по e-mail)." });
+      } else if (err.status === 401) {
+        setErrors({ id: "Неверный e-mail или пароль.", pass: "Проверьте пароль." });
+      } else {
+        window.openModal("custom", { title: "Ошибка", content: <div>{err.message}</div>, width: 560 });
+      }
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -471,7 +520,7 @@ function LoginForm() {
 
           {/* кнопка входа */}
           <div className="r-actions r-span2">
-            <button className="m-btn r-submit" type="submit">
+            <button className="m-btn r-submit" type="submit" disabled={busy}>
               Войти
             </button>
           </div>
@@ -654,11 +703,11 @@ function SharedFormStyles(){
       /* инфо-тексты и чекбоксы — 14px / 300 */
       .r-note{ margin: 6px 0 2px; font:300 14px/20px Inter,system-ui,sans-serif; color:#555; }
       .r-desc{
-  margin: 0 0 18px;   /* было 6px → стало 18px */
-  font: 600 14px/28px Inter,system-ui,sans-serif;
-  letter-spacing: normal;
-  color:#000;
-}
+        margin: 0 0 18px;   /* было 6px → стало 18px */
+        font: 600 14px/28px Inter,system-ui,sans-serif;
+        letter-spacing: normal;
+        color:#000;
+      }
 
       .r-check{ display:flex; align-items:center; gap:10px; color:#111; }
       .r-check > span{ font:300 14px/20px Inter,system-ui,sans-serif; }

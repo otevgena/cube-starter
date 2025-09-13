@@ -30,8 +30,16 @@ import VentilationServicesPage from '@/pages/services/ventilation/index.jsx'
 import DesignServicesPage from '@/pages/services/design/index.jsx' // NEW
 import ConstructionServicesPage from '@/pages/services/construction/index.jsx' // NEW
 
+// Регистрация
+import { auth } from '@/lib/auth';
+
 export default function App(){
   const [loading, setLoading] = useState(true);
+
+  // Bootstrap авторизации (теперь ХУК внутри компонента)
+  useEffect(() => {
+    auth.bootstrap();
+  }, []);
 
   // Текущий путь без начального слэша: "" для "/"
   const [path, setPath] = useState(() =>
@@ -164,7 +172,6 @@ export default function App(){
     if (path === 'services/design')       return <DesignServicesPage />; // NEW
     if (path === 'services/construction') return <ConstructionServicesPage />; // NEW
     if (path === 'pro') return <ProJobsPage />;
-
 
     // Главная
     return (
