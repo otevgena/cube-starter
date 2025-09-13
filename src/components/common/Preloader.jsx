@@ -64,10 +64,12 @@ export default function Preloader({ onReady, minMs = 1200 }) {
       try { addLink({ rel: "preload", as: "image", href }); } catch {}
     });
 
-    // 2) <link rel="preload"> для SVG как "document" (как у <object>)
-    ICON_SVGS.forEach((href) => {
-      try { addLink({ rel: "preload", as: "document", href, type: "image/svg+xml" }); } catch {}
-    });
+// 2) <link rel="preload"> для SVG: без недопустимого as=document
+// Достаточно as: "image" — валидно и без предупреждений.
+ICON_SVGS.forEach((href) => {
+  try { addLink({ rel: "preload", as: "image", href, type: "image/svg+xml" }); } catch {}
+});
+
 
     // 3) Тёплый прогрев: реальная загрузка тех же ресурсов
     const imgPromises = SERVICES_IMAGES.map(
@@ -99,7 +101,7 @@ export default function Preloader({ onReady, minMs = 1200 }) {
     // Минимальная длительность прелоадера (чтобы не мигал)
     const minDelay = new Promise((res) => setTimeout(res, minMs));
 
-    Promise.all([...imgPromises, ...svgPromises, minDelay]).then(() => {
+    Promise.all([...imgPromises, minDelay]).then(() => {
       if (cancelled) return;
       cleanup();
       if (!calledRef.current) {

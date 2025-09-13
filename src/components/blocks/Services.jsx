@@ -16,19 +16,24 @@ function useHeadPreload({ images = [], svgDocs = [] }) {
       head.appendChild(l);
       added.push(l);
     };
-    images.forEach((href) => { try { add({ rel: "preload", as: "image", href }); } catch {} });
-    svgDocs.forEach((href) => {
-      try {
-        add({ rel: "preload", as: "document", href, type: "image/svg+xml" });
-        const pf = document.createElement("link");
-        pf.rel = "prefetch"; pf.href = href;
-        document.head.appendChild(pf);
-        added.push(pf);
-      } catch {}
-    });
-    return () => { added.forEach((el) => el.parentNode && el.parentNode.removeChild(el)); };
+
+    try {
+      // Прелоад картинок — ок
+      images.forEach((href) => { add({ rel: "preload", as: "image", href }); });
+
+      // БЫЛО: as: "document" (некорректно для preload).
+      // СТАЛО: as: "image" (валидно и без варнингов).
+      svgDocs.forEach((href) => {
+        add({ rel: "preload", as: "image", href, type: "image/svg+xml" });
+      });
+    } catch {}
+
+    return () => {
+      try { added.forEach((l) => l.remove()); } catch {}
+    };
   }, [images, svgDocs]);
 }
+
 
 function WarmSVGObjects({ svgs, batch = 4, delay = 60 }) {
   const [mounted, setMounted] = React.useState([]);
