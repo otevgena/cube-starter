@@ -2,41 +2,233 @@
 import React from "react";
 import { ChevronDown, Search } from "lucide-react";
 
+/* === API base (важно для localhost:5173) ===
+   По умолчанию шлём на прод: https://api.cube-tech.ru
+   Для гибкости можно в index.html прописать:
+   <script>window.__API_BASE__='https://api.cube-tech.ru'</script>
+*/
+const API_BASE =
+  (typeof window !== "undefined" && window.__API_BASE__) ||
+  "https://api.cube-tech.ru";
+
+const api = (p) => `${API_BASE}${p}`;
+
+async function apiRefresh() {
+  try {
+    const r = await fetch(api("/auth/refresh"), {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+    });
+    if (!r.ok) return null;
+    const j = await r.json().catch(() => null);
+    return j?.accessToken || null;
+  } catch {
+    return null;
+  }
+}
+async function apiMe(token) {
+  try {
+    const r = await fetch(api("/auth/me"), {
+      method: "GET",
+      headers: { Authorization: `Bearer ${token}` },
+      credentials: "include",
+    });
+    if (!r.ok) return null;
+    const j = await r.json().catch(() => null);
+    return j?.user || null;
+  } catch {
+    return null;
+  }
+}
+
+function AvatarMenu({ user, onLogout }) {
+  const [open, setOpen] = React.useState(false);
+  const wrapRef = React.useRef(null);
+  React.useEffect(() => {
+    function onDoc(e) {
+      if (!wrapRef.current) return;
+      if (!wrapRef.current.contains(e.target)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, []);
+  return (
+    <div
+      ref={wrapRef}
+      className="relative"
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+    >
+      <img
+        src="/profile/profile.png"
+        alt={user?.name || user?.email || "Profile"}
+        width={32}
+        height={32}
+        style={{
+          display: "block",
+          width: 32,
+          height: 32,
+          borderRadius: "50%",
+          objectFit: "cover",
+        }}
+      />
+      {open && (
+        <div
+          style={{
+            position: "absolute",
+            right: 0,
+            top: "calc(100% + 10px)",
+            width: 137,
+            minHeight: 307,
+            background: "#111",
+            color: "#fff",
+            borderRadius: 14,
+            padding: 12,
+            boxShadow: "0 14px 40px rgba(0,0,0,0.45)",
+            zIndex: 80,
+            fontWeight: 300,
+            fontSize: 14,
+          }}
+        >
+          <div style={{ padding: "8px 8px 12px 8px" }}>
+            <div style={{ opacity: 0.7, marginBottom: 4 }}>В аккаунте</div>
+            <div style={{ fontWeight: 400, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              {user?.name || user?.email || "Пользователь"}
+            </div>
+          </div>
+          <div style={{ height: 1, background: "#2a2a2a", margin: "6px 0" }} />
+          <a href="/account" style={{ padding: "10px 8px", borderRadius: 8, display: "block", color: "#fff", textDecoration: "none" }}>
+            Профиль
+          </a>
+          <a href="/collections" style={{ padding: "10px 8px", borderRadius: 8, display: "block", color: "#fff", textDecoration: "none", opacity: .85 }}>
+            Коллекции
+          </a>
+          <a href="/notifications" style={{ padding: "10px 8px", borderRadius: 8, display: "block", color: "#fff", textDecoration: "none", opacity: .85 }}>
+            Уведомления
+          </a>
+          <div style={{ height: 1, background: "#2a2a2a", margin: "10px 0" }} />
+          <a href="/dashboard" style={{ padding: "10px 8px", borderRadius: 8, display: "block", color: "#fff", textDecoration: "none" }}>
+            Панель
+          </a>
+          <div style={{ height: 1, background: "#2a2a2a", margin: "10px 0" }} />
+          <button
+            type="button"
+            onClick={onLogout}
+            style={{ width: "100%", textAlign: "left", padding: "10px 8px", borderRadius: 8, background: "transparent", border: "none", color: "#fff", cursor: "pointer", fontWeight: 400 }}
+          >
+            Выход
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Header() {
   const [servicesOpen, setServicesOpen] = React.useState(false);
   const [activeLeft, setActiveLeft] = React.useState(0);
   const [activeRight, setActiveRight] = React.useState(0);
 
-  // узлы для «телепорта» правого блока и логотипа
+  // === auth state ===
+  const [user, setUser] = React.useState(null);
+  const accessRef = React.useRef(null);
+
+  React.useEffect(() => {
+    (async () => {
+      try {
+        const t = sessionStorage.getItem("auth:accessToken");
+        if (t) accessRef.current = t;
+      } catch {}
+      if (!accessRef.current) {
+        const t = await apiRefresh();
+        if (t) {
+          accessRef.current = t;
+          try { sessionStorage.setItem("auth:accessToken", t); } catch {}
+        }
+      }
+      if (accessRef.current) {
+        const u = await apiMe(accessRef.current);
+        if (u) setUser(u);
+        else {
+          const t2 = await apiRefresh();
+          if (t2) {
+            accessRef.current = t2;
+            try { sessionStorage.setItem("auth:accessToken", t2); } catch {}
+            const u2 = await apiMe(t2);
+            if (u2) setUser(u2);
+          }
+        }
+      }
+    })();
+    // на всякий случай: при возврате во вкладку — актуализируемся
+    const onFocus = async () => {
+      if (user) return;
+      const t = await apiRefresh();
+      if (t) {
+        accessRef.current = t;
+        try { sessionStorage.setItem("auth:accessToken", t); } catch {}
+        const u = await apiMe(t);
+        if (u) setUser(u);
+      }
+    };
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, []); // eslint-disable-line
+
+  // слушатель внешнего события (можно дергать из формы логина)
+  React.useEffect(() => {
+    const onAuth = (e) => {
+      const newUser = e?.detail?.user || null;
+      const newToken = e?.detail?.accessToken || null;
+      if (newToken) {
+        accessRef.current = newToken;
+        try { sessionStorage.setItem("auth:accessToken", newToken); } catch {}
+      }
+      setUser(newUser);
+      if (!newUser) {
+        try { sessionStorage.removeItem("auth:accessToken"); } catch {}
+        accessRef.current = null;
+      }
+    };
+    window.addEventListener("auth:changed", onAuth);
+    window.setHeaderUser = (u, token) =>
+      window.dispatchEvent(new CustomEvent("auth:changed", { detail: { user: u, accessToken: token } }));
+    return () => {
+      window.removeEventListener("auth:changed", onAuth);
+      delete window.setHeaderUser;
+    };
+  }, []);
+
+  async function handleLogout() {
+    try { await fetch(api("/auth/logout"), { method: "POST", credentials: "include" }); } catch {}
+    setUser(null);
+    accessRef.current = null;
+    try { sessionStorage.removeItem("auth:accessToken"); } catch {}
+  }
+
+  // ==== дальше — твоя шапка как была (без функциональных изменений) ====
   const actionsNodeRef = React.useRef(null);
   const actionsHomeRef = React.useRef(null);
   const panelActionsRef = React.useRef(null);
-
   const logoNodeRef = React.useRef(null);
   const logoHomeRef = React.useRef(null);
   const panelLogoRef = React.useRef(null);
-
-  // ширина плейсхолдера под логотип, чтобы меню не прыгало
   const [logoPlaceholderW, setLogoPlaceholderW] = React.useState(0);
 
   const VARS = {
     "--header-height": "64px",
     "--header-search-height": "42px",
     "--header-search-max": "560px",
-
-    // Панель
     "--panel-right-gap": "0px",
     "--panel-top-shift": "0px",
     "--panel-bottom-gap": "0px",
     "--panel-left-extra": "0px",
-
-    // Поиск в панели
     "--panel-search-max": "var(--header-search-max)",
     "--panel-search-left": "0px",
     "--panel-search-right": "0px",
   };
 
-  // хоткеи
   React.useEffect(() => {
     const onKey = (e) => {
       const key = (e.key || "").toLowerCase();
@@ -47,10 +239,9 @@ export default function Header() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  // хелперы
   React.useEffect(() => {
-    window.openServicesPanel   = () => setServicesOpen(true);
-    window.closeServicesPanel  = () => setServicesOpen(false);
+    window.openServicesPanel = () => setServicesOpen(true);
+    window.closeServicesPanel = () => setServicesOpen(false);
     window.toggleServicesPanel = () => setServicesOpen(v => !v);
     return () => {
       delete window.openServicesPanel;
@@ -59,7 +250,6 @@ export default function Header() {
     };
   }, []);
 
-  // открыть по query/hash
   React.useEffect(() => {
     try {
       const p = new URLSearchParams(window.location.search);
@@ -69,7 +259,6 @@ export default function Header() {
     } catch {}
   }, []);
 
-  // блокируем скролл под оверлеем
   React.useEffect(() => {
     if (!servicesOpen) return;
     const prev = document.body.style.overflow;
@@ -77,16 +266,13 @@ export default function Header() {
     return () => { document.body.style.overflow = prev; };
   }, [servicesOpen]);
 
-  // «телепорт» правого блока и логотипа (+ плейсхолдер под логотип)
   React.useEffect(() => {
-    const aNode  = actionsNodeRef.current;
-    const aHome  = actionsHomeRef.current;
+    const aNode = actionsNodeRef.current;
+    const aHome = actionsHomeRef.current;
     const aPanel = panelActionsRef.current;
-
-    const lNode  = logoNodeRef.current;
-    const lHome  = logoHomeRef.current;
+    const lNode = logoNodeRef.current;
+    const lHome = logoHomeRef.current;
     const lPanel = panelLogoRef.current;
-
     if (servicesOpen) {
       if (lNode) {
         const w = lNode.getBoundingClientRect().width;
@@ -101,7 +287,6 @@ export default function Header() {
     }
   }, [servicesOpen]);
 
-  // данные панели
   const dataRightByLeft = {
     0: [
       "Подключение объектов к электросетям|",
@@ -157,38 +342,26 @@ export default function Header() {
   React.useEffect(() => { setActiveRight(0); }, [activeLeft]);
 
   const leftItems = [
-    { img: "/electricity.png",   label: "Электромонтаж" },
-    { img: "/lowcurrent.png",    label: "Слаботочные сис." },
-    { img: "/climat.png",        label: "Климат системы" },
-    { img: "/design.png",        label: "Проектирование" },
-    { img: "/construction.png",  label: "Общестрой" },
+    { img: "/electricity.png", label: "Электромонтаж" },
+    { img: "/lowcurrent.png", label: "Слаботочные сис." },
+    { img: "/climat.png", label: "Климат системы" },
+    { img: "/design.png", label: "Проектирование" },
+    { img: "/construction.png", label: "Общестрой" },
   ];
   const rightRows = dataRightByLeft[activeLeft];
 
-  // === ЕДИНСТВЕННОЕ ИЗМЕНЕНИЕ ЦВЕТА ДЛЯ ШАПКИ ===
-  const HEADER_SEARCH_BG = "#f8f8f8"; // было #e9e9e9
-  // ==============================================
+  const HEADER_SEARCH_BG = "#f8f8f8";
 
   return (
-    <header
-      id="site-header-static"
-      className="z-50"
-      style={{ position: "relative", background: "transparent", ...VARS }}
-    >
-      {/* шапка всегда в DOM */}
+    <header id="site-header-static" className="z-50" style={{ position: "relative", background: "transparent", ...VARS }}>
       <div className="container-header" style={{ height: "var(--header-height)" }}>
         <div className="header-row flex items-center gap-4">
-          {/* ЛОГО — переносимое ядро */}
+          {/* ЛОГО */}
           <div className="logo-wrap" ref={logoHomeRef} style={{ display: "flex", alignItems: "center" }}>
-            {/* плейсхолдер сохраняет ширину места под логотип, пока он «в панели» */}
-            {servicesOpen && <div style={{ width: `${logoPlaceholderW || 24}px`, height: 1 }} />}
+            {servicesOpen && <div style={{ width: (logoPlaceholderW || 24), height: 1 }} />}
             <div
               ref={logoNodeRef}
-              // СМЕЩЕНИЕ ЛОГОТИПА: только при открытой панели уводим на 90px влево
-              style={{
-                transform: servicesOpen ? "translateX(-90px)" : "none",
-                transition: "transform .22s ease",
-              }}
+              style={{ transform: servicesOpen ? "translateX(-90px)" : "none", transition: "transform .22s ease" }}
             >
               <a href="/" className="flex items-center gap-2">
                 <span className="logo-c">c.</span>
@@ -215,63 +388,48 @@ export default function Header() {
             <a href="#reviews" className="nav-link"><span className="text-grad-452f2d">Отзывы</span></a>
           </nav>
 
-          {/* Поиск в шапке */}
+          {/* Поиск */}
           <div className="flex-1 hidden md:flex justify-center">
-            <div
-              className="search-wrap w-full"
-              style={{
-                maxWidth: "var(--header-search-max)",
-                height: "var(--header-search-height)",
-                borderRadius: 10,
-                // --- ВАЖНО: принудительно задаём фон поля поиска в шапке ---
-                background: HEADER_SEARCH_BG,
-              }}
-            >
+            <div className="search-wrap w-full" style={{ maxWidth: "var(--header-search-max)", height: "var(--header-search-height)", borderRadius: 10, background: HEADER_SEARCH_BG }}>
               <Search size={18} className="text-[#4a4a4a]" />
-              <input
-                type="text"
-                className="search-input"
-                placeholder="Поиск"
-                aria-label="Поиск"
-                // на случай если в CSS задан фон инпута
-                style={{ background: "transparent" }}
-              />
+              <input type="text" className="search-input" placeholder="Поиск" aria-label="Поиск" style={{ background: "transparent" }} />
             </div>
           </div>
 
-          {/* ПЕРЕНОСИМЫЙ правый блок */}
+          {/* Правый блок */}
           <div className="ml-auto hidden md:flex items-center gap-4" ref={actionsHomeRef}>
             <div ref={actionsNodeRef} className="flex items-center gap-4">
-              {/* раньше было: <a href="/login" className="nav-link"><span className="text-grad-222">Вход</span></a> */}
-              <a
-                href="/login"
-                className="nav-link"
-                onClick={(e) => { e.preventDefault(); window.openModal && window.openModal("login"); }}
-              >
-                <span className="text-grad-222">Вход</span>
-              </a>
-
-              {/* >>> ЕДИНСТВЕННАЯ ПРАВКА: открываем модалку «Регистрация» <<< */}
-              <a
-                href="/register"
-                className="nav-link"
-                onClick={(e) => {
-                  e.preventDefault();
-                  if (typeof window.openModal === "function") {
-                    window.openModal("register", { email: "" }); // при желании подставь e-mail
-                  } else {
-                    // если по какой-то причине хост модалок не смонтирован — обычный переход
-                    window.location.href = "/register";
-                  }
-                }}
-              >
-                <span className="text-grad-222">Регистрация</span>
-              </a>
-
-              <div className="actions-right flex items-center gap-4">
-                <a href="/pro" className="btn-pro">Ищу работу</a>
-                <a href="/submit" className="btn-submit">Оставить заявку</a>
-              </div>
+              {!user ? (
+                <>
+                  <a
+                    href="/login"
+                    className="nav-link"
+                    onClick={(e) => { e.preventDefault(); window.openModal && window.openModal("login"); }}
+                  >
+                    <span className="text-grad-222">Вход</span>
+                  </a>
+                  <a
+                    href="/register"
+                    className="nav-link"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      if (typeof window.openModal === "function") {
+                        window.openModal("register", { email: "" });
+                      } else {
+                        window.location.href = "/register";
+                      }
+                    }}
+                  >
+                    <span className="text-grad-222">Регистрация</span>
+                  </a>
+                  <div className="actions-right flex items-center gap-4">
+                    <a href="/pro" className="btn-pro">Ищу работу</a>
+                    <a href="/submit" className="btn-submit">Оставить заявку</a>
+                  </div>
+                </>
+              ) : (
+                <AvatarMenu user={user} onLogout={handleLogout} />
+              )}
             </div>
           </div>
 
@@ -282,125 +440,49 @@ export default function Header() {
         </div>
       </div>
 
-      {/* ====== слой панели ====== */}
+      {/* ===== слой панели ===== */}
       {servicesOpen && (
         <>
-          {/* затемнение всего фона */}
           <div
             className="services-overlay"
-            style={{
-              position: "fixed",
-              inset: 0,
-              zIndex: 60,
-              background: "linear-gradient(to right,#454545 0%,#454545 100%)",
-            }}
+            style={{ position: "fixed", inset: 0, zIndex: 60, background: "linear-gradient(to right,#454545 0%,#454545 100%)" }}
             onClick={() => setServicesOpen(false)}
           />
-
-          {/* панель: поднята на 57px, с гаттерами 52px */}
-          <div
-            className="services-layer"
-            style={{
-              position: "absolute",
-              left: 0,
-              right: 0,
-              top: "calc(100% - 57px)",
-              zIndex: 61,
-            }}
-            onClick={() => setServicesOpen(false)}
-          >
-            <div
-              className="panel-gutter"
-              style={{ padding: "0 52px", boxSizing: "border-box", width: "100%" }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div
-                className="services-panel services-panel--extend-left"
-                style={{
-                  position: "relative",
-                  left: "0",
-                  top: "0",
-                  transform: "none",
-                  width: "100%",
-                  marginTop: "var(--panel-top-shift)",
-                  marginBottom: "var(--panel-bottom-gap)",
-                }}
-              >
-                {/* Верх панели: сюда «приезжают» логотип и правые кнопки */}
+          <div className="services-layer" style={{ position: "absolute", left: 0, right: 0, top: "calc(100% - 57px)", zIndex: 61 }} onClick={() => setServicesOpen(false)}>
+            <div className="panel-gutter" style={{ padding: "0 52px", boxSizing: "border-box", width: "100%" }} onClick={(e) => e.stopPropagation()}>
+              <div className="services-panel services-panel--extend-left" style={{ position: "relative", left: 0, top: 0, transform: "none", width: "100%", marginTop: "var(--panel-top-shift)", marginBottom: "var(--panel-bottom-gap)" }}>
                 <div className="panel-bar flex items-center justify-between mb-3">
                   <div className="panel-bar-left flex items-center gap-2" ref={panelLogoRef} />
                   <div className="panel-bar-right flex items-center gap-4" ref={panelActionsRef} />
                 </div>
-
-                {/* Поиск в панели — короче на 16px справа (только тут) */}
                 <div className="services-top">
-                  <div
-                    className="services-search-holder"
-                    style={{
-                      maxWidth: "var(--panel-search-max)",
-                      marginLeft: "var(--panel-search-left)",
-                      marginRight: "var(--panel-search-right)",
-                      width: "100%",
-                    }}
-                  >
-                    <div
-                      className="search-wrap search-wrap--white"
-                      style={{
-                        height: "var(--header-search-height)",
-                        borderRadius: 10,
-                        clipPath: "inset(0 16px 0 0 round 10px)", // уменьшаем справа на 16px
-                        // NB: цвет поиска в ПАНЕЛИ не меняем (оставляем как задано в CSS)
-                      }}
-                    >
+                  <div className="services-search-holder" style={{ maxWidth: "var(--panel-search-max)", marginLeft: "var(--panel-search-left)", marginRight: "var(--panel-search-right)", width: "100%" }}>
+                    <div className="search-wrap search-wrap--white" style={{ height: "var(--header-search-height)", borderRadius: 10, clipPath: "inset(0 16px 0 0 round 10px)" }}>
                       <Search size={18} className="text-[#4a4a4a]" />
-                      <input
-                        type="text"
-                        className="search-input search-input--dark"
-                        placeholder="Поиск"
-                        aria-label="Поиск"
-                        style={{ background: "transparent" }}
-                      />
+                      <input type="text" className="search-input search-input--dark" placeholder="Поиск" aria-label="Поиск" style={{ background: "transparent" }} />
                     </div>
                   </div>
                 </div>
-
-                {/* Тело панели */}
                 <div className="services-body">
-                  {/* ЛЕВАЯ */}
                   <div className="svc-left">
-                    {leftItems.map((it, i) => (
-                      <a
-                        key={it.label}
-                        className={`svc-left-item ${activeLeft === i ? "is-active" : ""}`}
-                        onClick={() => setActiveLeft(i)}
-                        role="button"
-                        tabIndex={0}
-                      >
-                        <img
-                          src={it.img}
-                          alt=""
-                          width={16}
-                          height={16}
-                          className="svc-ico-img"
-                          loading="eager"
-                        />
+                    {[
+                      { img: "/electricity.png", label: "Электромонтаж" },
+                      { img: "/lowcurrent.png", label: "Слаботочные сис." },
+                      { img: "/climat.png", label: "Климат системы" },
+                      { img: "/design.png", label: "Проектирование" },
+                      { img: "/construction.png", label: "Общестрой" },
+                    ].map((it, i) => (
+                      <a key={it.label} className={`svc-left-item ${activeLeft === i ? "is-active" : ""}`} onClick={() => setActiveLeft(i)} role="button" tabIndex={0}>
+                        <img src={it.img} alt="" width={16} height={16} className="svc-ico-img" loading="eager" />
                         <span>{it.label}</span>
                       </a>
                     ))}
                   </div>
-
-                  {/* ПРАВАЯ */}
                   <div className="svc-right">
-                    {rightRows.map((row, i) => {
+                    {dataRightByLeft[activeLeft].map((row, i) => {
                       const [label, num = ""] = row.split("|");
                       return (
-                        <div
-                          key={`${activeLeft}-${label}`}
-                          className={`svc-row ${activeRight === i ? "is-active" : ""}`}
-                          onClick={() => setActiveRight(i)}
-                          role="button"
-                          tabIndex={0}
-                        >
+                        <div key={`${activeLeft}-${label}`} className={`svc-row ${activeRight === i ? "is-active" : ""}`} onClick={() => setActiveRight(i)} role="button" tabIndex={0}>
                           <span className="svc-label">{label}</span>
                           <span className="svc-num">{num}</span>
                         </div>
@@ -408,7 +490,6 @@ export default function Header() {
                     })}
                   </div>
                 </div>
-
               </div>
             </div>
           </div>
