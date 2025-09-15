@@ -16,7 +16,7 @@ async function apiRefresh(timeoutMs = 1200) {
     const r = await fetch(api("/auth/refresh"), {
       method: "POST",
       credentials: "include",
-      // ВАЖНО: без body и без Content-Type!
+      // без body и без Content-Type!
       signal: ctrl.signal,
       cache: "no-store",
     });
@@ -46,23 +46,40 @@ async function apiMe(token) {
   }
 }
 
+/* ===== Аватар + меню (с «мостиком» наведений) ===== */
 function AvatarMenu({ user, onLogout }) {
   const [open, setOpen] = React.useState(false);
   const wrapRef = React.useRef(null);
+  const closeT = React.useRef(null);
+  const CLOSE_DELAY = 200; // мс — мягкое закрытие
+
+  const openNow = () => {
+    if (closeT.current) { clearTimeout(closeT.current); closeT.current = null; }
+    setOpen(true);
+  };
+  const scheduleClose = () => {
+    if (closeT.current) clearTimeout(closeT.current);
+    closeT.current = setTimeout(() => setOpen(false), CLOSE_DELAY);
+  };
+
   React.useEffect(() => {
     function onDoc(e) {
       if (!wrapRef.current) return;
       if (!wrapRef.current.contains(e.target)) setOpen(false);
     }
     document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      if (closeT.current) clearTimeout(closeT.current);
+    };
   }, []);
+
   return (
     <div
       ref={wrapRef}
       className="relative"
-      onMouseEnter={() => setOpen(true)}
-      onMouseLeave={() => setOpen(false)}
+      onMouseEnter={openNow}
+      onMouseLeave={scheduleClose}
     >
       <img
         src="/profile/profile.png"
@@ -75,8 +92,28 @@ function AvatarMenu({ user, onLogout }) {
           height: 32,
           borderRadius: "50%",
           objectFit: "cover",
+          cursor: "pointer",
         }}
       />
+
+      {/* Прозрачная «перемычка» — перекрывает зазор между аватаркой и меню */}
+      {open && (
+        <div
+          aria-hidden
+          style={{
+            position: "absolute",
+            right: 0,
+            top: "100%",
+            height: 10,           // тот самый зазор
+            width: 180,           // чуть шире меню, чтобы поймать курсор
+            zIndex: 79,
+            background: "transparent",
+          }}
+          onMouseEnter={openNow}
+          onMouseLeave={scheduleClose}
+        />
+      )}
+
       {open && (
         <div
           style={{
@@ -94,6 +131,8 @@ function AvatarMenu({ user, onLogout }) {
             fontWeight: 300,
             fontSize: 14,
           }}
+          onMouseEnter={openNow}
+          onMouseLeave={scheduleClose}
         >
           <div style={{ padding: "8px 8px 12px 8px" }}>
             <div style={{ opacity: 0.7, marginBottom: 4 }}>В аккаунте</div>
@@ -104,11 +143,14 @@ function AvatarMenu({ user, onLogout }) {
                 overflow: "hidden",
                 textOverflow: "ellipsis",
               }}
+              title={user?.name || user?.email || "Пользователь"}
             >
               {user?.name || user?.email || "Пользователь"}
             </div>
           </div>
+
           <div style={{ height: 1, background: "#2a2a2a", margin: "6px 0" }} />
+
           <a
             href="/account"
             style={{
@@ -147,7 +189,9 @@ function AvatarMenu({ user, onLogout }) {
           >
             Уведомления
           </a>
+
           <div style={{ height: 1, background: "#2a2a2a", margin: "10px 0" }} />
+
           <a
             href="/dashboard"
             style={{
@@ -160,7 +204,9 @@ function AvatarMenu({ user, onLogout }) {
           >
             Панель
           </a>
+
           <div style={{ height: 1, background: "#2a2a2a", margin: "10px 0" }} />
+
           <button
             type="button"
             onClick={onLogout}
@@ -192,7 +238,7 @@ export default function Header() {
   // === auth state ===
   const [user, setUser] = React.useState(null);
   const accessRef = React.useRef(null);
-  const bootRef = React.useRef(false); // защита от двойного запуска в StrictMode
+  const bootRef = React.useRef(false);
 
   React.useEffect(() => {
     if (bootRef.current) return;
@@ -200,11 +246,9 @@ export default function Header() {
 
     const bootstrap = async () => {
       try {
-        // 1) пробуем взять access из sessionStorage (быстрый путь)
         const t0 = sessionStorage.getItem("auth:accessToken");
         if (t0) accessRef.current = t0;
 
-        // 2) если нет — деликатно пробуем refresh (с таймаутом)
         if (!accessRef.current) {
           const t = await apiRefresh(1200);
           if (t) {
@@ -213,12 +257,10 @@ export default function Header() {
           }
         }
 
-        // 3) если токен есть — грузим профиль
         if (accessRef.current) {
           const u = await apiMe(accessRef.current);
           if (u) setUser(u);
           else {
-            // одноразовая повторная попытка refresh→me
             const t2 = await apiRefresh(1200);
             if (t2) {
               accessRef.current = t2;
@@ -231,7 +273,6 @@ export default function Header() {
       } catch {}
     };
 
-    // запускаем после первого пэйнта, чтобы не мешать старту UI
     const start = () => bootstrap();
     if ("requestIdleCallback" in window) {
       window.requestIdleCallback(start, { timeout: 500 });
@@ -239,7 +280,6 @@ export default function Header() {
       setTimeout(start, 0);
     }
 
-    // автоактуализация при возврате во вкладку (лёгкая попытка)
     const onFocus = async () => {
       if (user) return;
       const t = await apiRefresh(800);
@@ -254,7 +294,7 @@ export default function Header() {
     return () => window.removeEventListener("focus", onFocus);
   }, []); // eslint-disable-line
 
-  // внешнее событие из модалок
+  // внешнее событие из модалок — мгновенно перерисовываем хедер
   React.useEffect(() => {
     const onAuth = (e) => {
       const newUser = e?.detail?.user || null;
@@ -285,7 +325,7 @@ export default function Header() {
     try { sessionStorage.removeItem("auth:accessToken"); } catch {}
   }
 
-  // ==== далее — твоя шапка как была ====
+  // ==== UI перемещения/панели ====
   const actionsNodeRef = React.useRef(null);
   const actionsHomeRef = React.useRef(null);
   const panelActionsRef = React.useRef(null);
@@ -477,6 +517,7 @@ export default function Header() {
           {/* Правый блок */}
           <div className="ml-auto hidden md:flex items-center gap-4" ref={actionsHomeRef}>
             <div ref={actionsNodeRef} className="flex items-center gap-4">
+              {/* слева — auth: либо Вход/Регистрация, либо аватар */}
               {!user ? (
                 <>
                   <a
@@ -500,14 +541,16 @@ export default function Header() {
                   >
                     <span className="text-grad-222">Регистрация</span>
                   </a>
-                  <div className="actions-right flex items-center gap-4">
-                    <a href="/pro" className="btn-pro">Ищу работу</a>
-                    <a href="/submit" className="btn-submit">Оставить заявку</a>
-                  </div>
                 </>
               ) : (
                 <AvatarMenu user={user} onLogout={handleLogout} />
               )}
+
+              {/* справа — действия ВСЕГДА видны */}
+              <div className="actions-right flex items-center gap-4">
+                <a href="/pro" className="btn-pro">Ищу работу</a>
+                <a href="/submit" className="btn-submit">Оставить заявку</a>
+              </div>
             </div>
           </div>
 
@@ -543,7 +586,13 @@ export default function Header() {
                 </div>
                 <div className="services-body">
                   <div className="svc-left">
-                    {leftItems.map((it, i) => (
+                    {[
+                      { img: "/electricity.png", label: "Электромонтаж" },
+                      { img: "/lowcurrent.png", label: "Слаботочные сис." },
+                      { img: "/climat.png", label: "Климат системы" },
+                      { img: "/design.png", label: "Проектирование" },
+                      { img: "/construction.png", label: "Общестрой" },
+                    ].map((it, i) => (
                       <a key={it.label} className={`svc-left-item ${activeLeft === i ? "is-active" : ""}`} onClick={() => setActiveLeft(i)} role="button" tabIndex={0}>
                         <img src={it.img} alt="" width={16} height={16} className="svc-ico-img" loading="eager" />
                         <span>{it.label}</span>
@@ -551,7 +600,60 @@ export default function Header() {
                     ))}
                   </div>
                   <div className="svc-right">
-                    {rightRows.map((row, i) => {
+                    {(
+                      {
+                        0: [
+                          "Подключение объектов к электросетям|",
+                          "Увеличение мощности и модернизация сетей|",
+                          "Внутренние электромонтажные работы|",
+                          "Наружные электросети и уличное освещение|",
+                          "Монтаж электрощитов и ВРУ|",
+                          "Системы заземления и молниезащиты|",
+                          "Автоматизация и учёт электроэнергии|",
+                          "Резервное электроснабжение|",
+                        ],
+                        1: [
+                          "СКС и структурированные кабельные сети|",
+                          "Видеонаблюдение (CCTV)|",
+                          "Охранно-пожарная сигнализация|",
+                          "Системы контроля и управления доступом|",
+                          "Домофония и интерком|",
+                          "Серверные, кроссовые и шкафы|",
+                          "ЛВС и активное сетевое оборудование|",
+                          "Системы оповещения и звука|",
+                        ],
+                        2: [
+                          "Проектирование и монтаж вентиляции|",
+                          "Системы кондиционирования (VRF/VRV)|",
+                          "Чиллер-фанкойл системы|",
+                          "Системы отопления и теплоснабжения|",
+                          "Автоматика ОВиК|",
+                          "Паспортизация и балансировка систем|",
+                          "Воздуховоды, шумоглушение, КИПиА|",
+                          "Сервис и регламентное обслуживание|",
+                        ],
+                        3: [
+                          "Проект электроснабжения (ЭОМ)|",
+                          "Проект ОВ и ВК|",
+                          "Проект СС (слаботочные системы)|",
+                          "АСУ ТП и разделы автоматики|",
+                          "Молниезащита и заземление|",
+                          "Сметная документация|",
+                          "Авторский надзор|",
+                          "Согласования в сетевых организациях|",
+                        ],
+                        4: [
+                          "Общестроительные и отделочные работы|",
+                          "Монолитные и бетонные работы|",
+                          "Фундамент и земляные работы|",
+                          "Кровля и фасад|",
+                          "Внутренние перегородки и проёмы|",
+                          "Усиление конструкций|",
+                          "Генподряд и технадзор|",
+                          "Пуско-наладка инженерных систем|",
+                        ],
+                      }[activeLeft]
+                    ).map((row, i) => {
                       const [label, num = ""] = row.split("|");
                       return (
                         <div key={`${activeLeft}-${label}`} className={`svc-row ${activeRight === i ? "is-active" : ""}`} onClick={() => setActiveRight(i)} role="button" tabIndex={0}>

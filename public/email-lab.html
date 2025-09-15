@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>КУБ — лаборатория писем</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    *{box-sizing:border-box}
+    body{margin:0;background:#0b0b0b;color:#eaeaea;font:14px/1.45 'Inter Tight',Inter,Arial,sans-serif}
+    .wrap{display:grid;grid-template-columns:380px 1fr;gap:18px;padding:18px;min-height:100vh}
+    .panel{background:#121212;border:1px solid #1f1f1f;border-radius:14px;padding:16px}
+    .row{display:grid;grid-template-columns:140px 1fr;gap:10px;align-items:center;margin:8px 0}
+    label{color:#b9b9b9;font-size:12px;text-transform:uppercase;letter-spacing:.04em}
+    input,textarea,select{width:100%;background:#0f0f0f;border:1px solid #2a2a2a;color:#eaeaea;border-radius:10px;padding:10px 12px;outline:none;font:14px/1.4 inherit}
+    textarea{resize:vertical;min-height:90px}
+    .btns{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+    button{background:#00d4aa;color:#091011;border:none;border-radius:10px;padding:10px 14px;font-weight:700;cursor:pointer}
+    button.secondary{background:#1b1b1b;color:#eaeaea;border:1px solid #2a2a2a;font-weight:400}
+    .title{font-size:13px;font-weight:800;letter-spacing:.06em;color:#bcbcbc;margin:0 0 8px;text-transform:uppercase}
+    .preview{height:calc(100vh - 36px);background:#0a0a0a;border:1px solid #1f1f1f;border-radius:14px;overflow:hidden}
+    iframe{width:100%;height:100%;border:0;background:#fff}
+    hr{border:none;border-top:1px solid #1f1f1f;margin:12px 0}
+    .hint{color:#9b9b9b;font-size:12px;margin:-6px 0 6px 140px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="panel">
+      <h3 class="title">Тип письма</h3>
+      <div class="row"><label>Шаблон</label>
+        <select id="tpl">
+          <option value="admin">Письмо вам (админу)</option>
+          <option value="client">Автоответ клиенту</option>
+          <option value="reset">Сброс пароля</option>
+          <option value="confirm">Подтверждение email</option>
+        </select>
+      </div>
+
+      <h3 class="title" style="margin-top:14px">Данные</h3>
+      <div class="row"><label>ID заявки</label><input id="appId" value="Cube-00230" /></div>
+      <div class="row"><label>Имя</label><input id="name" value="Евгений" /></div>
+      <div class="row"><label>Email</label><input id="email" value="user@example.com" /></div>
+      <div class="row"><label>Телефон</label><input id="phone" value="+7 900 000-00-00" /></div>
+      <div class="row"><label>Вариант</label><input id="option" value="Рассчитать стоимость работ" /></div>
+      <div class="row"><label>Сообщение</label><textarea id="message">Здравствуйте! Хочу рассчитать стоимость работ…</textarea></div>
+      <div class="row"><label>Страница</label><input id="page" value="https://cube-tech.ru/contact" /></div>
+
+      <div class="row"><label>Ссылка действия</label><input id="actionUrl" value="https://example.com/action" /></div>
+      <div class="hint">Для «Сброс пароля» — ссылка на форму смены пароля.</div>
+      <div class="row"><label>Ссылка подтверждения</label><input id="confirmUrl" value="https://example.com/confirm" /></div>
+      <div class="hint">Для «Подтверждение email» — ссылка подтверждения.</div>
+
+      <hr/>
+      <h3 class="title">Бренд</h3>
+      <div class="row"><label>Название</label><input id="brandName" value="КУБ" /></div>
+      <div class="row"><label>Сайт</label><input id="brandSite" value="https://cube-tech.ru" /></div>
+      <div class="row"><label>Логотип (URL)</label><input id="brandLogo" placeholder="https://.../logo.png (необязательно)" /></div>
+
+      <div class="btns">
+        <button id="apply">Обновить превью</button>
+        <button id="copy" class="secondary">Копировать HTML</button>
+        <button id="download" class="secondary">Скачать HTML</button>
+      </div>
+    </div>
+
+    <div class="preview panel">
+      <iframe id="frame" title="Email preview"></iframe>
+    </div>
+  </div>
+
+  <script>
+    /* ===== РУЧКИ ДЛЯ НАСТРОЕК ===== */
+    const EMAIL_W       = 600;   // ширина письма
+    const CARD_RADIUS   = 8;     // скругление карточки
+    const LOGO_TEXT     = "c.";  // текст логотипа сверху
+    const LOGO_SIZE_TOP = 48;    // размер «c.» сверху
+    const LOGO_WEIGHT   = 600;   // Inter Tight Semibold
+    const TITLE_GAP     = 26;    // отступ под заголовком письма
+    const GOOGLE_FONT_HREF =
+      "https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;600;700;800&display=swap";
+
+    /* ========= Утилиты ========= */
+    const esc = (s="") => s.replace(/[&<>"']/g, m => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[m]));
+    const br  = (s="") => esc(s).replace(/\n/g,"<br/>");
+
+    const state = {
+      BRAND: {
+        name: "КУБ",
+        site: "https://cube-tech.ru",
+        logo: null,
+        font: "'Inter Tight', Inter, Arial, sans-serif",
+        colors: {
+          pageBg:"#e7e7e7",    // фон письма
+          cardBg:"#f8f8f8",    // фон карточки
+          text:"#222222",
+          muted:"#666666",
+          dot:"#c8c8c8",
+          btnBg:"#000000",
+          btnText:"#ffffff",
+          link:"#000000"       // и ссылки, и «Авторские права»
+        }
+      },
+      data: {
+        appId:"Cube-00230",
+        name:"Евгений",
+        email:"user@example.com",
+        phone:"+7 900 000-00-00",
+        option:"Рассчитать стоимость работ",
+        message:"Здравствуйте! Хочу рассчитать стоимость работ…",
+        page:"https://cube-tech.ru/contact",
+        actionUrl:"https://example.com/action",
+        confirmUrl:"https://example.com/confirm"
+      }
+    };
+
+    /* ========= Корпус письма ========= */
+    function emailShell({ title="", bodyHtml="" }) {
+      const B = state.BRAND, C = B.colors;
+
+      const topLogo = B.logo
+        ? `<a href="${B.site}" target="_blank" rel="noopener noreferrer" style="text-decoration:none;display:inline-block">
+             <img src="${B.logo}" alt="${esc(B.name)}" height="${LOGO_SIZE_TOP}" style="display:block;max-width:100%;height:${LOGO_SIZE_TOP}px" />
+           </a>`
+        : `<a href="${B.site}" target="_blank" rel="noopener noreferrer" style="text-decoration:none;display:inline-block">
+             <span style="display:inline-block;font-size:${LOGO_SIZE_TOP}px;font-weight:${LOGO_WEIGHT};letter-spacing:.02em;color:#000;font-family:'Inter Tight','Inter',Arial,sans-serif">${LOGO_TEXT}</span>
+           </a>`;
+
+      return `
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<link href="${GOOGLE_FONT_HREF}" rel="stylesheet">
+<title>Email</title>
+</head>
+<body style="margin:0;padding:0;background:${C.pageBg};font-family:${B.font};color:${C.text}">
+  <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:${C.pageBg}">
+    <tr>
+      <td align="center" style="padding:0 16px">
+        <table role="presentation" cellpadding="0" cellspacing="0" style="width:${EMAIL_W}px;max-width:${EMAIL_W}px;table-layout:fixed">
+          <!-- верхняя полоса с логотипом -->
+          <tr>
+            <td align="left" style="padding:20px 0 10px 20px">
+              ${topLogo}
+            </td>
+          </tr>
+
+          <!-- карточка без рамки -->
+          <tr>
+            <td style="padding:0">
+              <div style="border-radius:${CARD_RADIUS}px;overflow:hidden;background:${C.cardBg};border:none">
+                <div style="padding:20px">
+                  ${title ? `<div style="margin:0 0 ${TITLE_GAP}px;font-size:18px;line-height:24px;letter-spacing:.02em;text-transform:uppercase;font-weight:700">${esc(title)}</div>` : ""}
+                  ${bodyHtml}
+                  <div style="height:16px"></div>
+                  <p style="margin:0;font-size:12px;line-height:18px;color:${C.muted}">
+                    Это автоматическое письмо от <a href="${B.site}" target="_blank" rel="noopener noreferrer" style="color:${C.link};text-decoration:none">${B.site}</a>.
+                  </p>
+                </div>
+              </div>
+            </td>
+          </tr>
+
+          <!-- нижний подпояс -->
+          <tr>
+            <td align="left" style="padding:20px 0 0 20px">
+              <div style="font-size:12px;line-height:18px;color:${C.link}">
+                Авторские права © 2025 КУБ |
+                <a href="https://cube-tech.ru/legal/terms" target="_blank" rel="noopener noreferrer" style="color:${C.link};text-decoration:none">Правовые положения</a> |
+                <a href="https://cube-tech.ru/contact" target="_blank" rel="noopener noreferrer" style="color:${C.link};text-decoration:none">Контакты</a>
+              </div>
+            </td>
+          </tr>
+
+          <tr><td style="height:16px"></td></tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+    }
+
+    /* ========= Вспомогалки контента ========= */
+    function dotRule(){ const C = state.BRAND.colors; const dots = (". ").repeat(800);
+      return `<div style="color:${C.dot};line-height:1;font-size:12px;overflow:hidden;white-space:nowrap;word-spacing:1px">${dots}</div>`;
+    }
+    function dottedRow(label, value, opts={}) {
+      const alignRight = opts.alignRight !== false;
+      const valueStyles = `padding:0;vertical-align:baseline;${alignRight?"text-align:right;":"text-align:left;"}white-space:normal;word-break:break-word;overflow-wrap:anywhere`;
+      const first = `
+        <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;table-layout:fixed;font-size:14px;line-height:22px">
+          <tr>
+            <td style="padding:0;vertical-align:baseline;font-weight:600;white-space:nowrap;width:1%">${esc(label)}</td>
+            <td style="${valueStyles}">${value ? br(String(value)) : "—"}</td>
+          </tr>
+        </table>`;
+      return first + `<div style="margin-top:4px;margin-bottom:10px">${dotRule()}</div>`;
+    }
+    function dottedRowBlock(label, value) {
+      const first = `
+        <div style="font-size:14px;line-height:22px;font-weight:600;margin:0 0 2px">${esc(label)}</div>
+        <div style="font-size:14px;line-height:22px;font-weight:400;white-space:normal;word-break:break-word;overflow-wrap:anywhere">${value ? br(String(value)) : "—"}</div>`;
+      return first + `<div style="margin-top:4px;margin-bottom:10px">${dotRule()}</div>`;
+    }
+    function ctaBtn(text, href){
+      const C = state.BRAND.colors;
+      return `<div style="margin-top:2px"><a href="${esc(href)}" target="_blank" rel="noopener noreferrer" style="display:inline-block;background:${C.btnBg};color:${C.btnText};text-decoration:none;padding:10px 16px;border-radius:10px;font-weight:700">${esc(text)}</a></div>`;
+    }
+
+    /* ========= Шаблоны ========= */
+    function adminHtml({ appId, name, email, phone, option, message, page }) {
+      const body =
+          dottedRow("ID заявки", appId || "—")
+        + dottedRow("Имя", name)
+        + dottedRow("Email", email)
+        + dottedRow("Телефон", phone || "")
+        + dottedRow("Вариант", option || "")
+        + dottedRowBlock("Сообщение", message || "")
+        + dottedRowBlock("Страница", page || "")
+        + dottedRow("Дата/время (MSK)", new Date().toLocaleString("ru-RU", { timeZone:"Europe/Moscow" }))
+        + (page ? ctaBtn("Открыть страницу заявки", page) : "");
+      return emailShell({ title: "Новая заявка с сайта", bodyHtml: body });
+    }
+
+    function clientHtml({ appId, name, option, message }) {
+      const greeting = `
+        <div style="margin:0 0 6px;font-size:14px;font-weight:700">Здравствуйте, ${esc(name)}!</div>
+        <div style="margin:0 0 14px;font-size:14px">Спасибо за обращение в «${esc(state.BRAND.name)}». Мы свяжемся с вами в ближайшее время.</div>`;
+      const body =
+          greeting
+        + dottedRow("ID заявки", appId || "—")
+        + dottedRow("Тема", option || "—")
+        + dottedRowBlock("Сообщение", (message || "").slice(0, 4000))
+        + `<div style="margin:6px 0 0;font-size:14px">С уважением, команда «КУБ».</div>`;
+      return emailShell({ title: "", bodyHtml: body });
+    }
+
+    function resetHtml({ name, actionUrl }) {
+      const body = `
+        <div style="margin:0 0 10px;font-size:14px">Здравствуйте, ${esc(name)}!</div>
+        <div style="margin:0 0 12px;font-size:14px">Вы запросили смену пароля. Нажмите кнопку ниже, чтобы задать новый пароль.</div>
+        ${ctaBtn("Сменить пароль", actionUrl || "#")}
+        <div style="margin:16px 0 0;font-size:12px;color:${state.BRAND.colors.muted}">
+          Если вы не запрашивали смену пароля, просто проигнорируйте это письмо.
+        </div>`;
+      return emailShell({ title: "Сброс пароля", bodyHtml: body });
+    }
+
+    function confirmHtml({ name, confirmUrl }) {
+      const body = `
+        <div style="margin:0 0 10px;font-size:14px">Здравствуйте, ${esc(name)}!</div>
+        <div style="margin:0 0 12px;font-size:14px">Подтвердите адрес электронной почты для завершения регистрации.</div>
+        ${ctaBtn("Подтвердить email", confirmUrl || "#")}
+        <div style="margin:16px 0 0;font-size:12px;color:${state.BRAND.colors.muted}">
+          Если вы не регистрировались на сайте ${esc(state.BRAND.site)}, проигнорируйте это письмо.
+        </div>`;
+      return emailShell({ title: "Подтверждение email", bodyHtml: body });
+    }
+
+    /* ========= UI ========= */
+    const $ = (id)=>document.getElementById(id);
+    ["tpl","appId","name","email","phone","option","message","page","brandName","brandSite","brandLogo","actionUrl","confirmUrl"].forEach(id => {
+      $(id).addEventListener("input", render);
+    });
+    $("apply").addEventListener("click", render);
+    $("copy").addEventListener("click", async () => {
+      const html = build();
+      await navigator.clipboard.writeText(html);
+      $("copy").textContent = "Скопировано ✓";
+      setTimeout(()=> $("copy").textContent = "Копировать HTML", 1200);
+    });
+    $("download").addEventListener("click", () => {
+      const html = build();
+      const name = ({admin:"admin",client:"client",reset:"reset-password",confirm:"confirm-email"})[$("tpl").value] + ".html";
+      const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = name;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    });
+
+    function readState(){
+      state.data.appId      = $("appId").value || "";
+      state.data.name       = $("name").value || "";
+      state.data.email      = $("email").value || "";
+      state.data.phone      = $("phone").value || "";
+      state.data.option     = $("option").value || "";
+      state.data.message    = $("message").value || "";
+      state.data.page       = $("page").value || "";
+      state.data.actionUrl  = $("actionUrl").value || "";
+      state.data.confirmUrl = $("confirmUrl").value || "";
+
+      state.BRAND.name = $("brandName").value || "КУБ";
+      state.BRAND.site = $("brandSite").value || "https://cube-tech.ru";
+      state.BRAND.logo = $("brandLogo").value || null;
+    }
+    function build(){
+      readState();
+      const t = $("tpl").value;
+      if (t === "admin")   return adminHtml(state.data);
+      if (t === "client")  return clientHtml(state.data);
+      if (t === "reset")   return resetHtml({ name: state.data.name, actionUrl: state.data.actionUrl });
+      if (t === "confirm") return confirmHtml({ name: state.data.name, confirmUrl: state.data.confirmUrl });
+      return adminHtml(state.data);
+    }
+    function render(){ $("frame").srcdoc = build(); }
+    render();
+  </script>
+</body>
+</html>
