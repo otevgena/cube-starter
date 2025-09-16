@@ -1,7 +1,6 @@
-// src/pages/account/profile.jsx
 import React from "react";
 
-/* ===== API helpers (как в Header.jsx) ===== */
+/* ===== API helpers ===== */
 const API_BASE =
   (typeof window !== "undefined" && window.__API_BASE__) ||
   "https://api.cube-tech.ru";
@@ -43,7 +42,7 @@ async function apiMe(token) {
   }
 }
 
-/* гибкий апдейт профиля (пробуем несколько эндпоинтов) */
+/* --- профиль пользователя (PUT/PATCH) --- */
 async function apiUpdateProfile(token, data) {
   const payload = JSON.stringify(data);
   const common = {
@@ -54,7 +53,6 @@ async function apiUpdateProfile(token, data) {
     },
     body: payload,
   };
-
   const tryOne = async (url, method) => {
     try {
       const r = await fetch(api(url), { ...common, method });
@@ -65,11 +63,76 @@ async function apiUpdateProfile(token, data) {
       return null;
     }
   };
-
   return (
     (await tryOne("/account/profile", "PUT")) ||
     (await tryOne("/users/me", "PATCH")) ||
     (await tryOne("/profile", "PATCH"))
+  );
+}
+
+/* --- админ: чтение списка пользователей (сначала /users?admin=1) --- */
+async function apiAdminListUsers(token, { limit = 50, offset = 0, q = "", group } = {}) {
+  const qs = new URLSearchParams({
+    limit: String(limit),
+    offset: String(offset),
+    ...(q ? { q } : {}),
+    ...(group ? { group } : {}),
+  }).toString();
+
+  const opts = {
+    method: "GET",
+    headers: { Authorization: `Bearer ${token}` },
+    credentials: "include",
+    cache: "no-store",
+  };
+  const tryOne = async (url) => {
+    try {
+      const r = await fetch(api(url), opts);
+      if (!r.ok) return null;
+      return await r.json().catch(() => null);
+    } catch { return null; }
+  };
+
+  const raw =
+    (await tryOne(`/users?admin=1&${qs}`)) ||
+    (await tryOne(`/admin/users?${qs}`)) ||
+    (await tryOne(`/admin/list-users?${qs}`)) ||
+    { users: [], total: 0 };
+
+  const users = Array.isArray(raw?.users) ? raw.users : Array.isArray(raw) ? raw : [];
+  const total = Number(raw?.total ?? users.length ?? 0);
+  const filtered = group ? users.filter(u => String(u.group||"").toLowerCase() === group) : users;
+  return { users: filtered, total: group ? filtered.length : total };
+}
+
+/* --- админ: обновление роли/группы (без 404) --- */
+async function apiAdminUpdateUser(token, userId, patch) {
+  const id = userId ?? patch?.id;
+  if (!id) return null;
+
+  const common = {
+    credentials: "include",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+  };
+
+  const tryJSON = async (url, method, bodyObj) => {
+    try {
+      const r = await fetch(api(url), { ...common, method, body: JSON.stringify(bodyObj) });
+      if (!r.ok) return null;
+      return (await r.json().catch(() => null)) || { ok: true };
+    } catch {
+      return null;
+    }
+  };
+
+  return (
+    (await tryJSON(`/users/${encodeURIComponent(id)}`, "PATCH", patch)) ||
+    (await tryJSON(`/admin/update-user`, "POST", { id, userId: id, ...patch })) ||
+    (await tryJSON(`/admin/users/${encodeURIComponent(id)}`, "PATCH", patch)) ||
+    (await tryJSON(`/users/update`, "POST", { id, userId: id, ...patch }))
   );
 }
 
@@ -143,9 +206,7 @@ function Input({ value, onChange, placeholder, error, type = "text", readOnly = 
       readOnly={readOnly}
       className="with-ph"
       style={baseFieldStyle(error)}
-      onFocus={(e) => {
-        e.currentTarget.style.boxShadow = `inset 0 -1px 0 0 ${UNDERLINE_FOCUS}`;
-      }}
+      onFocus={(e) => { e.currentTarget.style.boxShadow = `inset 0 -1px 0 0 ${UNDERLINE_FOCUS}`; }}
       onBlur={(e) => {
         e.currentTarget.style.boxShadow = error
           ? `inset 0 -1px 0 0 ${ERR}`
@@ -169,9 +230,7 @@ function Textarea({ value, onChange, rows = 5, error, placeholder }) {
         height: "auto",
         resize: "vertical",
       }}
-      onFocus={(e) => {
-        e.currentTarget.style.boxShadow = `inset 0 -1px 0 0 ${UNDERLINE_FOCUS}`;
-      }}
+      onFocus={(e) => { e.currentTarget.style.boxShadow = `inset 0 -1px 0 0 ${UNDERLINE_FOCUS}`; }}
       onBlur={(e) => {
         e.currentTarget.style.boxShadow = error
           ? `inset 0 -1px 0 0 ${ERR}`
@@ -229,7 +288,7 @@ const Lock = () => (
 const GROUPS = [
   { code: "customer",   label: "Заказчик" },
   { code: "user",       label: "Пользователь" },
-  { code: "executor",   label: "Исполнитель" },
+  { code: "performer",  label: "Исполнитель" },
   { code: "contractor", label: "Подрядчик" },
   { code: "designer",   label: "Проектировщик" },
   { code: "other",      label: "Другое" },
@@ -245,8 +304,8 @@ const toCode = (v) => {
   return found?.code || "user";
 };
 
-/* селект — «Кто вы?» с блокировкой supplier/partner */
-function RoleSelect({ value, onChange, error, canPickLocked = false }) {
+/* селект групп (используем и в админке) */
+function GroupSelect({ value, onChange, error, canPickLocked = false }) {
   const [open, setOpen] = React.useState(false);
   const ref = React.useRef(null);
   React.useEffect(() => {
@@ -333,7 +392,30 @@ function RoleSelect({ value, onChange, error, canPickLocked = false }) {
   );
 }
 
-/* города — как в pro.jsx */
+/* селект ролей доступа (admin/manager/user) */
+function AccessRoleSelect({ value, onChange }) {
+  const OPTIONS = [
+    { code: "user", label: "User" },
+    { code: "manager", label: "Manager" },
+    { code: "admin", label: "Admin" },
+  ];
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange?.(e.target.value)}
+      style={{
+        ...baseFieldStyle(false),
+        height: FIELD_H,
+        padding: "0 10px",
+        background: "#fff",
+      }}
+    >
+      {OPTIONS.map(o => <option key={o.code} value={o.code}>{o.label}</option>)}
+    </select>
+  );
+}
+
+/* города */
 const fallbackCities = [
   "Москва","Санкт-Петербург","Новосибирск","Екатеринбург","Казань",
   "Нижний Новгород","Челябинск","Самара","Омск","Ростов-на-Дону",
@@ -481,7 +563,7 @@ function CitySelect({ value, onChange, error, offset = 0 }) {
   );
 }
 
-/* аватар — иконка по центру, текст ещё ближе на 10px */
+/* аватар */
 function AvatarPicker({ fileName, onPick, error }) {
   const inputRef = React.useRef(null);
   const open = () => inputRef.current?.click();
@@ -508,7 +590,7 @@ function AvatarPicker({ fileName, onPick, error }) {
         }}
         title="Перетащите или выберите файл"
       >
-        <div style={{ width: "100%", display: "flex", justifyContent: "center" }}>
+        <div style={{ width: "100%", display: "flex", justifyContent: "center", transform: "translateY(-5px)" }}>
           <svg width="34" height="34" viewBox="0 0 24 24" aria-hidden="true">
             <path d="M7 18a5 5 0 010-10 6 6 0 0111.7 1.7A4 4 0 1119 18H7z"
               fill="none" stroke="#111" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
@@ -516,7 +598,6 @@ function AvatarPicker({ fileName, onPick, error }) {
               fill="none" stroke="#111" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </div>
-        {/* подвинул текст ближе к иконке на 10px */}
         <div style={{ textAlign: "center", color: "#222", fontFamily: UI, transform: "translateY(-10px)" }}>
           <div style={{ fontSize: 14, lineHeight: "20px", fontWeight: 300 }}>
             {label}
@@ -548,7 +629,358 @@ const MID_COL = 714;
 const GAP_COL = 78;
 const RIGHT_COL = 277;
 const PAGE_PAD = 52;
+const LINE_RIGHT_INSET = 64;
 
+/* === надежное отслеживание текущего pathname === */
+function useLocationPathname() {
+  const [pathname, setPathname] = React.useState(() =>
+    typeof window !== "undefined" ? window.location.pathname : "/"
+  );
+
+  React.useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const onPop = () => setPathname(window.location.pathname);
+
+    const origPush = window.history.pushState;
+    const origReplace = window.history.replaceState;
+    try {
+      window.history.pushState = function (...args) {
+        const ret = origPush.apply(this, args);
+        window.dispatchEvent(new Event("locationchange"));
+        window.dispatchEvent(new PopStateEvent("popstate"));
+        return ret;
+      };
+      window.history.replaceState = function (...args) {
+        const ret = origReplace.apply(this, args);
+        window.dispatchEvent(new Event("locationchange"));
+        window.dispatchEvent(new PopStateEvent("popstate"));
+        return ret;
+      };
+    } catch {}
+
+    const onLoc = () => setPathname(window.location.pathname);
+
+    window.addEventListener("popstate", onPop);
+    window.addEventListener("locationchange", onLoc);
+
+    return () => {
+      window.removeEventListener("popstate", onPop);
+      window.removeEventListener("locationchange", onLoc);
+      try {
+        window.history.pushState = origPush;
+        window.history.replaceState = origReplace;
+      } catch {}
+    };
+  }, []);
+
+  return pathname;
+}
+
+/* ===== Верхняя полоска вкладок ===== */
+function TabsBar({ active, isAdmin, onNavigate, lineWidth }) {
+  const wrapRef = React.useRef(null);
+  const tabRefs = React.useRef(new Map());
+  const [underline, setUnderline] = React.useState({ left: 0, width: 56 });
+
+  const TABS_DEF = React.useMemo(() => {
+    return [
+      { code: "profile",  label: "Профиль",  adminOnly: false, locked: false },
+      { code: "partner",  label: "Партнёр",  adminOnly: false, locked: !isAdmin },
+      { code: "supplier", label: "Поставщик",adminOnly: false, locked: !isAdmin },
+      { code: "personal", label: "Личная информация", adminOnly: false, locked: false },
+      { code: "admin",    label: "Администратор", adminOnly: true, locked: false },
+    ].filter(t => (t.adminOnly ? isAdmin : true));
+  }, [isAdmin]);
+
+  const measure = React.useCallback(() => {
+    const el = tabRefs.current.get(active);
+    const wrap = wrapRef.current;
+    if (!el || !wrap) return;
+    const rTab = el.getBoundingClientRect();
+    const rWrap = wrap.getBoundingClientRect();
+    setUnderline({
+      left: Math.max(0, rTab.left - rWrap.left),
+      width: Math.max(24, rTab.width),
+    });
+  }, [active]);
+
+  React.useEffect(() => {
+    measure();
+    const onResize = () => measure();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [measure]);
+
+  const toPath = (code) => {
+    switch (code) {
+      case "profile":  return "/account/profile";
+      case "partner":  return "/account/partner";
+      case "supplier": return "/account/supplier";
+      case "personal": return "/account/personal";
+      case "admin":    return "/account/admin";
+      default:         return "/account/profile";
+    }
+  };
+
+  const onClickTab = (e, tab) => {
+    e.preventDefault();
+    if (tab.locked) return;
+    try {
+      window.history.pushState({}, "", toPath(tab.code));
+      onNavigate?.(tab.code);
+    } catch {}
+  };
+
+  return (
+    <div style={{ position: "relative", marginTop: -35, paddingBottom: 18 }}>
+      <div
+        ref={wrapRef}
+        style={{ display: "flex", alignItems: "center", gap: 24, fontSize: 14 }}
+      >
+        {TABS_DEF.map((t) => {
+          const isActive = t.code === active;
+          const refCb = (el) => { if (el) tabRefs.current.set(t.code, el); };
+          const color = isActive ? TEXT : "#777";
+          const weight = isActive ? 600 : 300;
+          return (
+            <a
+              key={t.code}
+              href={toPath(t.code)}
+              ref={refCb}
+              onClick={(e) => onClickTab(e, t)}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                textDecoration: "none",
+                color,
+                fontWeight: weight,
+                cursor: t.locked ? "not-allowed" : "pointer",
+              }}
+              aria-current={isActive ? "page" : undefined}
+              aria-disabled={t.locked || undefined}
+              title={t.locked ? "Недоступно" : undefined}
+            >
+              {!isAdmin && (t.code === "partner" || t.code === "supplier") ? <Lock /> : null}
+              {t.label}
+            </a>
+          );
+        })}
+      </div>
+
+      <div
+        style={{
+          marginTop: 10,
+          position: "relative",
+          width: typeof lineWidth === "number" ? `${lineWidth}px` : "100%",
+          height: 1,
+          backgroundImage:
+            "repeating-linear-gradient(to right, #000 0 1px, rgba(0,0,0,0) 1px 9px)",
+        }}
+      >
+        <div
+          style={{
+            position: "absolute",
+            left: underline.left,
+            top: -1,
+            width: underline.width,
+            height: 2,
+            background: "#000",
+            transition: "left .18s ease, width .18s ease",
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
+/* ===== Админ-панель ===== */
+function AdminPanel({ token }) {
+  return <AdminPanelCore token={token} />;
+}
+function AdminPanelFiltered({ token, group }) {
+  return <AdminPanelCore token={token} filterGroup={group} />;
+}
+
+function AdminPanelCore({ token, filterGroup }) {
+  const [list, setList] = React.useState([]);
+  const [total, setTotal] = React.useState(0);
+  const [loading, setLoading] = React.useState(true);
+  const [q, setQ] = React.useState("");
+
+  // --- Черновики ---
+  const [drafts, setDrafts] = React.useState({}); // { [key]: { group?, role? } }
+  const getKey = (u) => String(u.id ?? u._id ?? u.userId ?? u.email ?? "");
+  const setDraft = (key, patch) =>
+    setDrafts((prev) => ({ ...prev, [key]: { ...(prev[key] || {}), ...patch } }));
+  const clearDraft = (key) =>
+    setDrafts((prev) => { const n = { ...prev }; delete n[key]; return n; });
+
+  const load = React.useCallback(async () => {
+    if (!token) return;
+    setLoading(true);
+    const j = await apiAdminListUsers(token, { limit: 50, offset: 0, q, group: filterGroup });
+    const users = Array.isArray(j?.users) ? j.users : Array.isArray(j) ? j : [];
+    setList(users);
+    setTotal(Number(j?.total || users.length || 0));
+    setLoading(false);
+  }, [token, q, filterGroup]);
+
+  React.useEffect(() => { load(); }, [load]);
+
+  const currentGroup = (u, key) => toCode((drafts[key]?.group ?? u.group ?? "user"));
+  const currentRole  = (u, key) => (drafts[key]?.role  ?? u.role  ?? "user");
+
+  const isChanged = (u, key) => {
+    const d = drafts[key];
+    if (!d) return false;
+    const gChanged = d.group && toCode(d.group) !== toCode(u.group);
+    const rChanged = d.role  && d.role !== (u.role || "user");
+    return gChanged || rChanged;
+  };
+
+  const saveRow = async (u) => {
+    const key = getKey(u);
+    const d = drafts[key] || {};
+    const patch = {};
+    if (d.group && toCode(d.group) !== toCode(u.group)) patch.group = toCode(d.group);
+    if (d.role  && d.role !== (u.role || "user"))       patch.role  = d.role;
+    if (!Object.keys(patch).length) return;
+
+    const idForUpdate = u.id ?? u._id ?? u.userId ?? u.email;
+    const res = await apiAdminUpdateUser(token, idForUpdate, patch);
+    if (!res) { window.showDockToast?.("Не удалось сохранить"); return; }
+
+    clearDraft(key);
+    window.showDockToast?.("Сохранено");
+    await load();
+  };
+
+  return (
+    <div style={{ marginTop: 0 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+        <div style={{ fontSize: 22, fontWeight: 600 }}>
+          {filterGroup ? `Участники группы: ${labelByCode(filterGroup)}` : "Зарегистрированные учётные записи"}
+        </div>
+        <div style={{ fontSize: 14, fontWeight: 300, color: "#222" }}>
+          Всего: {total}
+        </div>
+      </div>
+
+      <div style={{ marginBottom: 16, display: "grid", gridTemplateColumns: "1fr 140px", gap: 12 }}>
+        <Input value={q} onChange={setQ} placeholder="Поиск по имени, e-mail или телефону…" />
+        <button
+          type="button"
+          onClick={load}
+          style={{
+            height: FIELD_H, border: "none", borderRadius: 8, background: "#000", color: "#fff",
+            fontFamily: UI, fontSize: 14, fontWeight: 300, cursor: "pointer"
+          }}
+        >
+          Обновить
+        </button>
+      </div>
+
+      <div style={{ border: `1px solid ${UNDERLINE}`, borderRadius: 10, background: "#fff" }}>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "220px 260px 160px 140px 140px 1fr",
+            gap: 0,
+            padding: "12px 14px",
+            borderBottom: `1px solid ${UNDERLINE}`,
+            fontSize: 12,
+            letterSpacing: ".06em",
+            textTransform: "uppercase",
+            color: "#666",
+          }}
+        >
+          <div>Имя</div>
+          <div>E-mail</div>
+          <div>Телефон</div>
+          <div>Группа</div>
+          <div>Роль</div>
+          <div>Действия</div>
+        </div>
+
+        {loading ? (
+          <div style={{ padding: 16, fontSize: 14, fontWeight: 300 }}>Загрузка…</div>
+        ) : list.length === 0 ? (
+          <div style={{ padding: 16, fontSize: 14, fontWeight: 300, color: "#666" }}>Нет данных</div>
+        ) : (
+          list.map((u, idx) => {
+            const key = getKey(u) || String(idx);
+            const changed = isChanged(u, key);
+            return (
+              <div
+                key={key}
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "220px 260px 160px 140px 140px 1fr",
+                  gap: 0,
+                  padding: "10px 14px",
+                  borderTop: `1px solid ${UNDERLINE}`,
+                  alignItems: "center",
+                }}
+              >
+                <div style={{ fontSize: 14, fontWeight: 300, color: TEXT }}>{u.name || ""}</div>
+                <div style={{ fontSize: 14, fontWeight: 300, color: "#333" }}>{u.email || ""}</div>
+                <div style={{ fontSize: 14, fontWeight: 300, color: "#333" }}>{u.phone || ""}</div>
+                <div>
+                  <GroupSelect
+                    value={currentGroup(u, key)}
+                    onChange={(code) => setDraft(key, { group: code })}
+                    error={false}
+                    canPickLocked={true}
+                  />
+                </div>
+                <div>
+                  <AccessRoleSelect
+                    value={currentRole(u, key)}
+                    onChange={(code) => setDraft(key, { role: code })}
+                  />
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <button
+                    type="button"
+                    disabled={!changed}
+                    onClick={() => saveRow(u)}
+                    style={{
+                      height: 36, padding: "0 12px", borderRadius: 8, border: "none",
+                      background: changed ? "#000" : "#999", color: "#fff",
+                      fontFamily: UI, fontSize: 13, fontWeight: 300, cursor: changed ? "pointer" : "not-allowed",
+                      opacity: changed ? 1 : 0.8
+                    }}
+                  >
+                    Сохранить
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!drafts[key]}
+                    onClick={() => clearDraft(key)}
+                    style={{
+                      height: 36, padding: "0 12px", borderRadius: 8, border: `1px solid ${UNDERLINE}`,
+                      background: "#fff", color: drafts[key] ? "#111" : "#999",
+                      fontFamily: UI, fontSize: 13, fontWeight: 300, cursor: drafts[key] ? "pointer" : "not-allowed"
+                    }}
+                  >
+                    Отменить
+                  </button>
+                  {changed ? <span style={{ fontSize: 12, fontWeight: 300, color: "#444" }}>• не сохранено</span> : null}
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      <div style={{ height: 58 }} />
+    </div>
+  );
+}
+
+/* ===== Страница ===== */
 export default function AccountProfilePage() {
   const [token, setToken] = React.useState(null);
   const [userEmail, setUserEmail] = React.useState("");
@@ -558,7 +990,7 @@ export default function AccountProfilePage() {
   const [username, setUsername] = React.useState("");
   const [display, setDisplay] = React.useState("");
   const [phone, setPhone] = React.useState("");
-  const [role, setRole] = React.useState(""); // серверный код группы
+  const [groupCode, setGroupCode] = React.useState("");
   const [city, setCity] = React.useState("");
   const [about, setAbout] = React.useState("");
   const [avatar, setAvatar] = React.useState(null);
@@ -567,7 +999,17 @@ export default function AccountProfilePage() {
   const [errors, setErrors] = React.useState({});
   const [saving, setSaving] = React.useState(false);
 
-  /* подхватываем юзера, автозаполнение username(часть до @) и display(name), role=код */
+  /* вкладка из URL */
+  const pathname = useLocationPathname();
+  const tab = React.useMemo(() => {
+    if (/\/account\/partner(\/|$)/.test(pathname))  return "partner";
+    if (/\/account\/supplier(\/|$)/.test(pathname)) return "supplier";
+    if (/\/account\/personal(\/|$)/.test(pathname)) return "personal";
+    if (/\/account\/admin(\/|$)/.test(pathname))    return "admin";
+    return "profile";
+  }, [pathname]);
+
+  /* подхватываем юзера */
   React.useEffect(() => {
     (async () => {
       let t = sessionStorage.getItem("auth:accessToken");
@@ -587,7 +1029,7 @@ export default function AccountProfilePage() {
       setDisplay((prev) => (prev || u.name || ""));
 
       setPhone(String(u.phone || ""));
-      setRole(toCode(u.group || u.role || "user"));
+      setGroupCode(toCode(u.group || u.role || "user"));
       setIsAdmin(Boolean(u.isAdmin || u.role === "admin" || u.group === "admin"));
       setCity(String(u.city || ""));
       setAbout(String(u.about || ""));
@@ -630,20 +1072,19 @@ export default function AccountProfilePage() {
     return () => window.removeEventListener("resize", calc);
   }, []);
 
-  const lineWidth = MID_COL + GAP_COL + RIGHT_COL;
+  const tabsLineWidth = MID_COL + GAP_COL + RIGHT_COL - LINE_RIGHT_INSET;
 
   async function handleSave() {
     const next = {};
     if (!username.trim()) next.username = "Укажите имя пользователя.";
     if (!display.trim()) next.display = "Укажите отображаемое имя.";
     if (!city.trim()) next.city = "Выберите город.";
-    if (!role) next.role = "Выберите вариант.";
-    // подстраховка от выбора закрытых групп
-    if (isLockedCode(role) && !isAdmin) next.role = "Недостаточно прав для выбора этой группы.";
+    if (!groupCode) next.groupCode = "Выберите вариант.";
+    if (isLockedCode(groupCode) && !isAdmin) next.groupCode = "Недостаточно прав для выбора этой группы.";
     setErrors(next);
     if (Object.keys(next).length) return;
 
-    if (!token) { alert("Авторизуйтесь, чтобы сохранить изменения."); return; }
+    if (!token) { window.showDockToast?.("Нужна авторизация"); return; }
 
     try {
       setSaving(true);
@@ -653,8 +1094,7 @@ export default function AccountProfilePage() {
         username: username.trim(),
         name: display.trim(),
         phone: phone.trim(),
-        group: role,            // серверный код
-        role: role,             // дублируем для совместимости
+        group: groupCode,
         city,
         about,
         emailOptIn,
@@ -663,23 +1103,30 @@ export default function AccountProfilePage() {
 
       if (!resp) throw new Error("save_failed");
 
-      const updatedUser = resp.user || { name: display.trim(), email: userEmail, group: role };
+      const updatedUser = resp.user || { name: display.trim(), email: userEmail, group: groupCode };
       if (typeof window.setHeaderUser === "function") {
         window.setHeaderUser(updatedUser, token);
       } else {
         window.dispatchEvent(new CustomEvent("auth:changed", { detail: { user: updatedUser, accessToken: token } }));
       }
 
-      alert("Изменения сохранены");
+      window.showDockToast?.("Сохранено");
     } catch (e) {
-      alert("Не удалось сохранить. Попробуйте ещё раз.");
+      window.showDockToast?.("Не удалось сохранить");
     } finally {
       setSaving(false);
     }
   }
 
   const INFO_UP = 37;
-  const emailPrefix = (userEmail || "").split("@")[0] || "";
+
+  const crumbLabel = {
+    profile:  "Профиль",
+    partner:  "Партнёр",
+    supplier: "Поставщик",
+    personal: "Личная информация",
+    admin:    "Администратор",
+  }[tab] || "Профиль";
 
   return (
     <main style={{ fontFamily: UI, color: TEXT, background: "#f8f8f8", minHeight: "100dvh" }}>
@@ -696,10 +1143,8 @@ export default function AccountProfilePage() {
         >
           {/* ЛЕВО — крошка + описание */}
           <aside>
-            {/* Крошка — поднята, иконка перед «>» */}
             <div style={{ marginTop: -35 }}>
               <div style={{ fontSize: 22, fontWeight: 600, marginBottom: 7 }}>Профиль</div>
-
               <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#333" }}>
                 <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true" style={{ color: "#111" }}>
                   <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="1.8" />
@@ -707,202 +1152,278 @@ export default function AccountProfilePage() {
                   <rect x="13.2" y="8" width="1.6" height="8" rx="0.8" fill="currentColor" />
                 </svg>
                 <span style={{ fontSize: 14, fontWeight: 300 }}>{">"}</span>
-                <span style={{ fontSize: 14, fontWeight: 600 }}>Профиль</span>
+                <span style={{ fontSize: 14, fontWeight: 600 }}>{crumbLabel}</span>
               </div>
             </div>
 
             <div ref={leftStartRef} />
 
             <div style={{ marginTop: leftShift }}>
-              <div style={{ fontSize: 22, fontWeight: 600, lineHeight: "1.35" }}>Ваш профиль</div>
-              <div style={{ marginTop: 7, fontSize: 14, fontWeight: 300, color: "#222" }}>
-                Добавьте здесь дополнительную
+              <div style={{ fontSize: 22, fontWeight: 600, lineHeight: "1.35" }}>
+                {tab === "admin"
+                  ? "Роли и группы"
+                  : tab === "personal"
+                  ? "Личная информация"
+                  : tab === "partner"
+                  ? "Раздел: Партнёр"
+                  : tab === "supplier"
+                  ? "Раздел: Поставщик"
+                  : "Ваш профиль"}
               </div>
-              <div style={{ marginTop: 7, fontSize: 14, fontWeight: 300, color: "#222" }}>
-                информацию о себе.
-              </div>
+
+              {tab === "admin" ? (
+                <div style={{ marginTop: 7, fontSize: 14, fontWeight: 300, color: "#222" }}>
+                  Управляйте ролями (доступ) и группами (кто вы?) прямо тут.
+                </div>
+              ) : tab === "personal" ? (
+                <div style={{ marginTop: 7, fontSize: 14, fontWeight: 300, color: "#222" }}>
+                  Заполните информацию о себе.
+                </div>
+              ) : (
+                <>
+                  <p style={{ marginTop: 7, fontSize: 14, fontWeight: 300, color: "#222" }}>
+                    Добавьте здесь дополнительную
+                  </p>
+                  <p style={{ marginTop: 7, fontSize: 14, fontWeight: 300, color: "#222" }}>
+                    информацию о себе.
+                  </p>
+                </>
+              )}
             </div>
           </aside>
 
-          {/* ЦЕНТР — вкладки + dotted + форма */}
+          {/* ЦЕНТР — вкладки + контент */}
           <section>
-            <div style={{ position: "relative", marginTop: -35, paddingBottom: 18 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 24, fontSize: 14 }}>
-                <button type="button" style={{ background: "transparent", border: "none", padding: 0, cursor: "default", fontWeight: 600, color: TEXT }}>
-                  Профиль
-                </button>
-                <span style={{ display: "inline-flex", alignItems: "center", fontWeight: 300, color: "#777" }}>
-                  <Lock /> Партнёр
-                </span>
-                <span style={{ display: "inline-flex", alignItems: "center", fontWeight: 300, color: "#777" }}>
-                  <Lock /> Поставщик
-                </span>
-                <span style={{ fontWeight: 300, color: TEXT }}>Личная информация</span>
-              </div>
+            <TabsBar
+              active={tab}
+              isAdmin={isAdmin}
+              onNavigate={() => {}}
+              lineWidth={tabsLineWidth}
+            />
 
-              <div
-                style={{
-                  marginTop: 10,
-                  position: "relative",
-                  width: `${lineWidth}px`,
-                  height: 1,
-                  backgroundImage:
-                    "repeating-linear-gradient(to right, #000 0 1px, rgba(0,0,0,0) 1px 9px)",
-                }}
-              >
-                <div style={{ position: "absolute", left: 0, top: -1, width: 56, height: 2, background: "#000" }} />
-              </div>
-            </div>
-
-            <div style={{ marginTop: 44 }}>
-              <div ref={formTopAnchorRef} />
-
-              <form onSubmit={(e) => e.preventDefault()}>
-                <div style={{ display: "grid", gridTemplateColumns: "347px 347px", gap: 20 }}>
-                  <div>
-                    <Field label="Имя пользователя" required error={errors.username}>
-                      <div style={{ display: "grid", gridTemplateColumns: "161px 1fr", gap: 0 }}>
-                        <div
-                          tabIndex={-1}
-                          style={{
-                            ...baseFieldStyle(false),
-                            color: PH,
-                            background: "#fff",
-                            pointerEvents: "none",
-                            userSelect: "text",
-                            display: "flex",
-                            alignItems: "center",
-                          }}
-                        >
-                          https://cube-tech.ru/
+            {tab === "admin" && isAdmin ? (
+              <AdminPanel token={token} />
+            ) : tab === "partner" && isAdmin ? (
+              <AdminPanelFiltered token={token} group="partner" />
+            ) : tab === "supplier" && isAdmin ? (
+              <AdminPanelFiltered token={token} group="supplier" />
+            ) : (
+              <>
+                {tab === "personal" ? (
+                  <div style={{ marginTop: 44 }}>
+                    <form onSubmit={(e) => e.preventDefault()}>
+                      <div style={{ display: "grid", gridTemplateColumns: "347px 347px", gap: 20 }}>
+                        <div>
+                          <CitySelect
+                            value={city}
+                            onChange={(v) => { setCity(v); if (errors.city) setErrors({ ...errors, city: "" }); }}
+                            error={errors.city}
+                            offset={0}
+                          />
                         </div>
-                        <Input
-                          value={username}
-                          onChange={(v) => { setUsername(v); if (errors.username) setErrors({ ...errors, username: "" }); }}
-                          placeholder={emailPrefix || "yourname"}
-                          error={errors.username}
+                        <div>
+                          <Field label="Телефон" error={errors.phone}>
+                            <Input
+                              value={phone}
+                              onChange={(v) => { setPhone(v); if (errors.phone) setErrors({ ...errors, phone: "" }); }}
+                              placeholder="+7 (900) 000-00-00"
+                              error={errors.phone}
+                            />
+                          </Field>
+                        </div>
+                      </div>
+
+                      <div style={{ marginTop: 37 }}>
+                        <Field label="Коротко о себе">
+                          <Textarea value={about} onChange={setAbout} placeholder="Пара предложений о себе…" />
+                        </Field>
+                      </div>
+
+                      <div style={{ marginTop: 37 }}>
+                        <Field label="Аватар">
+                          <AvatarPicker fileName={avatar?.name} onPick={(f) => setAvatar(f)} error={errors.avatar} />
+                        </Field>
+                      </div>
+
+                      <div style={{ marginTop: 28, fontSize: 14, fontWeight: 300, color: "#222" }}>
+                        КУБ может информировать меня о продуктах и услугах, отправляя персонализированные письма. Подробнее
+                        см. в нашей{" "}
+                        <a href="https://cube-tech.ru/legal/privacy" target="_blank" rel="noopener noreferrer" style={{ fontWeight: 600, color: TEXT, textDecoration: "none" }}>
+                          Политике конфиденциальности
+                        </a>.
+                      </div>
+
+                      <div style={{ marginTop: 9, display: "flex", alignItems: "center", gap: 10 }}>
+                        <button
+                          type="button"
+                          onClick={() => setEmailOptIn((v) => !v)}
+                          style={{ background: "transparent", border: "none", padding: 0, cursor: "pointer" }}
+                          aria-pressed={emailOptIn}
+                        >
+                          <Square checked={emailOptIn} />
+                        </button>
+                        <div style={{ fontSize: 14, fontWeight: 300, color: "#222" }}>
+                          Свяжитесь со мной по электронной почте.
+                        </div>
+                      </div>
+                    </form>
+
+                    <div style={{ height: 200 }} />
+                  </div>
+                ) : (
+                  <div style={{ marginTop: 44 }}>
+                    <div ref={formTopAnchorRef} />
+                    <form onSubmit={(e) => e.preventDefault()}>
+                      <div style={{ display: "grid", gridTemplateColumns: "347px 347px", gap: 20 }}>
+                        <div>
+                          <Field label="Имя пользователя" required error={errors.username}>
+                            <div style={{ display: "grid", gridTemplateColumns: "161px 1fr", gap: 0 }}>
+                              <div
+                                tabIndex={-1}
+                                style={{
+                                  ...baseFieldStyle(false),
+                                  color: PH,
+                                  background: "#fff",
+                                  pointerEvents: "none",
+                                  userSelect: "text",
+                                  display: "flex",
+                                  alignItems: "center",
+                                }}
+                              >
+                                https://cube-tech.ru/
+                              </div>
+                              <Input
+                                value={username}
+                                onChange={(v) => { setUsername(v); if (errors.username) setErrors({ ...errors, username: "" }); }}
+                                placeholder={(userEmail || "").split("@")[0] || "yourname"}
+                                error={errors.username}
+                              />
+                            </div>
+                          </Field>
+                        </div>
+
+                        <div ref={displayAnchorRef}>
+                          <Field label="Отображаемое имя" required error={errors.display}>
+                            <Input
+                              value={display}
+                              onChange={(v) => { setDisplay(v); if (errors.display) setErrors({ ...errors, display: "" }); }}
+                              placeholder="Фамилия Имя Отчество"
+                              error={errors.display}
+                            />
+                          </Field>
+                        </div>
+                      </div>
+
+                      <div style={{ marginTop: 58, display: "grid", gridTemplateColumns: "347px 347px", gap: 20 }}>
+                        <div>
+                          <Field label="Телефон" error={errors.phone}>
+                            <Input
+                              value={phone}
+                              onChange={(v) => { setPhone(v); if (errors.phone) setErrors({ ...errors, phone: "" }); }}
+                              placeholder="+7 (900) 000-00-00"
+                              error={errors.phone}
+                            />
+                          </Field>
+                        </div>
+                        <div>
+                          <Field label="Кто вы?" required error={errors.groupCode}>
+                            <GroupSelect
+                              value={groupCode}
+                              onChange={(code) => { setGroupCode(code); if (errors.groupCode) setErrors({ ...errors, groupCode: "" }); }}
+                              error={errors.groupCode}
+                              canPickLocked={isAdmin || isLockedCode(groupCode)}
+                            />
+                          </Field>
+                        </div>
+                      </div>
+
+                      <div style={{ marginTop: 58 }}>
+                        <CitySelect
+                          value={city}
+                          onChange={(v) => { setCity(v); if (errors.city) setErrors({ ...errors, city: "" }); }}
+                          error={errors.city}
+                          offset={0}
                         />
                       </div>
-                    </Field>
+
+                      <div style={{ marginTop: 37 }}>
+                        <Field label="Коротко о себе">
+                          <Textarea value={about} onChange={setAbout} placeholder="Пара предложений о себе…" />
+                        </Field>
+                      </div>
+
+                      <div style={{ marginTop: 37 }}>
+                        <Field label="Аватар">
+                          <AvatarPicker fileName={avatar?.name} onPick={(f) => setAvatar(f)} error={errors.avatar} />
+                        </Field>
+                      </div>
+
+                      <div style={{ marginTop: 28 - INFO_UP, fontSize: 14, fontWeight: 300, color: "#222" }}>
+                        КУБ может информировать меня о продуктах и услугах, отправляя персонализированные письма. Подробнее
+                        см. в нашей{" "}
+                        <a href="https://cube-tech.ru/legal/privacy" target="_blank" rel="noopener noreferrer" style={{ fontWeight: 600, color: TEXT, textDecoration: "none" }}>
+                          Политике конфиденциальности
+                        </a>.
+                      </div>
+
+                      <div style={{ marginTop: 9, display: "flex", alignItems: "center", gap: 10 }}>
+                        <button
+                          type="button"
+                          onClick={() => setEmailOptIn((v) => !v)}
+                          style={{ background: "transparent", border: "none", padding: 0, cursor: "pointer" }}
+                          aria-pressed={emailOptIn}
+                        >
+                          <Square checked={emailOptIn} />
+                        </button>
+                        <div style={{ fontSize: 14, fontWeight: 300, color: "#222" }}>
+                          Свяжитесь со мной по электронной почте.
+                        </div>
+                      </div>
+                    </form>
+
+                    <div style={{ height: 200 }} />
                   </div>
-
-                  <div ref={displayAnchorRef}>
-                    <Field label="Отображаемое имя" required error={errors.display}>
-                      <Input
-                        value={display}
-                        onChange={(v) => { setDisplay(v); if (errors.display) setErrors({ ...errors, display: "" }); }}
-                        placeholder="Фамилия Имя Отчество"
-                        error={errors.display}
-                      />
-                    </Field>
-                  </div>
-                </div>
-
-                <div style={{ marginTop: 58, display: "grid", gridTemplateColumns: "347px 347px", gap: 20 }}>
-                  <div>
-                    <Field label="Телефон" error={errors.phone}>
-                      <Input
-                        value={phone}
-                        onChange={(v) => { setPhone(v); if (errors.phone) setErrors({ ...errors, phone: "" }); }}
-                        placeholder="+7 (900) 000-00-00"
-                        error={errors.phone}
-                      />
-                    </Field>
-                  </div>
-                  <div>
-                    <Field label="Кто вы?" required error={errors.role}>
-                      <RoleSelect
-                        value={role}
-                        onChange={(code) => { setRole(code); if (errors.role) setErrors({ ...errors, role: "" }); }}
-                        error={errors.role}
-                        canPickLocked={isAdmin || isLockedCode(role)}
-                      />
-                    </Field>
-                  </div>
-                </div>
-
-                <div style={{ marginTop: 58 }}>
-                  <CitySelect
-                    value={city}
-                    onChange={(v) => { setCity(v); if (errors.city) setErrors({ ...errors, city: "" }); }}
-                    error={errors.city}
-                    offset={0}
-                  />
-                </div>
-
-                <div style={{ marginTop: 37 }}>
-                  <Field label="Коротко о себе">
-                    <Textarea value={about} onChange={setAbout} placeholder="Пара предложений о себе…" />
-                  </Field>
-                </div>
-
-                <div style={{ marginTop: 37 }}>
-                  <Field label="Аватар">
-                    <AvatarPicker fileName={avatar?.name} onPick={(f) => setAvatar(f)} error={errors.avatar} />
-                  </Field>
-                </div>
-
-                <div style={{ marginTop: 28 - INFO_UP, fontSize: 14, fontWeight: 300, color: "#222" }}>
-                  КУБ может информировать меня о продуктах и услугах, отправляя персонализированные письма. Подробнее
-                  см. в нашей{" "}
-                  <a href="https://cube-tech.ru/legal/privacy" target="_blank" rel="noopener noreferrer" style={{ fontWeight: 600, color: TEXT, textDecoration: "none" }}>
-                    Политике конфиденциальности
-                  </a>
-                  .
-                </div>
-
-                <div style={{ marginTop: 9, display: "flex", alignItems: "center", gap: 10 }}>
-                  <button
-                    type="button"
-                    onClick={() => setEmailOptIn((v) => !v)}
-                    style={{ background: "transparent", border: "none", padding: 0, cursor: "pointer" }}
-                    aria-pressed={emailOptIn}
-                  >
-                    <Square checked={emailOptIn} />
-                  </button>
-                  <div style={{ fontSize: 14, fontWeight: 300, color: "#222" }}>
-                    Свяжитесь со мной по электронной почте.
-                  </div>
-                </div>
-              </form>
-
-              {/* нижний запас, чтобы футер не прилипал */}
-              <div style={{ height: 200 }} />
-            </div>
+                )}
+              </>
+            )}
           </section>
 
           {/* промежуток */}
           <div />
 
-          {/* ПРАВАЯ кнопка — верх ровно на уровне верха «Отображаемое имя» */}
-          <aside style={{ position: "sticky", top: 24, marginTop: Math.max(0, asideShift) }}>
-            <button
-              type="button"
-              onClick={handleSave}
-              disabled={saving}
-              style={{
-                width: RIGHT_COL,
-                height: 72,
-                borderRadius: 10,
-                background: "#000",
-                color: "#fff",
-                border: "none",
-                fontFamily: UI,
-                fontSize: 18,
-                fontWeight: 300,
-                cursor: saving ? "not-allowed" : "pointer",
-                transition: "filter .15s ease",
-                opacity: saving ? 0.92 : 1,
-              }}
-              onMouseEnter={(e) => { if (!saving) e.currentTarget.style.filter = "brightness(0.92)"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.filter = "none"; }}
-            >
-              {saving ? "Сохранение…" : "Сохранить изменения"}
-            </button>
-            <div style={{ marginTop: 14, fontSize: 14, fontWeight: 300, color: "#222", maxWidth: RIGHT_COL }}>
-              Если вы внесли какие-либо изменения, не забудьте сохранить их, прежде чем покинуть эту страницу.
-            </div>
-          </aside>
+          {/* ПРАВАЯ кнопка — только на вкладках профиля/личной информации */}
+          {tab === "admin" || (isAdmin && (tab === "partner" || tab === "supplier")) ? (
+            <div />
+          ) : (
+            <aside style={{ position: "sticky", top: 24, marginTop: Math.max(0, asideShift) }}>
+              <button
+                type="button"
+                onClick={handleSave}
+                disabled={saving}
+                style={{
+                  width: RIGHT_COL,
+                  height: 72,
+                  borderRadius: 10,
+                  background: "#000",
+                  color: "#fff",
+                  border: "none",
+                  fontFamily: UI,
+                  fontSize: 18,
+                  fontWeight: 300,
+                  cursor: saving ? "not-allowed" : "pointer",
+                  transition: "filter .15s ease",
+                  opacity: saving ? 0.92 : 1,
+                }}
+                onMouseEnter={(e) => { if (!saving) e.currentTarget.style.filter = "brightness(0.92)"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.filter = "none"; }}
+              >
+                {saving ? "Сохранение…" : "Сохранить изменения"}
+              </button>
+              <div style={{ marginTop: 14, fontSize: 14, fontWeight: 300, color: "#222", maxWidth: RIGHT_COL }}>
+                Если вы внесли какие-либо изменения, не забудьте сохранить их, прежде чем покинуть эту страницу.
+              </div>
+            </aside>
+          )}
         </div>
       </div>
     </main>

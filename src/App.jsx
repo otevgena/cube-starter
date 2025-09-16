@@ -33,16 +33,12 @@ import ConstructionServicesPage from '@/pages/services/construction/index.jsx' /
 // ⬇️ Новая отдельная страница "Контакты"
 import ContactPage from '@/pages/contact.jsx'
 
-// ⬇️ Страница профиля
+// ⬇️ Страница профиля (внутри — вкладки)
 import AccountProfilePage from '@/pages/account/profile.jsx'
-
-// ⛔ Больше не импортируем auth/bootstrap — чтобы не дублировать refresh-запросы
-// import { auth } from '@/lib/auth';
 
 export default function App(){
   const [loading, setLoading] = useState(true)
 
-  // Текущий путь без начального слэша: "" для "/"
   const [path, setPath] = useState(() =>
     (typeof window !== 'undefined'
       ? window.location.pathname.replace(/^\/+/, '')
@@ -56,7 +52,7 @@ export default function App(){
     document.body.classList.toggle('legal', path.startsWith('legal/'))
     document.body.classList.toggle('service', path.startsWith('services/'))
     document.body.classList.toggle('contact', path === 'contact')
-    document.body.classList.toggle('account', path.startsWith('account')) // ← профиль
+    document.body.classList.toggle('account', path.startsWith('account'))
 
     return () => {
       document.body.classList.remove('home')
@@ -71,10 +67,14 @@ export default function App(){
   useEffect(() => {
     const onPop = () => setPath(window.location.pathname.replace(/^\/+/, ''))
     window.addEventListener('popstate', onPop)
-    return () => window.removeEventListener('popstate', onPop)
+    window.addEventListener('locationchange', onPop) // на случай патча history
+    return () => {
+      window.removeEventListener('popstate', onPop)
+      window.removeEventListener('locationchange', onPop)
+    }
   }, [])
 
-  // ——— ПРОКРУТКА НАВЕРХ + ТИТУЛ + сброс hero-zone при смене маршрута ———
+  // ——— ПРОКРУТКА НАВЕРХ + ТИТУЛ ———
   useEffect(() => {
     try {
       requestAnimationFrame(() => {
@@ -98,8 +98,12 @@ export default function App(){
       'services/construction': 'Общестрой — CUBE',
       'contact': 'Контакты — CUBE',
       'pro': 'Вакансии — CUBE',
-      'account': 'Профиль — CUBE',            // ← на всякий случай
-      'account/profile': 'Профиль — CUBE',    // ← профиль
+      'account': 'Профиль — CUBE',
+      'account/profile': 'Профиль — CUBE',
+      'account/personal': 'Личная информация — CUBE',
+      'account/partner': 'Партнёр — CUBE',
+      'account/supplier': 'Поставщик — CUBE',
+      'account/admin': 'Администратор — CUBE',
     }
     document.title = titles[path] || 'CUBE'
 
@@ -107,16 +111,11 @@ export default function App(){
     if (m && typeof m.focus === 'function') m.focus()
   }, [path])
 
-  // === HERO-GUARD: выше секции services визуально ничего не подсвечивается ===
+  // === HERO-GUARD ===
   useEffect(() => {
     const servicesEl = document.getElementById('services')
-
     const off = () => { document.body.classList.remove('hero-zone') }
-
-    if (!servicesEl) {
-      off()
-      return // на legal/страницах, /contact, /account и страницах услуг не вешаем обработчики
-    }
+    if (!servicesEl) { off(); return }
 
     const num = (attr, fallback) => {
       const v = servicesEl.getAttribute(attr)
@@ -132,10 +131,8 @@ export default function App(){
       const scrollY = window.scrollY || window.pageYOffset || 0
       const rect = servicesEl.getBoundingClientRect()
       const topAbs = rect.top + scrollY
-
       const silenceUntil = topAbs - headerOffset - Math.max(heroSilence, spyOffset)
       const inHero = scrollY < Math.max(0, silenceUntil)
-
       document.body.classList.toggle('hero-zone', inHero)
     }
 
@@ -149,7 +146,7 @@ export default function App(){
     }
   }, [path])
 
-  // Считываем БАЗОВЫЕ стили неактивной пилюли (рамка + цвет текста)
+  // Базовые стили дока
   useEffect(() => {
     const dock = document.getElementById('dock-root')
     if (!dock) return
@@ -179,21 +176,22 @@ export default function App(){
     if (path === 'services/electrical')   return <ElectricalServicesPage />
     if (path === 'services/lowcurrent')   return <LowCurrentServicesPage />
     if (path === 'services/ventilation')  return <VentilationServicesPage />
-    if (path === 'services/design')       return <DesignServicesPage /> // NEW
-    if (path === 'services/construction') return <ConstructionServicesPage /> // NEW
-    if (path === 'contact')               return <ContactPage /> // NEW
+    if (path === 'services/design')       return <DesignServicesPage />
+    if (path === 'services/construction') return <ConstructionServicesPage />
+    if (path === 'contact')               return <ContactPage />
     if (path === 'pro')                   return <ProJobsPage />
-    if (path === 'account' || path === 'account/profile') return <AccountProfilePage /> // ← профиль
+    if (
+      path === 'account' ||
+      path.startsWith('account/')
+    ) return <AccountProfilePage />
 
     // Главная
     return (
       <>
-        {/* Хиро-блок (без подсветки в доке) */}
         <section id="hero" aria-label="hero">
           <HomeMain />
         </section>
 
-        {/* Якоря для скролл-спая */}
         <section
           id="services"
           data-section="services"
@@ -239,7 +237,6 @@ export default function App(){
           <Contact />
         </section>
 
-        {/* ОТЗЫВЫ */}
         <section
           id="reviews"
           data-section="reviews"
@@ -257,22 +254,13 @@ export default function App(){
   return (
     <div className="min-h-dvh">
       <Header />
-
-      {/* tabindex для фокуса при смене маршрута */}
       <main tabIndex="-1" style={{ outline: 'none' }}>
         {renderRoute()}
       </main>
-
       <Footer />
       <StickyDock />
-
-      {/* Глобальный хост модалок */}
       <ModalsHost />
-
-      {/* Прелоадер */}
       {loading && <Preloader onReady={() => setLoading(false)} minMs={1200} />}
-
-      {/* CSS-оверрайд: в hero-зоне активная пилюля выглядит как НЕактивная */}
       <style>{`
         body.hero-zone .dock__pill.is-active,
         body.hero-zone .dock__pill[aria-selected="true"] {

@@ -30,20 +30,31 @@ const ICON_SVGS = [
 ];
 
 /**
- * Прелоадер + тёплый прогрев ассетов для Services.
- * onReady вызывается, когда: (всё загружено) И (прошло minMs).
+ * Прелоадер для ГЛАВНОЙ: всегда показывается на / (каждый визит),
+ * блокирует скролл, прогревает ассеты, по завершении диспатчит "preloader:done".
  */
 export default function Preloader({ onReady, minMs = 1200 }) {
+  // показываем ТОЛЬКО на главной
+  const isHome = (() => {
+    try { return (window.location.pathname || "/") === "/"; }
+    catch { return false; }
+  })();
+  if (!isHome) return null;
+
   const calledRef = useRef(false);
 
-  // На время прелоадера блокируем скролл
+  // Блокируем скролл на время прелоадера
   useEffect(() => {
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = prev; };
+    document.documentElement.classList.add("no-scroll", "preloader-active");
+    return () => {
+      document.body.style.overflow = prev;
+      document.documentElement.classList.remove("no-scroll", "preloader-active");
+    };
   }, []);
 
-  // Прелоад + тёплый прогрев
+  // Прелоад + «тёплый» прогрев
   useEffect(() => {
     let cancelled = false;
     const addedLinks = [];
@@ -64,14 +75,12 @@ export default function Preloader({ onReady, minMs = 1200 }) {
       try { addLink({ rel: "preload", as: "image", href }); } catch {}
     });
 
-// 2) <link rel="preload"> для SVG: без недопустимого as=document
-// Достаточно as: "image" — валидно и без предупреждений.
-ICON_SVGS.forEach((href) => {
-  try { addLink({ rel: "preload", as: "image", href, type: "image/svg+xml" }); } catch {}
-});
+    // 2) <link rel="preload"> для SVG (как image)
+    ICON_SVGS.forEach((href) => {
+      try { addLink({ rel: "preload", as: "image", href, type: "image/svg+xml" }); } catch {}
+    });
 
-
-    // 3) Тёплый прогрев: реальная загрузка тех же ресурсов
+    // 3) Реальная загрузка изображений (ждём)
     const imgPromises = SERVICES_IMAGES.map(
       (src) =>
         new Promise((resolve) => {
@@ -83,30 +92,28 @@ ICON_SVGS.forEach((href) => {
         })
     );
 
-    // — ключевое место: именно <object type="image/svg+xml"> —
-    // это прогревает парсинг <animate> и т.п. до появления Services.
-    const svgPromises = ICON_SVGS.map(
-      (src) =>
-        new Promise((resolve) => {
-          const obj = document.createElement("object");
-          obj.type = "image/svg+xml";
-          obj.data = src;
-          obj.width = 1;
-          obj.height = 1;
-          obj.onload = obj.onerror = () => resolve();
-          holder.appendChild(obj);
-        })
-    );
+    // Прогрев парсинга SVG через <object> (не ждём)
+    ICON_SVGS.forEach((src) => {
+      const obj = document.createElement("object");
+      obj.type = "image/svg+xml";
+      obj.data = src;
+      obj.width = 1;
+      obj.height = 1;
+      obj.onload = obj.onerror = () => {};
+      holder.appendChild(obj);
+    });
 
-    // Минимальная длительность прелоадера (чтобы не мигал)
+    // Минимальная длительность показа, чтобы не мигал
     const minDelay = new Promise((res) => setTimeout(res, minMs));
 
     Promise.all([...imgPromises, minDelay]).then(() => {
       if (cancelled) return;
       cleanup();
+
       if (!calledRef.current) {
         calledRef.current = true;
-        onReady && onReady();
+        try { onReady && onReady(); } catch {}
+        try { window.dispatchEvent(new CustomEvent("preloader:done")); } catch {}
       }
     });
 
@@ -124,11 +131,39 @@ ICON_SVGS.forEach((href) => {
   return (
     <div className="preloader" role="status" aria-label="Загрузка">
       <div className="preloader__spinner">
-        {/* 8 точек по кругу */}
         {Array.from({ length: 8 }).map((_, i) => (
           <span key={i} style={{ ["--i"]: i }} />
         ))}
       </div>
+
+      {/* локальные стили */}
+      <style>{`
+        .preloader{
+          position: fixed; inset: 0; z-index: 2147483647;
+          background: var(--bg-page, #f8f8f8);
+          display: flex; align-items: center; justify-content: center;
+        }
+        .preloader__spinner{
+          position: relative; width: 64px; height: 64px;
+          animation: preloader-spin 2s linear infinite;
+          will-change: transform;
+        }
+        .preloader__spinner span{
+          --dot-size: 2px; --radius: 18px;
+          position: absolute; top: 50%; left: 50%;
+          width: var(--dot-size); height: var(--dot-size);
+          margin: calc(var(--dot-size)/-2) 0 0 calc(var(--dot-size)/-2);
+          border-radius: 50%; background: #7a7a7a;
+          transform:
+            rotate(calc(var(--i) * 45deg))
+            translate(var(--radius))
+            rotate(calc(var(--i) * -45deg));
+        }
+        @keyframes preloader-spin { to { transform: rotate(360deg); } }
+        @media (prefers-reduced-motion: reduce){
+          .preloader__spinner{ animation: none; }
+        }
+      `}</style>
     </div>
   );
 }

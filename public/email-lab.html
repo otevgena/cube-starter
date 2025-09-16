@@ -71,12 +71,26 @@
 
   <script>
     /* ===== РУЧКИ ДЛЯ НАСТРОЕК ===== */
-    const EMAIL_W       = 600;   // ширина письма
-    const CARD_RADIUS   = 8;     // скругление карточки
-    const LOGO_TEXT     = "c.";  // текст логотипа сверху
-    const LOGO_SIZE_TOP = 48;    // размер «c.» сверху
-    const LOGO_WEIGHT   = 600;   // Inter Tight Semibold
-    const TITLE_GAP     = 26;    // отступ под заголовком письма
+    const EMAIL_W          = 600;         // ширина письма
+
+    // Карточка (внутренний блок письма)
+    const CARD_RADIUS      = 8;           // скругление углов карточки
+    const CARD_BORDER_W    = 0;           // толщина рамки (0 = без рамки)
+    const CARD_BORDER_COLOR= "#e0e0e0";   // цвет рамки карточки
+
+    // CTA-кнопки
+    const BTN_RADIUS       = 6;          // скругление всех CTA
+    const BTN_BORDER_W     = 0;           // толщина рамки кнопок (0 = без рамки)
+    const BTN_BORDER_COLOR = "#000000";   // цвет рамки кнопок
+
+    // Лого «c.» сверху
+    const LOGO_TEXT        = "c.";
+    const LOGO_SIZE_TOP    = 48;
+    const LOGO_WEIGHT      = 600;         // Inter Tight Semibold
+
+    // Заголовок письма (внутри карточки)
+    const TITLE_GAP        = 26;          // отступ под заголовком
+
     const GOOGLE_FONT_HREF =
       "https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;600;700;800&display=swap";
 
@@ -126,6 +140,8 @@
              <span style="display:inline-block;font-size:${LOGO_SIZE_TOP}px;font-weight:${LOGO_WEIGHT};letter-spacing:.02em;color:#000;font-family:'Inter Tight','Inter',Arial,sans-serif">${LOGO_TEXT}</span>
            </a>`;
 
+      const cardBorderCSS = `${Number(CARD_BORDER_W)||0}px solid ${CARD_BORDER_W ? CARD_BORDER_COLOR : "transparent"}`;
+
       return `
 <!doctype html>
 <html lang="ru">
@@ -147,10 +163,10 @@
             </td>
           </tr>
 
-          <!-- карточка без рамки -->
+          <!-- карточка (скругление и рамка управляются константами) -->
           <tr>
             <td style="padding:0">
-              <div style="border-radius:${CARD_RADIUS}px;overflow:hidden;background:${C.cardBg};border:none">
+              <div style="border-radius:${CARD_RADIUS}px;overflow:hidden;background:${C.cardBg};border:${cardBorderCSS}">
                 <div style="padding:20px">
                   ${title ? `<div style="margin:0 0 ${TITLE_GAP}px;font-size:18px;line-height:24px;letter-spacing:.02em;text-transform:uppercase;font-weight:700">${esc(title)}</div>` : ""}
                   ${bodyHtml}
@@ -205,9 +221,19 @@
         <div style="font-size:14px;line-height:22px;font-weight:400;white-space:normal;word-break:break-word;overflow-wrap:anywhere">${value ? br(String(value)) : "—"}</div>`;
       return first + `<div style="margin-top:4px;margin-bottom:10px">${dotRule()}</div>`;
     }
-    function ctaBtn(text, href){
+
+    /* ========= CTA с регулируемыми скруглением и рамкой ========= */
+    function ctaBtn(text, href, radiusPx = BTN_RADIUS){
       const C = state.BRAND.colors;
-      return `<div style="margin-top:2px"><a href="${esc(href)}" target="_blank" rel="noopener noreferrer" style="display:inline-block;background:${C.btnBg};color:${C.btnText};text-decoration:none;padding:10px 16px;border-radius:10px;font-weight:700">${esc(text)}</a></div>`;
+      const btnBorderCSS = `${Number(BTN_BORDER_W)||0}px solid ${BTN_BORDER_W ? BTN_BORDER_COLOR : "transparent"}`;
+      return `<div style="margin-top:2px">
+        <a href="${esc(href)}"
+           target="_blank" rel="noopener noreferrer"
+           style="display:inline-block;background:${C.btnBg};color:${C.btnText};text-decoration:none;
+                  padding:10px 16px;border-radius:${radiusPx}px;border:${btnBorderCSS};font-weight:700">
+          ${esc(text)}
+        </a>
+      </div>`;
     }
 
     /* ========= Шаблоны ========= */
@@ -242,7 +268,7 @@
       const body = `
         <div style="margin:0 0 10px;font-size:14px">Здравствуйте, ${esc(name)}!</div>
         <div style="margin:0 0 12px;font-size:14px">Вы запросили смену пароля. Нажмите кнопку ниже, чтобы задать новый пароль.</div>
-        ${ctaBtn("Сменить пароль", actionUrl || "#")}
+        ${ctaBtn("Сменить пароль", actionUrl || "#")}  <!-- использует BTN_RADIUS/BTN_BORDER_* -->
         <div style="margin:16px 0 0;font-size:12px;color:${state.BRAND.colors.muted}">
           Если вы не запрашивали смену пароля, просто проигнорируйте это письмо.
         </div>`;
@@ -253,7 +279,7 @@
       const body = `
         <div style="margin:0 0 10px;font-size:14px">Здравствуйте, ${esc(name)}!</div>
         <div style="margin:0 0 12px;font-size:14px">Подтвердите адрес электронной почты для завершения регистрации.</div>
-        ${ctaBtn("Подтвердить email", confirmUrl || "#")}
+        ${ctaBtn("Подтвердить email", confirmUrl || "#")}  <!-- использует BTN_RADIUS/BTN_BORDER_* -->
         <div style="margin:16px 0 0;font-size:12px;color:${state.BRAND.colors.muted}">
           Если вы не регистрировались на сайте ${esc(state.BRAND.site)}, проигнорируйте это письмо.
         </div>`;

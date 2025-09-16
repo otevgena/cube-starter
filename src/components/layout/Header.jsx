@@ -199,7 +199,6 @@ function AvatarMenu({ user, onLogout }) {
               borderRadius: 8,
               display: "block",
               color: "#fff",
-              textDecoration: "none",
             }}
           >
             Панель
@@ -549,7 +548,18 @@ export default function Header() {
               {/* справа — действия ВСЕГДА видны */}
               <div className="actions-right flex items-center gap-4">
                 <a href="/pro" className="btn-pro">Ищу работу</a>
-                <a href="/submit" className="btn-submit">Оставить заявку</a>
+                {/* ↓↓↓ ТОНКИЙ КОНТУР + переход на /contact ↓↓↓ */}
+                <a
+                  href="/contact"
+                  className="btn-submit"
+                  style={{
+                    // делаем контур тоньше, чем был (принудительно 1px)
+                    borderWidth: 1,
+                    borderStyle: "solid",
+                  }}
+                >
+                  Оставить заявку
+                </a>
               </div>
             </div>
           </div>

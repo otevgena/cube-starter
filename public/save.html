@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Toast — Сохранено</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      /* при желании подстрой: */
+      --dock-bottom: 21px;     /* как в твоём доке */
+      --dock-h: 72px;
+      --dock-left-tile: 60px;
+
+      --toast-left: 24px;      /* отступ слева */
+      --toast-bg: #1f1f1f;     /* фон */
+      --toast-fg: #f8fafc;     /* текст */
+      --toast-br: #2a2a2a;     /* рамка */
+      --toast-radius: 12px;    /* скругление */
+    }
+
+    /* фоновая заглушка (не обязательно) */
+    html,body{height:100%}
+    body{margin:0;background:#0b0b0b;font:14px/1.4 'Inter Tight',Inter,system-ui;color:#eaeaea}
+
+    /* сам тост */
+    .dock-toast{
+      position: fixed;
+      left: var(--toast-left);
+      bottom: calc(var(--dock-bottom) + (var(--dock-h) - var(--dock-left-tile)) / 2);
+      display: inline-flex; align-items: center; gap: 10px;
+      padding: 10px 14px;
+      background: var(--toast-bg); color: var(--toast-fg);
+      border: 1px solid var(--toast-br); border-radius: var(--toast-radius);
+      box-shadow: 0 8px 24px rgba(0,0,0,.35);
+      opacity: 0; pointer-events: none; transform: translateY(8px);
+      transition: opacity .22s ease, transform .18s ease;
+      z-index: 2147483647;
+      will-change: opacity, transform;
+    }
+    .dock-toast.is-visible{ opacity: 1; transform: translateY(0); pointer-events: auto; }
+    .dock-toast__icon{ width: 18px; height: 18px; display: grid; place-items: center; }
+  </style>
+</head>
+<body>
+
+  <!-- Тост «Сохранено» -->
+  <div id="dock-toast" class="dock-toast" role="status" aria-live="polite" aria-atomic="true">
+    <span class="dock-toast__icon" aria-hidden="true">
+      <!-- белый круг + чёрная галочка -->
+      <svg viewBox="0 0 24 24" width="18" height="18" focusable="false">
+        <circle cx="12" cy="12" r="10" fill="#ffffff"/>
+        <path d="M7 12.5l3 3L17 9" fill="none" stroke="#111111" stroke-width="2.2"
+              stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </span>
+    <span class="dock-toast__text">Сохранено</span>
+  </div>
+
+  <script>
+    (function(){
+      var toast = document.getElementById('dock-toast');
+      var textEl = toast.querySelector('.dock-toast__text');
+      var timer;
+
+      // Публичная функция вызова из твоего кода:
+      //   showDockToast('Сохранено', 2400)
+      window.showDockToast = function(text, ms){
+        var t = (typeof text === 'string' && text) ? text : 'Сохранено';
+        var d = Number(ms) || 2400;
+        if (textEl) textEl.textContent = t;
+
+        toast.classList.add('is-visible');
+        clearTimeout(timer);
+        timer = setTimeout(function(){
+          toast.classList.remove('is-visible');
+        }, d);
+      };
+
+      // Демонстрация при открытии страницы (можно удалить):
+      window.addEventListener('load', function(){ setTimeout(function(){ showDockToast('Сохранено', 2400); }, 300); });
+    })();
+  </script>
+</body>
+</html>
