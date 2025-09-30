@@ -36,6 +36,11 @@ import ContactPage from '@/pages/contact.jsx'
 // ⬇️ Страница профиля (внутри — вкладки)
 import AccountProfilePage from '@/pages/account/profile.jsx'
 
+// ⬇️ Детальные страницы услуг (Электромонтаж)
+import PowerConnectionPage from '@/pages/services/electrical/power-connection.jsx'
+import PowerUpgradePage from '@/pages/services/electrical/power-upgrade.jsx' // NEW
+import IndoorWorksPage from '@/pages/services/electrical/indoor.jsx';
+
 export default function App(){
   const [loading, setLoading] = useState(true)
 
@@ -96,6 +101,10 @@ export default function App(){
       'services/ventilation': 'Климат-системы — CUBE',
       'services/design': 'Проектирование — CUBE',
       'services/construction': 'Общестрой — CUBE',
+      // Детальные страницы услуг
+      'services/electrical/power-connection': 'Подключение объектов к электросетям — CUBE',
+      'services/electrical/power-upgrade': 'Увеличение мощности и модернизация сетей — CUBE', // NEW
+      'services/electrical/indoor': 'Внутренние электромонтажные работы — CUBE',
       'contact': 'Контакты — CUBE',
       'pro': 'Вакансии — CUBE',
       'account': 'Профиль — CUBE',
@@ -178,10 +187,23 @@ export default function App(){
     if (path === 'services/ventilation')  return <VentilationServicesPage />
     if (path === 'services/design')       return <DesignServicesPage />
     if (path === 'services/construction') return <ConstructionServicesPage />
+
+    // Детальные страницы услуг Электромонтажа
+    if (path === 'services/electrical/power-connection') return <PowerConnectionPage />
+    if (path === 'services/electrical/power-upgrade')    return <PowerUpgradePage /> // NEW
+    if (path === 'services/electrical/indoor') return <IndoorWorksPage />;
+
     if (path === 'contact')               return <ContactPage />
     if (path === 'pro')                   return <ProJobsPage />
+
+    // ====== АККАУНТ ======
     if (
       path === 'account' ||
+      path === 'account/profile' ||
+      path === 'account/personal' ||
+      path === 'account/partner' ||
+      path === 'account/supplier' ||
+      path === 'account/admin' ||
       path.startsWith('account/')
     ) return <AccountProfilePage />
 

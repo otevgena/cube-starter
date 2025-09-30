@@ -392,26 +392,84 @@ function GroupSelect({ value, onChange, error, canPickLocked = false }) {
   );
 }
 
-/* селект ролей доступа (admin/manager/user) */
+/* селект ролей доступа (admin/manager/user) — стиль как у GroupSelect */
 function AccessRoleSelect({ value, onChange }) {
   const OPTIONS = [
     { code: "user", label: "User" },
     { code: "manager", label: "Manager" },
     { code: "admin", label: "Admin" },
   ];
+  const [open, setOpen] = React.useState(false);
+  const ref = React.useRef(null);
+  React.useEffect(() => {
+    const onDoc = (e) => { if (!ref.current?.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, []);
+  const current = OPTIONS.find(o => o.code === value) ? value : "user";
   return (
-    <select
-      value={value}
-      onChange={(e) => onChange?.(e.target.value)}
-      style={{
-        ...baseFieldStyle(false),
-        height: FIELD_H,
-        padding: "0 10px",
-        background: "#fff",
-      }}
-    >
-      {OPTIONS.map(o => <option key={o.code} value={o.code}>{o.label}</option>)}
-    </select>
+    <div ref={ref} style={{ position: "relative" }}>
+      <button
+        type="button"
+        onClick={() => setOpen(v => !v)}
+        className="with-ph"
+        style={{
+          ...baseFieldStyle(false),
+          display: "grid",
+          gridTemplateColumns: "1fr 24px",
+          alignItems: "center",
+          textAlign: "left",
+          cursor: "pointer",
+        }}
+        aria-expanded={open}
+      >
+        <span style={{ color: TEXT }}>
+          {OPTIONS.find(o => o.code === current)?.label || "User"}
+        </span>
+        <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" style={{ color: "#b1b1b1" }}>
+          {open ? (
+            <path d="M5 15L12 8l7 7" fill="none" stroke="currentColor" strokeWidth="2" />
+          ) : (
+            <path d="M5 9l7 7 7-7" fill="none" stroke="currentColor" strokeWidth="2" />
+          )}
+        </svg>
+      </button>
+      {open && (
+        <div
+          style={{
+            position: "absolute",
+            left: 0, right: 0, top: FIELD_H,
+            background: "#fff",
+            boxShadow: "0 14px 40px rgba(0,0,0,.08)",
+            zIndex: 5,
+          }}
+          role="listbox"
+        >
+          {OPTIONS.map(o => (
+            <button
+              key={o.code}
+              type="button"
+              onClick={() => { onChange?.(o.code); setOpen(false); }}
+              style={{
+                width: "100%",
+                textAlign: "left",
+                padding: "12px 14px",
+                border: "none",
+                background: "#fff",
+                cursor: "pointer",
+                fontFamily: UI, fontSize: 16, fontWeight: 300, color: TEXT,
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = "#f8f8f8"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = "#fff"; }}
+              role="option"
+              aria-selected={current === o.code}
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -629,7 +687,10 @@ const MID_COL = 714;
 const GAP_COL = 78;
 const RIGHT_COL = 277;
 const PAGE_PAD = 52;
-const LINE_RIGHT_INSET = 64;
+/* раньше было 64 — теперь доводим пунктир и правые блоки ровно до 52 px от края */
+const LINE_RIGHT_INSET = 52;
+/* ДОБАВКА: расширяем пунктир ТОЛЬКО справа на +64px */
+const DOTS_RIGHT_EXTRA = 64;
 
 /* === надежное отслеживание текущего pathname === */
 function useLocationPathname() {
@@ -688,7 +749,7 @@ function TabsBar({ active, isAdmin, onNavigate, lineWidth }) {
       { code: "profile",  label: "Профиль",  adminOnly: false, locked: false },
       { code: "partner",  label: "Партнёр",  adminOnly: false, locked: !isAdmin },
       { code: "supplier", label: "Поставщик",adminOnly: false, locked: !isAdmin },
-      { code: "personal", label: "Личная информация", adminOnly: false, locked: false },
+      { code: "personal", label: "Настройки", adminOnly: false, locked: false }, // ← Переименовано
       { code: "admin",    label: "Администратор", adminOnly: true, locked: false },
     ].filter(t => (t.adminOnly ? isAdmin : true));
   }, [isAdmin]);
@@ -719,7 +780,7 @@ function TabsBar({ active, isAdmin, onNavigate, lineWidth }) {
       case "supplier": return "/account/supplier";
       case "personal": return "/account/personal";
       case "admin":    return "/account/admin";
-      default:         return "/account/profile";
+      default:          return "/account/profile";
     }
   };
 
@@ -803,6 +864,7 @@ function AdminPanelFiltered({ token, group }) {
   return <AdminPanelCore token={token} filterGroup={group} />;
 }
 
+/* ===== Админ-панель — таблица: пунктиры + пагинация «…» по 5 ===== */
 function AdminPanelCore({ token, filterGroup }) {
   const [list, setList] = React.useState([]);
   const [total, setTotal] = React.useState(0);
@@ -817,17 +879,18 @@ function AdminPanelCore({ token, filterGroup }) {
   const clearDraft = (key) =>
     setDrafts((prev) => { const n = { ...prev }; delete n[key]; return n; });
 
-  const load = React.useCallback(async () => {
-    if (!token) return;
-    setLoading(true);
-    const j = await apiAdminListUsers(token, { limit: 50, offset: 0, q, group: filterGroup });
-    const users = Array.isArray(j?.users) ? j.users : Array.isArray(j) ? j : [];
-    setList(users);
-    setTotal(Number(j?.total || users.length || 0));
-    setLoading(false);
+  React.useEffect(() => {
+    const load = async () => {
+      if (!token) return;
+      setLoading(true);
+      const j = await apiAdminListUsers(token, { limit: 200, offset: 0, q, group: filterGroup });
+      const users = Array.isArray(j?.users) ? j.users : Array.isArray(j) ? j : [];
+      setList(users);
+      setTotal(Number(j?.total || users.length || 0));
+      setLoading(false);
+    };
+    load();
   }, [token, q, filterGroup]);
-
-  React.useEffect(() => { load(); }, [load]);
 
   const currentGroup = (u, key) => toCode((drafts[key]?.group ?? u.group ?? "user"));
   const currentRole  = (u, key) => (drafts[key]?.role  ?? u.role  ?? "user");
@@ -854,12 +917,185 @@ function AdminPanelCore({ token, filterGroup }) {
 
     clearDraft(key);
     window.showDockToast?.("Сохранено");
-    await load();
+  };
+
+  // ширина пунктирной линии — доводим до правого отступа 52px + расширяем только справа на 64px
+  const dottedWidth = MID_COL + GAP_COL + RIGHT_COL - LINE_RIGHT_INSET + DOTS_RIGHT_EXTRA;
+  const cols = "220px 260px 160px 140px 140px auto";
+
+  const DottedLine = () => (
+    <div
+      style={{
+        width: `${dottedWidth}px`,
+        height: 1,
+        backgroundImage:
+          "repeating-linear-gradient(to right, #000 0 1px, rgba(0,0,0,0) 1px 9px)",
+      }}
+    />
+  );
+
+  /* ======= Пагинация «пятёрками» с превью и кнопкой «…» ======= */
+  const CHUNK = 5;
+  const [visible, setVisible] = React.useState(CHUNK);
+  React.useEffect(() => { setVisible(CHUNK); }, [q, filterGroup]); // сбрасываем при фильтрах
+
+  const hasMore = list.length > visible;
+  const nextUser = hasMore ? list[visible] : null;
+
+  const Row = ({ u, idx, ghost = false }) => {
+    const key = getKey(u) || String(idx);
+    const changed = isChanged(u, key);
+    const hasDraft = !!drafts[key];
+
+    const row = (
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: cols,
+          gap: 0,
+          padding: "12px 0",
+          alignItems: "center",
+          background: "transparent",
+          opacity: ghost ? 0.28 : 1,
+          pointerEvents: ghost ? "none" : "auto",
+        }}
+      >
+        <div style={{ fontSize: 14, fontWeight: 300, color: TEXT }}>{u.name || ""}</div>
+        <div style={{ fontSize: 14, fontWeight: 300, color: "#333" }}>{u.email || ""}</div>
+        <div style={{ fontSize: 14, fontWeight: 300, color: "#333" }}>{u.phone || ""}</div>
+        <div>
+          <GroupSelect
+            value={(drafts[key]?.group ?? u.group ?? "user")}
+            onChange={(code) => setDraft(key, { group: code })}
+            error={false}
+            canPickLocked={true}
+          />
+        </div>
+        <div>
+          <AccessRoleSelect
+            value={(drafts[key]?.role ?? u.role ?? "user")}
+            onChange={(code) => setDraft(key, { role: code })}
+          />
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <button
+            type="button"
+            disabled={!changed}
+            onClick={() => saveRow(u)}
+            style={{
+              height: 36,
+              padding: "0 12px",
+              borderRadius: 10,
+              border: "none",
+              background: changed ? "#000" : "#999",
+              color: "#fff",
+              fontFamily: UI,
+              fontSize: 13,
+              fontWeight: 300,
+              cursor: changed ? "pointer" : "not-allowed",
+              opacity: changed ? 1 : 0.9,
+              transition: "background-color 160ms ease, opacity 160ms ease",
+            }}
+            onMouseEnter={(e) => { if (changed) e.currentTarget.style.background = "#2b2b2b"; }}
+            onMouseLeave={(e) => { if (changed) e.currentTarget.style.background = "#000"; }}
+          >
+            Сохранить
+          </button>
+
+          <button
+            type="button"
+            disabled={!hasDraft}
+            onClick={() => clearDraft(key)}
+            style={{
+              height: 36,
+              padding: "0 12px",
+              borderRadius: 10,
+              border: hasDraft ? "1px solid #111" : `1px solid ${UNDERLINE}`,
+              background: "transparent",
+              color: hasDraft ? "#111" : "#999",
+              fontFamily: UI,
+              fontSize: 13,
+              fontWeight: 300,
+              cursor: hasDraft ? "pointer" : "not-allowed",
+              transition: "all 160ms ease",
+            }}
+            onMouseEnter={(e) => {
+              if (hasDraft) {
+                e.currentTarget.style.background = "#000";
+                e.currentTarget.style.color = "#fff";
+                e.currentTarget.style.textDecoration = "underline";
+              }
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "transparent";
+              e.currentTarget.style.color = hasDraft ? "#111" : "#999";
+              e.currentTarget.style.textDecoration = "none";
+            }}
+          >
+            Отменить
+          </button>
+
+          {changed ? <span style={{ fontSize: 12, fontWeight: 300, color: "#444" }}>• не сохранено</span> : null}
+        </div>
+      </div>
+    );
+
+    if (!ghost) return (
+      <div style={{ width: `${dottedWidth}px` }}>
+        {row}
+        <DottedLine />
+      </div>
+    );
+
+    // Ghost-ряд с оверлеем «…»
+    return (
+      <div style={{ width: `${dottedWidth}px`, position: "relative" }}>
+        {row}
+        {/* Убрали серый тонкий разделитель под капсулой */}
+        {/* Кнопка «…» по центру */}
+        <div
+          style={{
+            position: "absolute",
+            left: "50%", top: "50%",
+            transform: "translate(-50%, -50%)",
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => setVisible(v => Math.min(v + CHUNK, list.length))}
+            aria-label="Показать ещё 5 записей"
+            style={{
+              width: 76,
+              height: 48,
+              borderRadius: 999,
+              border: "1px solid transparent", // по умолчанию без контура
+              background: "#f8f8f8", // закрашено цветом фона страницы
+              display: "grid",
+              placeItems: "center",
+              cursor: "pointer",
+              boxShadow: "none",
+              transition: "border-color 120ms ease, filter 120ms ease",
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.border = "1px solid #111"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.border = "1px solid transparent"; }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ width: 4, height: 4, borderRadius: "50%", background: "#111", display: "inline-block" }} />
+              <span style={{ width: 4, height: 4, borderRadius: "50%", background: "#111", display: "inline-block" }} />
+              <span style={{ width: 4, height: 4, borderRadius: "50%", background: "#111", display: "inline-block" }} />
+            </div>
+          </button>
+        </div>
+        <DottedLine />
+      </div>
+    );
   };
 
   return (
     <div style={{ marginTop: 0 }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+      {/* Заголовок + счётчик */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, width: `${dottedWidth}px` }}>
         <div style={{ fontSize: 22, fontWeight: 600 }}>
           {filterGroup ? `Участники группы: ${labelByCode(filterGroup)}` : "Зарегистрированные учётные записи"}
         </div>
@@ -868,11 +1104,12 @@ function AdminPanelCore({ token, filterGroup }) {
         </div>
       </div>
 
-      <div style={{ marginBottom: 16, display: "grid", gridTemplateColumns: "1fr 140px", gap: 12 }}>
+      {/* Поиск + кнопка */}
+      <div style={{ marginBottom: 16, display: "grid", gridTemplateColumns: "1fr 140px", gap: 12, width: `${dottedWidth}px` }}>
         <Input value={q} onChange={setQ} placeholder="Поиск по имени, e-mail или телефону…" />
         <button
           type="button"
-          onClick={load}
+          onClick={() => { /* триггерим загрузку через изменение q на себя */ setQ((v) => v); }}
           style={{
             height: FIELD_H, border: "none", borderRadius: 8, background: "#000", color: "#fff",
             fontFamily: UI, fontSize: 14, fontWeight: 300, cursor: "pointer"
@@ -882,18 +1119,19 @@ function AdminPanelCore({ token, filterGroup }) {
         </button>
       </div>
 
-      <div style={{ border: `1px solid ${UNDERLINE}`, borderRadius: 10, background: "#fff" }}>
+      {/* Шапка таблицы */}
+      <div style={{ width: `${dottedWidth}px` }}>
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "220px 260px 160px 140px 140px 1fr",
+            gridTemplateColumns: cols,
             gap: 0,
-            padding: "12px 14px",
-            borderBottom: `1px solid ${UNDERLINE}`,
+            padding: "10px 0",
             fontSize: 12,
             letterSpacing: ".06em",
             textTransform: "uppercase",
             color: "#666",
+            background: "transparent",
           }}
         >
           <div>Имя</div>
@@ -903,82 +1141,30 @@ function AdminPanelCore({ token, filterGroup }) {
           <div>Роль</div>
           <div>Действия</div>
         </div>
-
-        {loading ? (
-          <div style={{ padding: 16, fontSize: 14, fontWeight: 300 }}>Загрузка…</div>
-        ) : list.length === 0 ? (
-          <div style={{ padding: 16, fontSize: 14, fontWeight: 300, color: "#666" }}>Нет данных</div>
-        ) : (
-          list.map((u, idx) => {
-            const key = getKey(u) || String(idx);
-            const changed = isChanged(u, key);
-            return (
-              <div
-                key={key}
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "220px 260px 160px 140px 140px 1fr",
-                  gap: 0,
-                  padding: "10px 14px",
-                  borderTop: `1px solid ${UNDERLINE}`,
-                  alignItems: "center",
-                }}
-              >
-                <div style={{ fontSize: 14, fontWeight: 300, color: TEXT }}>{u.name || ""}</div>
-                <div style={{ fontSize: 14, fontWeight: 300, color: "#333" }}>{u.email || ""}</div>
-                <div style={{ fontSize: 14, fontWeight: 300, color: "#333" }}>{u.phone || ""}</div>
-                <div>
-                  <GroupSelect
-                    value={currentGroup(u, key)}
-                    onChange={(code) => setDraft(key, { group: code })}
-                    error={false}
-                    canPickLocked={true}
-                  />
-                </div>
-                <div>
-                  <AccessRoleSelect
-                    value={currentRole(u, key)}
-                    onChange={(code) => setDraft(key, { role: code })}
-                  />
-                </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <button
-                    type="button"
-                    disabled={!changed}
-                    onClick={() => saveRow(u)}
-                    style={{
-                      height: 36, padding: "0 12px", borderRadius: 8, border: "none",
-                      background: changed ? "#000" : "#999", color: "#fff",
-                      fontFamily: UI, fontSize: 13, fontWeight: 300, cursor: changed ? "pointer" : "not-allowed",
-                      opacity: changed ? 1 : 0.8
-                    }}
-                  >
-                    Сохранить
-                  </button>
-                  <button
-                    type="button"
-                    disabled={!drafts[key]}
-                    onClick={() => clearDraft(key)}
-                    style={{
-                      height: 36, padding: "0 12px", borderRadius: 8, border: `1px solid ${UNDERLINE}`,
-                      background: "#fff", color: drafts[key] ? "#111" : "#999",
-                      fontFamily: UI, fontSize: 13, fontWeight: 300, cursor: drafts[key] ? "pointer" : "not-allowed"
-                    }}
-                  >
-                    Отменить
-                  </button>
-                  {changed ? <span style={{ fontSize: 12, fontWeight: 300, color: "#444" }}>• не сохранено</span> : null}
-                </div>
-              </div>
-            );
-          })
-        )}
+        <DottedLine />
       </div>
+
+      {/* Строки */}
+      {loading ? (
+        <div style={{ padding: "14px 0", fontSize: 14, fontWeight: 300 }}>Загрузка…</div>
+      ) : list.length === 0 ? (
+        <div style={{ padding: "14px 0", fontSize: 14, fontWeight: 300, color: "#666" }}>Нет данных</div>
+      ) : (
+        <>
+          {list.slice(0, Math.min(visible, list.length)).map((u, idx) => (
+            <Row key={`n-${getKey(u) || idx}`} u={u} idx={idx} ghost={false} />
+          ))}
+          {hasMore && nextUser ? (
+            <Row key={`g-${getKey(nextUser)}`} u={nextUser} idx={visible} ghost />
+          ) : null}
+        </>
+      )}
 
       <div style={{ height: 58 }} />
     </div>
   );
 }
+
 
 /* ===== Страница ===== */
 export default function AccountProfilePage() {
@@ -1072,7 +1258,8 @@ export default function AccountProfilePage() {
     return () => window.removeEventListener("resize", calc);
   }, []);
 
-  const tabsLineWidth = MID_COL + GAP_COL + RIGHT_COL - LINE_RIGHT_INSET;
+  // расширяем пунктир под вкладками на +64 справа
+  const tabsLineWidth = MID_COL + GAP_COL + RIGHT_COL - LINE_RIGHT_INSET + DOTS_RIGHT_EXTRA;
 
   async function handleSave() {
     const next = {};
@@ -1124,7 +1311,7 @@ export default function AccountProfilePage() {
     profile:  "Профиль",
     partner:  "Партнёр",
     supplier: "Поставщик",
-    personal: "Личная информация",
+    personal: "Настройки", // ← Переименовано
     admin:    "Администратор",
   }[tab] || "Профиль";
 
@@ -1163,7 +1350,7 @@ export default function AccountProfilePage() {
                 {tab === "admin"
                   ? "Роли и группы"
                   : tab === "personal"
-                  ? "Личная информация"
+                  ? "Настройки" // ← Переименовано
                   : tab === "partner"
                   ? "Раздел: Партнёр"
                   : tab === "supplier"

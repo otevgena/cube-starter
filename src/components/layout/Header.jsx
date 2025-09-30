@@ -8,6 +8,22 @@ const API_BASE =
   "https://api.cube-tech.ru";
 const api = (p) => `${API_BASE}${p}`;
 
+/* ---- helpers: cached user ---- */
+const readCachedUser = () => {
+  if (typeof window === "undefined") return null;
+  try {
+    const s = sessionStorage.getItem("auth:lastUser");
+    return s ? JSON.parse(s) : null;
+  } catch { return null; }
+};
+const writeCachedUser = (u) => {
+  if (typeof window === "undefined") return;
+  try {
+    if (u) sessionStorage.setItem("auth:lastUser", JSON.stringify(u));
+    else sessionStorage.removeItem("auth:lastUser");
+  } catch {}
+};
+
 /* ---- non-blocking refresh with timeout ---- */
 async function apiRefresh(timeoutMs = 1200) {
   const ctrl = new AbortController();
@@ -16,7 +32,6 @@ async function apiRefresh(timeoutMs = 1200) {
     const r = await fetch(api("/auth/refresh"), {
       method: "POST",
       credentials: "include",
-      // без body и без Content-Type!
       signal: ctrl.signal,
       cache: "no-store",
     });
@@ -51,7 +66,7 @@ function AvatarMenu({ user, onLogout }) {
   const [open, setOpen] = React.useState(false);
   const wrapRef = React.useRef(null);
   const closeT = React.useRef(null);
-  const CLOSE_DELAY = 200; // мс — мягкое закрытие
+  const CLOSE_DELAY = 200;
 
   const openNow = () => {
     if (closeT.current) { clearTimeout(closeT.current); closeT.current = null; }
@@ -96,7 +111,6 @@ function AvatarMenu({ user, onLogout }) {
         }}
       />
 
-      {/* Прозрачная «перемычка» — перекрывает зазор между аватаркой и меню */}
       {open && (
         <div
           aria-hidden
@@ -104,8 +118,8 @@ function AvatarMenu({ user, onLogout }) {
             position: "absolute",
             right: 0,
             top: "100%",
-            height: 10,           // тот самый зазор
-            width: 180,           // чуть шире меню, чтобы поймать курсор
+            height: 10,
+            width: 180,
             zIndex: 79,
             background: "transparent",
           }}
@@ -234,8 +248,10 @@ export default function Header() {
   const [activeLeft, setActiveLeft] = React.useState(0);
   const [activeRight, setActiveRight] = React.useState(0);
 
-  // === auth state ===
-  const [user, setUser] = React.useState(null);
+  // === auth state (без мигания) ===
+  const initialUser = (typeof window !== "undefined") ? readCachedUser() : null;
+  const [user, setUser] = React.useState(initialUser);
+  const [authReady, setAuthReady] = React.useState(false);
   const accessRef = React.useRef(null);
   const bootRef = React.useRef(false);
 
@@ -249,7 +265,7 @@ export default function Header() {
         if (t0) accessRef.current = t0;
 
         if (!accessRef.current) {
-          const t = await apiRefresh(1200);
+          const t = await apiRefresh(900);
           if (t) {
             accessRef.current = t;
             try { sessionStorage.setItem("auth:accessToken", t); } catch {}
@@ -258,26 +274,34 @@ export default function Header() {
 
         if (accessRef.current) {
           const u = await apiMe(accessRef.current);
-          if (u) setUser(u);
-          else {
-            const t2 = await apiRefresh(1200);
-            if (t2) {
-              accessRef.current = t2;
-              try { sessionStorage.setItem("auth:accessToken", t2); } catch {}
-              const u2 = await apiMe(t2);
-              if (u2) setUser(u2);
+          if (u) {
+            setUser(u);
+            writeCachedUser(u);
+            setAuthReady(true);
+            return;
+          }
+          const t2 = await apiRefresh(900);
+          if (t2) {
+            accessRef.current = t2;
+            try { sessionStorage.setItem("auth:accessToken", t2); } catch {}
+            const u2 = await apiMe(t2);
+            if (u2) {
+              setUser(u2);
+              writeCachedUser(u2);
+              setAuthReady(true);
+              return;
             }
           }
         }
-      } catch {}
+
+        setUser(null);
+        writeCachedUser(null);
+      } catch {} finally {
+        setAuthReady(true);
+      }
     };
 
-    const start = () => bootstrap();
-    if ("requestIdleCallback" in window) {
-      window.requestIdleCallback(start, { timeout: 500 });
-    } else {
-      setTimeout(start, 0);
-    }
+    bootstrap();
 
     const onFocus = async () => {
       if (user) return;
@@ -286,14 +310,13 @@ export default function Header() {
         accessRef.current = t;
         try { sessionStorage.setItem("auth:accessToken", t); } catch {}
         const u = await apiMe(t);
-        if (u) setUser(u);
+        if (u) { setUser(u); writeCachedUser(u); }
       }
     };
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
   }, []); // eslint-disable-line
 
-  // внешнее событие из модалок — мгновенно перерисовываем хедер
   React.useEffect(() => {
     const onAuth = (e) => {
       const newUser = e?.detail?.user || null;
@@ -303,10 +326,12 @@ export default function Header() {
         try { sessionStorage.setItem("auth:accessToken", newToken); } catch {}
       }
       setUser(newUser);
+      writeCachedUser(newUser);
       if (!newUser) {
         try { sessionStorage.removeItem("auth:accessToken"); } catch {}
         accessRef.current = null;
       }
+      setAuthReady(true);
     };
     window.addEventListener("auth:changed", onAuth);
     window.setHeaderUser = (u, token) =>
@@ -320,8 +345,10 @@ export default function Header() {
   async function handleLogout() {
     try { await fetch(api("/auth/logout"), { method: "POST", credentials: "include" }); } catch {}
     setUser(null);
+    writeCachedUser(null);
     accessRef.current = null;
     try { sessionStorage.removeItem("auth:accessToken"); } catch {}
+    setAuthReady(true);
   }
 
   // ==== UI перемещения/панели ====
@@ -458,15 +485,6 @@ export default function Header() {
   };
   React.useEffect(() => { setActiveRight(0); }, [activeLeft]);
 
-  const leftItems = [
-    { img: "/electricity.png", label: "Электромонтаж" },
-    { img: "/lowcurrent.png", label: "Слаботочные сис." },
-    { img: "/climat.png", label: "Климат системы" },
-    { img: "/design.png", label: "Проектирование" },
-    { img: "/construction.png", label: "Общестрой" },
-  ];
-  const rightRows = dataRightByLeft[activeLeft];
-
   const HEADER_SEARCH_BG = "#f8f8f8";
 
   return (
@@ -502,10 +520,10 @@ export default function Header() {
               <span className="badge-new">New</span>
             </a>
             <a href="#contact" className="nav-link"><span className="text-grad-452f2d">Контакты</span></a>
-            <a href="#reviews" className="nav-link"><span className="text-grad-452f2d">Отзывы</span></a>
+            <a href="#reviews" className="nav-link"><span className="text-grad-452f2д">Отзывы</span></a>
           </nav>
 
-          {/* Поиск */}
+          {/* Поиск — без изменений интерфейса */}
           <div className="flex-1 hidden md:flex justify-center">
             <div className="search-wrap w-full" style={{ maxWidth: "var(--header-search-max)", height: "var(--header-search-height)", borderRadius: 10, background: HEADER_SEARCH_BG }}>
               <Search size={18} className="text-[#4a4a4a]" />
@@ -516,47 +534,46 @@ export default function Header() {
           {/* Правый блок */}
           <div className="ml-auto hidden md:flex items-center gap-4" ref={actionsHomeRef}>
             <div ref={actionsNodeRef} className="flex items-center gap-4">
-              {/* слева — auth: либо Вход/Регистрация, либо аватар */}
-              {!user ? (
-                <>
-                  <a
-                    href="/login"
-                    className="nav-link"
-                    onClick={(e) => { e.preventDefault(); window.openModal && window.openModal("login"); }}
-                  >
-                    <span className="text-grad-222">Вход</span>
-                  </a>
-                  <a
-                    href="/register"
-                    className="nav-link"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      if (typeof window.openModal === "function") {
-                        window.openModal("register", { email: "" });
-                      } else {
-                        window.location.href = "/register";
-                      }
-                    }}
-                  >
-                    <span className="text-grad-222">Регистрация</span>
-                  </a>
-                </>
-              ) : (
-                <AvatarMenu user={user} onLogout={handleLogout} />
-              )}
+              {/* AUTH SLOT — без фиксированной ширины и центрирования */}
+              <div className="auth-slot" style={{ display: "flex", alignItems: "center", gap: 16 }}>
+                {user ? (
+                  <AvatarMenu user={user} onLogout={handleLogout} />
+                ) : authReady ? (
+                  <>
+                    <a
+                      href="/login"
+                      className="nav-link"
+                      onClick={(e) => { e.preventDefault(); window.openModal && window.openModal("login"); }}
+                    >
+                      <span className="text-grad-222">Вход</span>
+                    </a>
+                    <a
+                      href="/register"
+                      className="nav-link"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        if (typeof window.openModal === "function") {
+                          window.openModal("register", { email: "" });
+                        } else {
+                          window.location.href = "/register";
+                        }
+                      }}
+                    >
+                      <span className="text-grad-222">Регистрация</span>
+                    </a>
+                  </>
+                ) : (
+                  <div style={{ width: 120, height: 32 }} />
+                )}
+              </div>
 
               {/* справа — действия ВСЕГДА видны */}
               <div className="actions-right flex items-center gap-4">
                 <a href="/pro" className="btn-pro">Ищу работу</a>
-                {/* ↓↓↓ ТОНКИЙ КОНТУР + переход на /contact ↓↓↓ */}
                 <a
                   href="/contact"
                   className="btn-submit"
-                  style={{
-                    // делаем контур тоньше, чем был (принудительно 1px)
-                    borderWidth: 1,
-                    borderStyle: "solid",
-                  }}
+                  style={{ borderWidth: 1, borderStyle: "solid" }}
                 >
                   Оставить заявку
                 </a>
