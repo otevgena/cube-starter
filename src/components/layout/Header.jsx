@@ -1,6 +1,8 @@
 // src/components/layout/Header.jsx
-// Чистая шапка (clean-rebuild). Логика авторизации и панели услуг сохранена,
-// разметка переписана на Tailwind с токенами — без !important и пиксельных сдвигов.
+// Чистая шапка (clean-rebuild). Логика авторизации сохранена, разметка на Tailwind
+// с токенами — без !important и пиксельных сдвигов.
+// Панель «Услуги» — плавающая карточка (awwwards-стиль): тёмный фон вокруг,
+// зазор сверху, внутри дублируется шапка (лого, поиск, действия).
 import React from "react";
 import { ChevronDown, Search, Menu, X } from "lucide-react";
 
@@ -63,7 +65,7 @@ async function apiMe(token) {
   }
 }
 
-/* ===== Категории услуг (для выпадающей панели) ===== */
+/* ===== Категории услуг ===== */
 const SERVICE_CATEGORIES = [
   {
     key: "electrical",
@@ -155,6 +157,59 @@ const NAV_LINKS = [
   { href: "#reviews", label: "Отзывы" },
 ];
 
+const NAV_LINK_CLASS =
+  "text-sm font-medium leading-[28px] text-ink transition-opacity hover:opacity-70";
+
+/* ===== Переиспользуемые куски шапки ===== */
+function SearchField({ className = "", autoFocus = false }) {
+  return (
+    <label className={`flex h-[42px] items-center gap-2 rounded-lg bg-field px-4 ${className}`}>
+      <Search size={18} className="shrink-0 text-neutral-500" />
+      <input
+        type="text"
+        placeholder="Поиск"
+        aria-label="Поиск"
+        autoFocus={autoFocus}
+        className="w-full min-w-0 bg-transparent text-sm leading-[28px] text-ink outline-none placeholder:text-neutral-500"
+      />
+    </label>
+  );
+}
+
+function ActionButtons() {
+  return (
+    <>
+      <a
+        href="/pro"
+        className="inline-flex h-[42px] items-center rounded-lg bg-dark px-4 text-sm font-semibold leading-[28px] text-white transition-colors hover:bg-neutral-800"
+      >
+        Ищу работу
+      </a>
+      <a
+        href="/contact"
+        className="inline-flex h-[42px] items-center rounded-lg border border-dark px-4 text-sm font-semibold leading-[28px] text-ink transition-colors hover:bg-dark hover:text-white"
+      >
+        Оставить заявку
+      </a>
+    </>
+  );
+}
+
+function AuthControls({ user, authReady, onLogout }) {
+  if (user) return <AvatarMenu user={user} onLogout={onLogout} />;
+  if (!authReady) return <div className="h-8 w-[120px]" />;
+  return (
+    <div className="flex items-center gap-4">
+      <button type="button" onClick={() => window.openModal?.("login")} className={NAV_LINK_CLASS}>
+        Вход
+      </button>
+      <button type="button" onClick={() => window.openModal?.("register", { email: "" })} className={NAV_LINK_CLASS}>
+        Регистрация
+      </button>
+    </div>
+  );
+}
+
 /* ===== Аватар + меню ===== */
 function AvatarMenu({ user, onLogout }) {
   const [open, setOpen] = React.useState(false);
@@ -184,12 +239,7 @@ function AvatarMenu({ user, onLogout }) {
   }, []);
 
   return (
-    <div
-      ref={wrapRef}
-      className="relative"
-      onMouseEnter={openNow}
-      onMouseLeave={scheduleClose}
-    >
+    <div ref={wrapRef} className="relative" onMouseEnter={openNow} onMouseLeave={scheduleClose}>
       <img
         src="/profile/profile.png"
         alt={user?.name || user?.email || "Profile"}
@@ -197,7 +247,6 @@ function AvatarMenu({ user, onLogout }) {
         height={32}
         className="block h-8 w-8 cursor-pointer rounded-full object-cover"
       />
-
       {open && (
         <div
           className="absolute right-0 top-[calc(100%+10px)] z-[80] w-44 rounded-2xl bg-dark p-3 text-sm font-light text-white shadow-2xl"
@@ -210,24 +259,14 @@ function AvatarMenu({ user, onLogout }) {
               {user?.name || user?.email || "Пользователь"}
             </div>
           </div>
-
           <div className="my-1.5 h-px bg-white/15" />
-
           <a href="/account" className="block rounded-lg px-2 py-2.5 hover:bg-white/10">Профиль</a>
           <a href="/collections" className="block rounded-lg px-2 py-2.5 opacity-85 hover:bg-white/10">Коллекции</a>
           <a href="/notifications" className="block rounded-lg px-2 py-2.5 opacity-85 hover:bg-white/10">Уведомления</a>
-
           <div className="my-2.5 h-px bg-white/15" />
-
           <a href="/dashboard" className="block rounded-lg px-2 py-2.5 hover:bg-white/10">Панель</a>
-
           <div className="my-2.5 h-px bg-white/15" />
-
-          <button
-            type="button"
-            onClick={onLogout}
-            className="w-full rounded-lg px-2 py-2.5 text-left font-normal hover:bg-white/10"
-          >
+          <button type="button" onClick={onLogout} className="w-full rounded-lg px-2 py-2.5 text-left font-normal hover:bg-white/10">
             Выход
           </button>
         </div>
@@ -236,57 +275,66 @@ function AvatarMenu({ user, onLogout }) {
   );
 }
 
-/* ===== Выпадающая панель «Услуги» ===== */
-function ServicesPanel({ active, setActive, onClose }) {
+/* ===== Выпадающая панель «Услуги» (плавающая карточка, awwwards-стиль) ===== */
+function ServicesPanel({ active, setActive, user, authReady, onLogout, onClose }) {
   const cat = SERVICE_CATEGORIES[active];
   return (
-    <>
-      {/* затемнение под шапкой */}
-      <div className="fixed inset-x-0 bottom-0 top-16 z-40 bg-black/40" onClick={onClose} />
+    <div className="fixed inset-0 z-[60] font-tight">
+      {/* тёмный фон вокруг карточки (виден и сверху — карточка с отступом) */}
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
 
-      {/* сама панель */}
-      <div className="absolute inset-x-0 top-full z-50 border-b border-line bg-page shadow-xl">
-        <div className="mx-auto max-w-container px-4 py-6 sm:px-6 lg:px-8">
-          <div className="grid gap-6 md:grid-cols-[260px_1fr]">
-            {/* колонка категорий */}
-            <ul className="flex flex-col gap-1">
-              {SERVICE_CATEGORIES.map((c, i) => (
-                <li key={c.key}>
-                  <a
-                    href={c.href}
-                    onMouseEnter={() => setActive(i)}
-                    onFocus={() => setActive(i)}
-                    className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors ${
-                      active === i
-                        ? "bg-white font-medium shadow-sm ring-1 ring-black/5"
-                        : "text-ink hover:bg-white/60"
-                    }`}
-                  >
-                    <img src={c.icon} alt="" className="h-5 w-5 shrink-0 object-contain" />
-                    <span>{c.label}</span>
-                  </a>
-                </li>
-              ))}
-            </ul>
-
-            {/* услуги активной категории */}
-            <ul className="grid gap-1 sm:grid-cols-2">
-              {cat.items.map((it) => (
-                <li key={it}>
-                  <a
-                    href={cat.href}
-                    onClick={onClose}
-                    className="block rounded-lg px-3 py-2.5 text-sm text-ink transition-colors hover:bg-white"
-                  >
-                    {it}
-                  </a>
-                </li>
-              ))}
-            </ul>
+      {/* карточка */}
+      <div className="relative mx-auto mt-3 w-[calc(100%-1.5rem)] max-w-[1700px] rounded-2xl bg-page p-5 shadow-2xl">
+        {/* верхняя строка — дубль шапки */}
+        <div className="flex items-center gap-5">
+          <a href="/" className="shrink-0 text-[30px] font-bold leading-none text-ink">c.</a>
+          <div className="hidden flex-1 md:flex">
+            <SearchField className="w-full max-w-[980px]" autoFocus />
+          </div>
+          <div className="ml-auto hidden items-center gap-4 md:flex">
+            <AuthControls user={user} authReady={authReady} onLogout={onLogout} />
+            <ActionButtons />
           </div>
         </div>
+
+        {/* тело панели */}
+        <div className="mt-5 grid gap-4 md:grid-cols-[260px_1fr]">
+          {/* категории */}
+          <ul className="flex flex-col gap-1">
+            {SERVICE_CATEGORIES.map((c, i) => (
+              <li key={c.key}>
+                <a
+                  href={c.href}
+                  onMouseEnter={() => setActive(i)}
+                  onFocus={() => setActive(i)}
+                  className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm leading-[28px] transition-colors ${
+                    active === i ? "bg-white font-medium ring-1 ring-black/5" : "text-ink hover:bg-white"
+                  }`}
+                >
+                  <img src={c.icon} alt="" className="h-5 w-5 shrink-0 object-contain" />
+                  <span>{c.label}</span>
+                </a>
+              </li>
+            ))}
+          </ul>
+
+          {/* услуги активной категории */}
+          <ul className="grid gap-1 sm:grid-cols-2">
+            {cat.items.map((it) => (
+              <li key={it}>
+                <a
+                  href={cat.href}
+                  onClick={onClose}
+                  className="block rounded-lg px-3 py-2.5 text-sm leading-[28px] text-ink transition-colors hover:bg-white"
+                >
+                  {it}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
       </div>
-    </>
+    </div>
   );
 }
 
@@ -436,13 +484,11 @@ export default function Header() {
     return () => { document.body.style.overflow = prev; };
   }, [servicesOpen]);
 
-  const navLinkClass = "text-sm font-medium text-ink transition-opacity hover:opacity-70";
-
   return (
-    <header className="sticky top-0 z-50 border-b border-line bg-page/90 font-tight backdrop-blur-sm">
-      <div className="mx-auto flex h-header max-w-container items-center gap-4 px-4 sm:px-6 lg:px-8">
+    <header className="relative bg-page font-tight">
+      <div className="mx-auto flex h-header max-w-[1700px] items-center gap-5 px-6 lg:px-10">
         {/* Логотип */}
-        <a href="/" className="shrink-0 text-[26px] font-bold leading-none text-ink">c.</a>
+        <a href="/" className="shrink-0 text-[30px] font-bold leading-none text-ink">c.</a>
 
         {/* Навигация (desktop) */}
         <nav className="hidden items-center gap-6 lg:flex">
@@ -450,13 +496,13 @@ export default function Header() {
             type="button"
             onClick={() => setServicesOpen((v) => !v)}
             aria-expanded={servicesOpen}
-            className={`flex items-center gap-1 ${navLinkClass}`}
+            className={`flex items-center gap-1 ${NAV_LINK_CLASS}`}
           >
             Услуги
             <ChevronDown size={16} className={`transition-transform ${servicesOpen ? "rotate-180" : ""}`} />
           </button>
           {NAV_LINKS.map((l) => (
-            <a key={l.href} href={l.href} className={`flex items-center gap-2 ${navLinkClass}`}>
+            <a key={l.href} href={l.href} className={`flex items-center gap-2 ${NAV_LINK_CLASS}`}>
               {l.label}
               {l.badge && (
                 <span className="rounded bg-dark px-1.5 py-0.5 text-[10px] font-medium uppercase leading-none text-white">
@@ -467,51 +513,18 @@ export default function Header() {
           ))}
         </nav>
 
-        {/* Поиск */}
-        <div className="hidden flex-1 justify-center md:flex">
-          <label className="flex h-10 w-full max-w-[560px] items-center gap-2 rounded-lg bg-field px-3.5">
-            <Search size={18} className="text-neutral-500" />
-            <input
-              type="text"
-              placeholder="Поиск"
-              aria-label="Поиск"
-              className="w-full bg-transparent text-sm text-ink outline-none placeholder:text-neutral-500"
-            />
-          </label>
+        {/* Поиск (растягивается) */}
+        <div className="hidden flex-1 md:flex">
+          <SearchField className="w-full max-w-[980px]" />
         </div>
 
         {/* Действия (desktop) */}
         <div className="ml-auto hidden items-center gap-4 md:flex">
-          {user ? (
-            <AvatarMenu user={user} onLogout={handleLogout} />
-          ) : authReady ? (
-            <div className="flex items-center gap-4">
-              <button type="button" onClick={() => window.openModal?.("login")} className={navLinkClass}>
-                Вход
-              </button>
-              <button type="button" onClick={() => window.openModal?.("register", { email: "" })} className={navLinkClass}>
-                Регистрация
-              </button>
-            </div>
-          ) : (
-            <div className="h-8 w-[120px]" />
-          )}
-
-          <a
-            href="/pro"
-            className="inline-flex h-10 items-center rounded-lg bg-dark px-4 text-sm font-semibold text-white transition-colors hover:bg-neutral-800"
-          >
-            Ищу работу
-          </a>
-          <a
-            href="/contact"
-            className="inline-flex h-10 items-center rounded-lg border border-dark px-4 text-sm font-semibold text-ink transition-colors hover:bg-dark hover:text-white"
-          >
-            Оставить заявку
-          </a>
+          <AuthControls user={user} authReady={authReady} onLogout={handleLogout} />
+          <ActionButtons />
         </div>
 
-        {/* Кнопка-бургер (на узких экранах открывает панель услуг; полноценная мобилка — позже) */}
+        {/* Кнопка-бургер (узкие экраны — открывает панель услуг; мобилка позже) */}
         <button
           type="button"
           onClick={() => setServicesOpen((v) => !v)}
@@ -528,6 +541,9 @@ export default function Header() {
         <ServicesPanel
           active={activeCat}
           setActive={setActiveCat}
+          user={user}
+          authReady={authReady}
+          onLogout={handleLogout}
           onClose={() => setServicesOpen(false)}
         />
       )}
