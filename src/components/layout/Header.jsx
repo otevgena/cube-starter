@@ -4,6 +4,7 @@
 // «Услуги» раскрываются ВНУТРИ той же карточки (шапка не дублируется → ничего не
 // сдвигается). Вокруг — тёмный фон, сверху зазор (awwwards-стиль).
 import React from "react";
+import { createPortal } from "react-dom";
 import { ChevronDown, Search, Menu, X } from "lucide-react";
 
 /* === API base === */
@@ -424,9 +425,11 @@ export default function Header() {
 
   return (
     <header className="relative z-50 pt-3 font-tight">
-      {/* тёмный фон вокруг карточки (только при открытой панели) */}
-      {servicesOpen && (
-        <div className="fixed inset-0 z-40 bg-black/50" onClick={() => setServicesOpen(false)} />
+      {/* тёмный фон вокруг карточки — порталом в body, z НИЖЕ шапки (z-50),
+          чтобы карточка всегда была поверх затемнения */}
+      {servicesOpen && createPortal(
+        <div className="fixed inset-0 z-40 bg-black/50" onClick={() => setServicesOpen(false)} />,
+        document.body
       )}
 
       {/* КАРТОЧКА: шапка + раскрытый список — единый блок, поэтому ничего не сдвигается */}
