@@ -1,6 +1,8 @@
 // src/components/layout/Header.jsx
+// Чистая шапка (clean-rebuild). Логика авторизации и панели услуг сохранена,
+// разметка переписана на Tailwind с токенами — без !important и пиксельных сдвигов.
 import React from "react";
-import { ChevronDown, Search } from "lucide-react";
+import { ChevronDown, Search, Menu, X } from "lucide-react";
 
 /* === API base === */
 const API_BASE =
@@ -61,7 +63,99 @@ async function apiMe(token) {
   }
 }
 
-/* ===== Аватар + меню (с «мостиком» наведений) ===== */
+/* ===== Категории услуг (для выпадающей панели) ===== */
+const SERVICE_CATEGORIES = [
+  {
+    key: "electrical",
+    label: "Электромонтаж",
+    href: "/services/electrical",
+    icon: "/electricity.png",
+    items: [
+      "Подключение объектов к электросетям",
+      "Увеличение мощности и модернизация сетей",
+      "Внутренние электромонтажные работы",
+      "Наружные электросети и уличное освещение",
+      "Монтаж электрощитов и ВРУ",
+      "Системы заземления и молниезащиты",
+      "Автоматизация и учёт электроэнергии",
+      "Резервное электроснабжение",
+    ],
+  },
+  {
+    key: "lowcurrent",
+    label: "Слаботочные системы",
+    href: "/services/lowcurrent",
+    icon: "/lowcurrent.png",
+    items: [
+      "СКС и структурированные кабельные сети",
+      "Видеонаблюдение (CCTV)",
+      "Охранно-пожарная сигнализация",
+      "Системы контроля и управления доступом",
+      "Домофония и интерком",
+      "Серверные, кроссовые и шкафы",
+      "ЛВС и активное сетевое оборудование",
+      "Системы оповещения и звука",
+    ],
+  },
+  {
+    key: "ventilation",
+    label: "Климат-системы",
+    href: "/services/ventilation",
+    icon: "/climat.png",
+    items: [
+      "Проектирование и монтаж вентиляции",
+      "Системы кондиционирования (VRF/VRV)",
+      "Чиллер-фанкойл системы",
+      "Системы отопления и теплоснабжения",
+      "Автоматика ОВиК",
+      "Паспортизация и балансировка систем",
+      "Воздуховоды, шумоглушение, КИПиА",
+      "Сервис и регламентное обслуживание",
+    ],
+  },
+  {
+    key: "design",
+    label: "Проектирование",
+    href: "/services/design",
+    icon: "/design.png",
+    items: [
+      "Проект электроснабжения (ЭОМ)",
+      "Проект ОВ и ВК",
+      "Проект СС (слаботочные системы)",
+      "АСУ ТП и разделы автоматики",
+      "Молниезащита и заземление",
+      "Сметная документация",
+      "Авторский надзор",
+      "Согласования в сетевых организациях",
+    ],
+  },
+  {
+    key: "construction",
+    label: "Общестрой",
+    href: "/services/construction",
+    icon: "/construction.png",
+    items: [
+      "Общестроительные и отделочные работы",
+      "Монолитные и бетонные работы",
+      "Фундамент и земляные работы",
+      "Кровля и фасад",
+      "Внутренние перегородки и проёмы",
+      "Усиление конструкций",
+      "Генподряд и технадзор",
+      "Пуско-наладка инженерных систем",
+    ],
+  },
+];
+
+/* ===== Ссылки навигации ===== */
+const NAV_LINKS = [
+  { href: "#about", label: "О нас" },
+  { href: "#projects", label: "Проекты", badge: "New" },
+  { href: "#contact", label: "Контакты" },
+  { href: "#reviews", label: "Отзывы" },
+];
+
+/* ===== Аватар + меню ===== */
 function AvatarMenu({ user, onLogout }) {
   const [open, setOpen] = React.useState(false);
   const wrapRef = React.useRef(null);
@@ -101,139 +195,38 @@ function AvatarMenu({ user, onLogout }) {
         alt={user?.name || user?.email || "Profile"}
         width={32}
         height={32}
-        style={{
-          display: "block",
-          width: 32,
-          height: 32,
-          borderRadius: "50%",
-          objectFit: "cover",
-          cursor: "pointer",
-        }}
+        className="block h-8 w-8 cursor-pointer rounded-full object-cover"
       />
 
       {open && (
         <div
-          aria-hidden
-          style={{
-            position: "absolute",
-            right: 0,
-            top: "100%",
-            height: 10,
-            width: 180,
-            zIndex: 79,
-            background: "transparent",
-          }}
-          onMouseEnter={openNow}
-          onMouseLeave={scheduleClose}
-        />
-      )}
-
-      {open && (
-        <div
-          style={{
-            position: "absolute",
-            right: 0,
-            top: "calc(100% + 10px)",
-            width: 137,
-            minHeight: 307,
-            background: "#111",
-            color: "#fff",
-            borderRadius: 14,
-            padding: 12,
-            boxShadow: "0 14px 40px rgba(0,0,0,0.45)",
-            zIndex: 80,
-            fontWeight: 300,
-            fontSize: 14,
-          }}
+          className="absolute right-0 top-[calc(100%+10px)] z-[80] w-44 rounded-2xl bg-dark p-3 text-sm font-light text-white shadow-2xl"
           onMouseEnter={openNow}
           onMouseLeave={scheduleClose}
         >
-          <div style={{ padding: "8px 8px 12px 8px" }}>
-            <div style={{ opacity: 0.7, marginBottom: 4 }}>В аккаунте</div>
-            <div
-              style={{
-                fontWeight: 400,
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-              }}
-              title={user?.name || user?.email || "Пользователь"}
-            >
+          <div className="px-2 pb-3 pt-2">
+            <div className="mb-1 opacity-70">В аккаунте</div>
+            <div className="truncate font-normal" title={user?.name || user?.email || "Пользователь"}>
               {user?.name || user?.email || "Пользователь"}
             </div>
           </div>
 
-          <div style={{ height: 1, background: "#2a2a2a", margin: "6px 0" }} />
+          <div className="my-1.5 h-px bg-white/15" />
 
-          <a
-            href="/account"
-            style={{
-              padding: "10px 8px",
-              borderRadius: 8,
-              display: "block",
-              color: "#fff",
-              textDecoration: "none",
-            }}
-          >
-            Профиль
-          </a>
-          <a
-            href="/collections"
-            style={{
-              padding: "10px 8px",
-              borderRadius: 8,
-              display: "block",
-              color: "#fff",
-              textDecoration: "none",
-              opacity: 0.85,
-            }}
-          >
-            Коллекции
-          </a>
-          <a
-            href="/notifications"
-            style={{
-              padding: "10px 8px",
-              borderRadius: 8,
-              display: "block",
-              color: "#fff",
-              textDecoration: "none",
-              opacity: 0.85,
-            }}
-          >
-            Уведомления
-          </a>
+          <a href="/account" className="block rounded-lg px-2 py-2.5 hover:bg-white/10">Профиль</a>
+          <a href="/collections" className="block rounded-lg px-2 py-2.5 opacity-85 hover:bg-white/10">Коллекции</a>
+          <a href="/notifications" className="block rounded-lg px-2 py-2.5 opacity-85 hover:bg-white/10">Уведомления</a>
 
-          <div style={{ height: 1, background: "#2a2a2a", margin: "10px 0" }} />
+          <div className="my-2.5 h-px bg-white/15" />
 
-          <a
-            href="/dashboard"
-            style={{
-              padding: "10px 8px",
-              borderRadius: 8,
-              display: "block",
-              color: "#fff",
-            }}
-          >
-            Панель
-          </a>
+          <a href="/dashboard" className="block rounded-lg px-2 py-2.5 hover:bg-white/10">Панель</a>
 
-          <div style={{ height: 1, background: "#2a2a2a", margin: "10px 0" }} />
+          <div className="my-2.5 h-px bg-white/15" />
 
           <button
             type="button"
             onClick={onLogout}
-            style={{
-              width: "100%",
-              textAlign: "left",
-              padding: "10px 8px",
-              borderRadius: 8,
-              background: "transparent",
-              border: "none",
-              color: "#fff",
-              cursor: "pointer",
-              fontWeight: 400,
-            }}
+            className="w-full rounded-lg px-2 py-2.5 text-left font-normal hover:bg-white/10"
           >
             Выход
           </button>
@@ -243,10 +236,63 @@ function AvatarMenu({ user, onLogout }) {
   );
 }
 
+/* ===== Выпадающая панель «Услуги» ===== */
+function ServicesPanel({ active, setActive, onClose }) {
+  const cat = SERVICE_CATEGORIES[active];
+  return (
+    <>
+      {/* затемнение под шапкой */}
+      <div className="fixed inset-x-0 bottom-0 top-16 z-40 bg-black/40" onClick={onClose} />
+
+      {/* сама панель */}
+      <div className="absolute inset-x-0 top-full z-50 border-b border-line bg-page shadow-xl">
+        <div className="mx-auto max-w-container px-4 py-6 sm:px-6 lg:px-8">
+          <div className="grid gap-6 md:grid-cols-[260px_1fr]">
+            {/* колонка категорий */}
+            <ul className="flex flex-col gap-1">
+              {SERVICE_CATEGORIES.map((c, i) => (
+                <li key={c.key}>
+                  <a
+                    href={c.href}
+                    onMouseEnter={() => setActive(i)}
+                    onFocus={() => setActive(i)}
+                    className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors ${
+                      active === i
+                        ? "bg-white font-medium shadow-sm ring-1 ring-black/5"
+                        : "text-ink hover:bg-white/60"
+                    }`}
+                  >
+                    <img src={c.icon} alt="" className="h-5 w-5 shrink-0 object-contain" />
+                    <span>{c.label}</span>
+                  </a>
+                </li>
+              ))}
+            </ul>
+
+            {/* услуги активной категории */}
+            <ul className="grid gap-1 sm:grid-cols-2">
+              {cat.items.map((it) => (
+                <li key={it}>
+                  <a
+                    href={cat.href}
+                    onClick={onClose}
+                    className="block rounded-lg px-3 py-2.5 text-sm text-ink transition-colors hover:bg-white"
+                  >
+                    {it}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
 export default function Header() {
   const [servicesOpen, setServicesOpen] = React.useState(false);
-  const [activeLeft, setActiveLeft] = React.useState(0);
-  const [activeRight, setActiveRight] = React.useState(0);
+  const [activeCat, setActiveCat] = React.useState(0);
 
   // === auth state (без мигания) ===
   const initialUser = (typeof window !== "undefined") ? readCachedUser() : null;
@@ -351,32 +397,11 @@ export default function Header() {
     setAuthReady(true);
   }
 
-  // ==== UI перемещения/панели ====
-  const actionsNodeRef = React.useRef(null);
-  const actionsHomeRef = React.useRef(null);
-  const panelActionsRef = React.useRef(null);
-  const logoNodeRef = React.useRef(null);
-  const logoHomeRef = React.useRef(null);
-  const panelLogoRef = React.useRef(null);
-  const [logoPlaceholderW, setLogoPlaceholderW] = React.useState(0);
-
-  const VARS = {
-    "--header-height": "64px",
-    "--header-search-height": "42px",
-    "--header-search-max": "560px",
-    "--panel-right-gap": "0px",
-    "--panel-top-shift": "0px",
-    "--panel-bottom-gap": "0px",
-    "--panel-left-extra": "0px",
-    "--panel-search-max": "var(--header-search-max)",
-    "--panel-search-left": "0px",
-    "--panel-search-right": "0px",
-  };
-
+  // === Управление панелью услуг ===
   React.useEffect(() => {
     const onKey = (e) => {
       const key = (e.key || "").toLowerCase();
-      if (e.altKey && key === "s") { e.preventDefault(); setServicesOpen(v => !v); }
+      if (e.altKey && key === "s") { e.preventDefault(); setServicesOpen((v) => !v); }
       if (key === "escape") setServicesOpen(false);
     };
     window.addEventListener("keydown", onKey);
@@ -386,7 +411,7 @@ export default function Header() {
   React.useEffect(() => {
     window.openServicesPanel = () => setServicesOpen(true);
     window.closeServicesPanel = () => setServicesOpen(false);
-    window.toggleServicesPanel = () => setServicesOpen(v => !v);
+    window.toggleServicesPanel = () => setServicesOpen((v) => !v);
     return () => {
       delete window.openServicesPanel;
       delete window.closeServicesPanel;
@@ -403,6 +428,7 @@ export default function Header() {
     } catch {}
   }, []);
 
+  // блокируем прокрутку body при открытой панели
   React.useEffect(() => {
     if (!servicesOpen) return;
     const prev = document.body.style.overflow;
@@ -410,291 +436,100 @@ export default function Header() {
     return () => { document.body.style.overflow = prev; };
   }, [servicesOpen]);
 
-  React.useEffect(() => {
-    const aNode = actionsNodeRef.current;
-    const aHome = actionsHomeRef.current;
-    const aPanel = panelActionsRef.current;
-    const lNode = logoNodeRef.current;
-    const lHome = logoHomeRef.current;
-    const lPanel = panelLogoRef.current;
-    if (servicesOpen) {
-      if (lNode) {
-        const w = lNode.getBoundingClientRect().width;
-        setLogoPlaceholderW(Math.ceil(w));
-      }
-      if (aNode && aPanel) aPanel.appendChild(aNode);
-      if (lNode && lPanel) lPanel.appendChild(lNode);
-    } else {
-      if (aNode && aHome) aHome.appendChild(aNode);
-      if (lNode && lHome) lHome.appendChild(lNode);
-      setLogoPlaceholderW(0);
-    }
-  }, [servicesOpen]);
-
-  const dataRightByLeft = {
-    0: [
-      "Подключение объектов к электросетям|",
-      "Увеличение мощности и модернизация сетей|",
-      "Внутренние электромонтажные работы|",
-      "Наружные электросети и уличное освещение|",
-      "Монтаж электрощитов и ВРУ|",
-      "Системы заземления и молниезащиты|",
-      "Автоматизация и учёт электроэнергии|",
-      "Резервное электроснабжение|",
-    ],
-    1: [
-      "СКС и структурированные кабельные сети|",
-      "Видеонаблюдение (CCTV)|",
-      "Охранно-пожарная сигнализация|",
-      "Системы контроля и управления доступом|",
-      "Домофония и интерком|",
-      "Серверные, кроссовые и шкафы|",
-      "ЛВС и активное сетевое оборудование|",
-      "Системы оповещения и звука|",
-    ],
-    2: [
-      "Проектирование и монтаж вентиляции|",
-      "Системы кондиционирования (VRF/VRV)|",
-      "Чиллер-фанкойл системы|",
-      "Системы отопления и теплоснабжения|",
-      "Автоматика ОВиК|",
-      "Паспортизация и балансировка систем|",
-      "Воздуховоды, шумоглушение, КИПиА|",
-      "Сервис и регламентное обслуживание|",
-    ],
-    3: [
-      "Проект электроснабжения (ЭОМ)|",
-      "Проект ОВ и ВК|",
-      "Проект СС (слаботочные системы)|",
-      "АСУ ТП и разделы автоматики|",
-      "Молниезащита и заземление|",
-      "Сметная документация|",
-      "Авторский надзор|",
-      "Согласования в сетевых организациях|",
-    ],
-    4: [
-      "Общестроительные и отделочные работы|",
-      "Монолитные и бетонные работы|",
-      "Фундамент и земляные работы|",
-      "Кровля и фасад|",
-      "Внутренние перегородки и проёмы|",
-      "Усиление конструкций|",
-      "Генподряд и технадзор|",
-      "Пуско-наладка инженерных систем|",
-    ],
-  };
-  React.useEffect(() => { setActiveRight(0); }, [activeLeft]);
-
-  const HEADER_SEARCH_BG = "#f8f8f8";
+  const navLinkClass = "text-sm font-medium text-ink transition-opacity hover:opacity-70";
 
   return (
-    <header id="site-header-static" className="z-50" style={{ position: "relative", background: "transparent", ...VARS }}>
-      <div className="container-header" style={{ height: "var(--header-height)" }}>
-        <div className="header-row flex items-center gap-4">
-          {/* ЛОГО */}
-          <div className="logo-wrap" ref={logoHomeRef} style={{ display: "flex", alignItems: "center" }}>
-            {servicesOpen && <div style={{ width: (logoPlaceholderW || 24), height: 1 }} />}
-            <div
-              ref={logoNodeRef}
-              style={{ transform: servicesOpen ? "translateX(-90px)" : "none", transition: "transform .22s ease" }}
-            >
-              <a href="/" className="flex items-center gap-2">
-                <span className="logo-c">c.</span>
-              </a>
-            </div>
-          </div>
+    <header className="sticky top-0 z-50 border-b border-line bg-page/90 font-tight backdrop-blur-sm">
+      <div className="mx-auto flex h-header max-w-container items-center gap-4 px-4 sm:px-6 lg:px-8">
+        {/* Логотип */}
+        <a href="/" className="shrink-0 text-[26px] font-bold leading-none text-ink">c.</a>
 
-          {/* Навигация */}
-          <nav className="hidden lg:flex items-center gap-6">
-            <a
-              href="#services"
-              className="nav-link"
-              onClick={(e) => { e.preventDefault(); setServicesOpen(v => !v); }}
-            >
-              <span className="text-grad-452f2d">Услуги</span>
-              <ChevronDown size={16} className="text-[#452f2d]" />
+        {/* Навигация (desktop) */}
+        <nav className="hidden items-center gap-6 lg:flex">
+          <button
+            type="button"
+            onClick={() => setServicesOpen((v) => !v)}
+            aria-expanded={servicesOpen}
+            className={`flex items-center gap-1 ${navLinkClass}`}
+          >
+            Услуги
+            <ChevronDown size={16} className={`transition-transform ${servicesOpen ? "rotate-180" : ""}`} />
+          </button>
+          {NAV_LINKS.map((l) => (
+            <a key={l.href} href={l.href} className={`flex items-center gap-2 ${navLinkClass}`}>
+              {l.label}
+              {l.badge && (
+                <span className="rounded bg-dark px-1.5 py-0.5 text-[10px] font-medium uppercase leading-none text-white">
+                  {l.badge}
+                </span>
+              )}
             </a>
-            <a href="#about" className="nav-link"><span className="text-grad-452f2d">О нас</span></a>
-            <a href="#projects" className="nav-link">
-              <span className="text-grad-452f2d">Проекты</span>
-              <span className="badge-new">New</span>
-            </a>
-            <a href="#contact" className="nav-link"><span className="text-grad-452f2d">Контакты</span></a>
-            <a href="#reviews" className="nav-link"><span className="text-grad-452f2д">Отзывы</span></a>
-          </nav>
+          ))}
+        </nav>
 
-          {/* Поиск — без изменений интерфейса */}
-          <div className="flex-1 hidden md:flex justify-center">
-            <div className="search-wrap w-full" style={{ maxWidth: "var(--header-search-max)", height: "var(--header-search-height)", borderRadius: 10, background: HEADER_SEARCH_BG }}>
-              <Search size={18} className="text-[#4a4a4a]" />
-              <input type="text" className="search-input" placeholder="Поиск" aria-label="Поиск" style={{ background: "transparent" }} />
-            </div>
-          </div>
-
-          {/* Правый блок */}
-          <div className="ml-auto hidden md:flex items-center gap-4" ref={actionsHomeRef}>
-            <div ref={actionsNodeRef} className="flex items-center gap-4">
-              {/* AUTH SLOT — без фиксированной ширины и центрирования */}
-              <div className="auth-slot" style={{ display: "flex", alignItems: "center", gap: 16 }}>
-                {user ? (
-                  <AvatarMenu user={user} onLogout={handleLogout} />
-                ) : authReady ? (
-                  <>
-                    <a
-                      href="/login"
-                      className="nav-link"
-                      onClick={(e) => { e.preventDefault(); window.openModal && window.openModal("login"); }}
-                    >
-                      <span className="text-grad-222">Вход</span>
-                    </a>
-                    <a
-                      href="/register"
-                      className="nav-link"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        if (typeof window.openModal === "function") {
-                          window.openModal("register", { email: "" });
-                        } else {
-                          window.location.href = "/register";
-                        }
-                      }}
-                    >
-                      <span className="text-grad-222">Регистрация</span>
-                    </a>
-                  </>
-                ) : (
-                  <div style={{ width: 120, height: 32 }} />
-                )}
-              </div>
-
-              {/* справа — действия ВСЕГДА видны */}
-              <div className="actions-right flex items-center gap-4">
-                <a href="/pro" className="btn-pro">Ищу работу</a>
-                <a
-                  href="/contact"
-                  className="btn-submit"
-                  style={{ borderWidth: 1, borderStyle: "solid" }}
-                >
-                  Оставить заявку
-                </a>
-              </div>
-            </div>
-          </div>
-
-          {/* Мобилка */}
-          <div className="ml-auto flex md:hidden items-center gap-2">
-            <a href="/pro" className="btn-pro" style={{ height: "var(--header-search-height)" }}>Ищу работу</a>
-          </div>
+        {/* Поиск */}
+        <div className="hidden flex-1 justify-center md:flex">
+          <label className="flex h-10 w-full max-w-[560px] items-center gap-2 rounded-lg bg-field px-3.5">
+            <Search size={18} className="text-neutral-500" />
+            <input
+              type="text"
+              placeholder="Поиск"
+              aria-label="Поиск"
+              className="w-full bg-transparent text-sm text-ink outline-none placeholder:text-neutral-500"
+            />
+          </label>
         </div>
+
+        {/* Действия (desktop) */}
+        <div className="ml-auto hidden items-center gap-4 md:flex">
+          {user ? (
+            <AvatarMenu user={user} onLogout={handleLogout} />
+          ) : authReady ? (
+            <div className="flex items-center gap-4">
+              <button type="button" onClick={() => window.openModal?.("login")} className={navLinkClass}>
+                Вход
+              </button>
+              <button type="button" onClick={() => window.openModal?.("register", { email: "" })} className={navLinkClass}>
+                Регистрация
+              </button>
+            </div>
+          ) : (
+            <div className="h-8 w-[120px]" />
+          )}
+
+          <a
+            href="/pro"
+            className="inline-flex h-10 items-center rounded-lg bg-dark px-4 text-sm font-semibold text-white transition-colors hover:bg-neutral-800"
+          >
+            Ищу работу
+          </a>
+          <a
+            href="/contact"
+            className="inline-flex h-10 items-center rounded-lg border border-dark px-4 text-sm font-semibold text-ink transition-colors hover:bg-dark hover:text-white"
+          >
+            Оставить заявку
+          </a>
+        </div>
+
+        {/* Кнопка-бургер (на узких экранах открывает панель услуг; полноценная мобилка — позже) */}
+        <button
+          type="button"
+          onClick={() => setServicesOpen((v) => !v)}
+          aria-label="Меню"
+          aria-expanded={servicesOpen}
+          className="ml-auto inline-flex h-10 w-10 items-center justify-center rounded-lg text-ink lg:hidden"
+        >
+          {servicesOpen ? <X size={22} /> : <Menu size={22} />}
+        </button>
       </div>
 
-      {/* ===== слой панели ===== */}
+      {/* Панель «Услуги» */}
       {servicesOpen && (
-        <>
-          <div
-            className="services-overlay"
-            style={{ position: "fixed", inset: 0, zIndex: 60, background: "linear-gradient(to right,#454545 0%,#454545 100%)" }}
-            onClick={() => setServicesOpen(false)}
-          />
-          <div className="services-layer" style={{ position: "absolute", left: 0, right: 0, top: "calc(100% - 57px)", zIndex: 61 }} onClick={() => setServicesOpen(false)}>
-            <div className="panel-gutter" style={{ padding: "0 52px", boxSizing: "border-box", width: "100%" }} onClick={(e) => e.stopPropagation()}>
-              <div className="services-panel services-panel--extend-left" style={{ position: "relative", left: 0, top: 0, transform: "none", width: "100%", marginTop: "var(--panel-top-shift)", marginBottom: "var(--panel-bottom-gap)" }}>
-                <div className="panel-bar flex items-center justify-between mb-3">
-                  <div className="panel-bar-left flex items-center gap-2" ref={panelLogoRef} />
-                  <div className="panel-bar-right flex items-center gap-4" ref={panelActionsRef} />
-                </div>
-                <div className="services-top">
-                  <div className="services-search-holder" style={{ maxWidth: "var(--panel-search-max)", marginLeft: "var(--panel-search-left)", marginRight: "var(--panel-search-right)", width: "100%" }}>
-                    <div className="search-wrap search-wrap--white" style={{ height: "var(--header-search-height)", borderRadius: 10, clipPath: "inset(0 16px 0 0 round 10px)" }}>
-                      <Search size={18} className="text-[#4a4a4a]" />
-                      <input type="text" className="search-input search-input--dark" placeholder="Поиск" aria-label="Поиск" style={{ background: "transparent" }} />
-                    </div>
-                  </div>
-                </div>
-                <div className="services-body">
-                  <div className="svc-left">
-                    {[
-                      { img: "/electricity.png", label: "Электромонтаж" },
-                      { img: "/lowcurrent.png", label: "Слаботочные сис." },
-                      { img: "/climat.png", label: "Климат системы" },
-                      { img: "/design.png", label: "Проектирование" },
-                      { img: "/construction.png", label: "Общестрой" },
-                    ].map((it, i) => (
-                      <a key={it.label} className={`svc-left-item ${activeLeft === i ? "is-active" : ""}`} onClick={() => setActiveLeft(i)} role="button" tabIndex={0}>
-                        <img src={it.img} alt="" width={16} height={16} className="svc-ico-img" loading="eager" />
-                        <span>{it.label}</span>
-                      </a>
-                    ))}
-                  </div>
-                  <div className="svc-right">
-                    {(
-                      {
-                        0: [
-                          "Подключение объектов к электросетям|",
-                          "Увеличение мощности и модернизация сетей|",
-                          "Внутренние электромонтажные работы|",
-                          "Наружные электросети и уличное освещение|",
-                          "Монтаж электрощитов и ВРУ|",
-                          "Системы заземления и молниезащиты|",
-                          "Автоматизация и учёт электроэнергии|",
-                          "Резервное электроснабжение|",
-                        ],
-                        1: [
-                          "СКС и структурированные кабельные сети|",
-                          "Видеонаблюдение (CCTV)|",
-                          "Охранно-пожарная сигнализация|",
-                          "Системы контроля и управления доступом|",
-                          "Домофония и интерком|",
-                          "Серверные, кроссовые и шкафы|",
-                          "ЛВС и активное сетевое оборудование|",
-                          "Системы оповещения и звука|",
-                        ],
-                        2: [
-                          "Проектирование и монтаж вентиляции|",
-                          "Системы кондиционирования (VRF/VRV)|",
-                          "Чиллер-фанкойл системы|",
-                          "Системы отопления и теплоснабжения|",
-                          "Автоматика ОВиК|",
-                          "Паспортизация и балансировка систем|",
-                          "Воздуховоды, шумоглушение, КИПиА|",
-                          "Сервис и регламентное обслуживание|",
-                        ],
-                        3: [
-                          "Проект электроснабжения (ЭОМ)|",
-                          "Проект ОВ и ВК|",
-                          "Проект СС (слаботочные системы)|",
-                          "АСУ ТП и разделы автоматики|",
-                          "Молниезащита и заземление|",
-                          "Сметная документация|",
-                          "Авторский надзор|",
-                          "Согласования в сетевых организациях|",
-                        ],
-                        4: [
-                          "Общестроительные и отделочные работы|",
-                          "Монолитные и бетонные работы|",
-                          "Фундамент и земляные работы|",
-                          "Кровля и фасад|",
-                          "Внутренние перегородки и проёмы|",
-                          "Усиление конструкций|",
-                          "Генподряд и технадзор|",
-                          "Пуско-наладка инженерных систем|",
-                        ],
-                      }[activeLeft]
-                    ).map((row, i) => {
-                      const [label, num = ""] = row.split("|");
-                      return (
-                        <div key={`${activeLeft}-${label}`} className={`svc-row ${activeRight === i ? "is-active" : ""}`} onClick={() => setActiveRight(i)} role="button" tabIndex={0}>
-                          <span className="svc-label">{label}</span>
-                          <span className="svc-num">{num}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </>
+        <ServicesPanel
+          active={activeCat}
+          setActive={setActiveCat}
+          onClose={() => setServicesOpen(false)}
+        />
       )}
     </header>
   );
