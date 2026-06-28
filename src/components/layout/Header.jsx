@@ -210,6 +210,120 @@ function AuthControls({ user, authReady, onLogout }) {
   );
 }
 
+/* ===== Строка шапки (используется и в шапке, и в карточке панели) ===== */
+function HeaderBar({ servicesOpen, setServicesOpen, user, authReady, onLogout }) {
+  return (
+    <div className="flex h-header items-center gap-5">
+      {/* Логотип */}
+      <a href="/" className="relative -top-1 mr-4 shrink-0 text-[30px] font-bold leading-none text-ink">
+        c.
+      </a>
+
+      {/* Навигация (desktop) */}
+      <nav className="hidden items-center gap-6 lg:flex">
+        <button
+          type="button"
+          onClick={() => setServicesOpen((v) => !v)}
+          aria-expanded={servicesOpen}
+          className={`flex items-center gap-1 ${NAV_LINK_CLASS}`}
+        >
+          Услуги
+          <ChevronDown size={16} className={`transition-transform ${servicesOpen ? "rotate-180" : ""}`} />
+        </button>
+        {NAV_LINKS.map((l) => (
+          <a key={l.href} href={l.href} className={`flex items-center gap-2 ${NAV_LINK_CLASS}`}>
+            {l.label}
+            {l.badge && (
+              <span className="rounded bg-dark px-1.5 py-0.5 text-[10px] font-medium leading-none text-white">
+                {l.badge}
+              </span>
+            )}
+          </a>
+        ))}
+      </nav>
+
+      {/* Поиск (растягивается) */}
+      <div className="hidden flex-1 md:flex">
+        <SearchField className="w-full max-w-[980px]" />
+      </div>
+
+      {/* Действия (desktop) */}
+      <div className="ml-auto hidden items-center gap-4 md:flex">
+        <AuthControls user={user} authReady={authReady} onLogout={onLogout} />
+        <ActionButtons />
+      </div>
+
+      {/* Бургер (узкие экраны; мобилка позже) */}
+      <button
+        type="button"
+        onClick={() => setServicesOpen((v) => !v)}
+        aria-label="Меню"
+        aria-expanded={servicesOpen}
+        className="ml-auto inline-flex h-10 w-10 items-center justify-center rounded-lg text-ink lg:hidden"
+      >
+        {servicesOpen ? <X size={22} /> : <Menu size={22} />}
+      </button>
+    </div>
+  );
+}
+
+/* ===== Панель «Услуги» — портал в body (всегда поверх), карточка ровно над шапкой ===== */
+function ServicesPanel({ activeCat, setActiveCat, barProps, onClose }) {
+  const cat = SERVICE_CATEGORIES[activeCat];
+  return createPortal(
+    <div className="fixed inset-0 z-[100] font-tight">
+      {/* затемнение */}
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+
+      {/* карточка — top-3 и тот же контейнер, что у шапки → дубль ложится ровно поверх */}
+      <div className="absolute inset-x-0 top-3">
+        <div className="mx-auto max-w-[1700px] rounded-2xl bg-page px-6 shadow-2xl lg:px-10">
+          {/* дубль шапки (на тех же координатах — ничего не «прыгает») */}
+          <HeaderBar {...barProps} />
+
+          {/* список услуг */}
+          <div className="mt-1 grid gap-x-8 gap-y-1 border-t border-black/5 pb-6 pt-4 md:grid-cols-[260px_1fr]">
+            {/* категории */}
+            <ul className="flex flex-col gap-1">
+              {SERVICE_CATEGORIES.map((c, i) => (
+                <li key={c.key}>
+                  <a
+                    href={c.href}
+                    onMouseEnter={() => setActiveCat(i)}
+                    onFocus={() => setActiveCat(i)}
+                    className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm leading-[28px] transition-colors ${
+                      activeCat === i ? "bg-white font-medium ring-1 ring-black/5" : "text-ink hover:bg-white"
+                    }`}
+                  >
+                    <img src={c.icon} alt="" className="h-5 w-5 shrink-0 object-contain" />
+                    <span>{c.label}</span>
+                  </a>
+                </li>
+              ))}
+            </ul>
+
+            {/* услуги активной категории — один столбец */}
+            <ul className="flex flex-col gap-1">
+              {cat.items.map((it) => (
+                <li key={it}>
+                  <a
+                    href={cat.href}
+                    onClick={onClose}
+                    className="block rounded-lg px-3 py-2.5 text-sm leading-[28px] text-ink transition-colors hover:bg-white"
+                  >
+                    {it}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
 /* ===== Аватар + меню ===== */
 function AvatarMenu({ user, onLogout }) {
   const [open, setOpen] = React.useState(false);
@@ -421,115 +535,24 @@ export default function Header() {
     return () => { document.body.style.overflow = prev; };
   }, [servicesOpen]);
 
-  const cat = SERVICE_CATEGORIES[activeCat];
+  const barProps = { servicesOpen, setServicesOpen, user, authReady, onLogout: handleLogout };
 
   return (
-    <header className="relative z-50 pt-3 font-tight">
-      {/* тёмный фон вокруг карточки — порталом в body, z НИЖЕ шапки (z-50),
-          чтобы карточка всегда была поверх затемнения */}
-      {servicesOpen && createPortal(
-        <div className="fixed inset-0 z-40 bg-black/50" onClick={() => setServicesOpen(false)} />,
-        document.body
-      )}
-
-      {/* КАРТОЧКА: шапка + раскрытый список — единый блок, поэтому ничего не сдвигается */}
-      <div
-        className={`relative z-50 mx-auto max-w-[1700px] bg-page px-6 lg:px-10 ${
-          servicesOpen ? "rounded-2xl shadow-2xl" : ""
-        }`}
-      >
-        {/* строка шапки */}
-        <div className="flex h-header items-center gap-5">
-          {/* Логотип */}
-          <a href="/" className="relative -top-1 mr-4 shrink-0 text-[30px] font-bold leading-none text-ink">
-            c.
-          </a>
-
-          {/* Навигация (desktop) */}
-          <nav className="hidden items-center gap-6 lg:flex">
-            <button
-              type="button"
-              onClick={() => setServicesOpen((v) => !v)}
-              aria-expanded={servicesOpen}
-              className={`flex items-center gap-1 ${NAV_LINK_CLASS}`}
-            >
-              Услуги
-              <ChevronDown size={16} className={`transition-transform ${servicesOpen ? "rotate-180" : ""}`} />
-            </button>
-            {NAV_LINKS.map((l) => (
-              <a key={l.href} href={l.href} className={`flex items-center gap-2 ${NAV_LINK_CLASS}`}>
-                {l.label}
-                {l.badge && (
-                  <span className="rounded bg-dark px-1.5 py-0.5 text-[10px] font-medium leading-none text-white">
-                    {l.badge}
-                  </span>
-                )}
-              </a>
-            ))}
-          </nav>
-
-          {/* Поиск (растягивается) */}
-          <div className="hidden flex-1 md:flex">
-            <SearchField className="w-full max-w-[980px]" />
-          </div>
-
-          {/* Действия (desktop) */}
-          <div className="ml-auto hidden items-center gap-4 md:flex">
-            <AuthControls user={user} authReady={authReady} onLogout={handleLogout} />
-            <ActionButtons />
-          </div>
-
-          {/* Бургер (узкие экраны; мобилка позже) */}
-          <button
-            type="button"
-            onClick={() => setServicesOpen((v) => !v)}
-            aria-label="Меню"
-            aria-expanded={servicesOpen}
-            className="ml-auto inline-flex h-10 w-10 items-center justify-center rounded-lg text-ink lg:hidden"
-          >
-            {servicesOpen ? <X size={22} /> : <Menu size={22} />}
-          </button>
-        </div>
-
-        {/* Раскрытый список услуг (внутри той же карточки) */}
-        {servicesOpen && (
-          <div className="mt-1 grid gap-x-8 gap-y-1 border-t border-black/5 pb-6 pt-4 md:grid-cols-[260px_1fr]">
-            {/* категории */}
-            <ul className="flex flex-col gap-1">
-              {SERVICE_CATEGORIES.map((c, i) => (
-                <li key={c.key}>
-                  <a
-                    href={c.href}
-                    onMouseEnter={() => setActiveCat(i)}
-                    onFocus={() => setActiveCat(i)}
-                    className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm leading-[28px] transition-colors ${
-                      activeCat === i ? "bg-white font-medium ring-1 ring-black/5" : "text-ink hover:bg-white"
-                    }`}
-                  >
-                    <img src={c.icon} alt="" className="h-5 w-5 shrink-0 object-contain" />
-                    <span>{c.label}</span>
-                  </a>
-                </li>
-              ))}
-            </ul>
-
-            {/* услуги активной категории — в один столбец */}
-            <ul className="flex flex-col gap-1">
-              {cat.items.map((it) => (
-                <li key={it}>
-                  <a
-                    href={cat.href}
-                    onClick={() => setServicesOpen(false)}
-                    className="block rounded-lg px-3 py-2.5 text-sm leading-[28px] text-ink transition-colors hover:bg-white"
-                  >
-                    {it}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
+    <header className="relative z-40 pt-3 font-tight">
+      {/* Реальная шапка (всегда на месте; при открытой панели её ровно накрывает карточка) */}
+      <div className="mx-auto max-w-[1700px] px-6 lg:px-10">
+        <HeaderBar {...barProps} />
       </div>
+
+      {/* Панель «Услуги» — портал в body, поверх всего, карточка ложится ровно над шапкой */}
+      {servicesOpen && (
+        <ServicesPanel
+          activeCat={activeCat}
+          setActiveCat={setActiveCat}
+          barProps={barProps}
+          onClose={() => setServicesOpen(false)}
+        />
+      )}
     </header>
   );
 }
