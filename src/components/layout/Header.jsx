@@ -277,12 +277,12 @@ function ServicesPanel({ activeCat, setActiveCat, barProps, onClose }) {
 
       {/* карточка — top-3 и тот же контейнер, что у шапки → дубль ложится ровно поверх */}
       <div className="absolute inset-x-0 top-3">
-        <div className="mx-auto max-w-[1700px] rounded-2xl bg-page px-6 shadow-2xl lg:px-10">
+        <div className="mx-auto max-w-[1600px] rounded-xl bg-page px-6 shadow-2xl lg:px-10">
           {/* дубль шапки (на тех же координатах — ничего не «прыгает») */}
           <HeaderBar {...barProps} />
 
           {/* список услуг */}
-          <div className="mt-1 grid gap-x-8 gap-y-1 border-t border-black/5 pb-6 pt-4 md:grid-cols-[260px_1fr]">
+          <div className="mt-1 grid gap-x-8 gap-y-1 pb-6 pt-2 md:grid-cols-[260px_1fr]">
             {/* категории */}
             <ul className="flex flex-col gap-1">
               {SERVICE_CATEGORIES.map((c, i) => (
@@ -528,11 +528,18 @@ export default function Header() {
   }, []);
 
   // блокируем прокрутку body при открытой панели
+  // + компенсируем ширину скроллбара, чтобы фон не «подпрыгивал»
   React.useEffect(() => {
     if (!servicesOpen) return;
-    const prev = document.body.style.overflow;
+    const sbw = window.innerWidth - document.documentElement.clientWidth;
+    const prevOverflow = document.body.style.overflow;
+    const prevPad = document.body.style.paddingRight;
     document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = prev; };
+    if (sbw > 0) document.body.style.paddingRight = `${sbw}px`;
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      document.body.style.paddingRight = prevPad;
+    };
   }, [servicesOpen]);
 
   const barProps = { servicesOpen, setServicesOpen, user, authReady, onLogout: handleLogout };
@@ -540,7 +547,7 @@ export default function Header() {
   return (
     <header className="relative z-40 pt-3 font-tight">
       {/* Реальная шапка (всегда на месте; при открытой панели её ровно накрывает карточка) */}
-      <div className="mx-auto max-w-[1700px] px-6 lg:px-10">
+      <div className="mx-auto max-w-[1600px] px-6 lg:px-10">
         <HeaderBar {...barProps} />
       </div>
 
