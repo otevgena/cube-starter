@@ -1,8 +1,8 @@
 // src/components/layout/Header.jsx
 // Чистая шапка (clean-rebuild). Логика авторизации сохранена, разметка на Tailwind
 // с токенами — без !important и пиксельных сдвигов.
-// Панель «Услуги» — плавающая карточка (awwwards-стиль): тёмный фон вокруг,
-// зазор сверху, внутри дублируется шапка (лого, поиск, действия).
+// «Услуги» раскрываются ВНУТРИ той же карточки (шапка не дублируется → ничего не
+// сдвигается). Вокруг — тёмный фон, сверху зазор (awwwards-стиль).
 import React from "react";
 import { ChevronDown, Search, Menu, X } from "lucide-react";
 
@@ -160,8 +160,8 @@ const NAV_LINKS = [
 const NAV_LINK_CLASS =
   "text-sm font-medium leading-[28px] text-ink transition-opacity hover:opacity-70";
 
-/* ===== Переиспользуемые куски шапки ===== */
-function SearchField({ className = "", autoFocus = false }) {
+/* ===== Переиспользуемые куски ===== */
+function SearchField({ className = "" }) {
   return (
     <label className={`flex h-[42px] items-center gap-2 rounded-lg bg-field px-4 ${className}`}>
       <Search size={18} className="shrink-0 text-neutral-500" />
@@ -169,7 +169,6 @@ function SearchField({ className = "", autoFocus = false }) {
         type="text"
         placeholder="Поиск"
         aria-label="Поиск"
-        autoFocus={autoFocus}
         className="w-full min-w-0 bg-transparent text-sm leading-[28px] text-ink outline-none placeholder:text-neutral-500"
       />
     </label>
@@ -271,69 +270,6 @@ function AvatarMenu({ user, onLogout }) {
           </button>
         </div>
       )}
-    </div>
-  );
-}
-
-/* ===== Выпадающая панель «Услуги» (плавающая карточка, awwwards-стиль) ===== */
-function ServicesPanel({ active, setActive, user, authReady, onLogout, onClose }) {
-  const cat = SERVICE_CATEGORIES[active];
-  return (
-    <div className="fixed inset-0 z-[60] font-tight">
-      {/* тёмный фон вокруг карточки (виден и сверху — карточка с отступом) */}
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-
-      {/* карточка */}
-      <div className="relative mx-auto mt-3 w-[calc(100%-1.5rem)] max-w-[1700px] rounded-2xl bg-page p-5 shadow-2xl">
-        {/* верхняя строка — дубль шапки */}
-        <div className="flex items-center gap-5">
-          <a href="/" className="shrink-0 text-[30px] font-bold leading-none text-ink">c.</a>
-          <div className="hidden flex-1 md:flex">
-            <SearchField className="w-full max-w-[980px]" autoFocus />
-          </div>
-          <div className="ml-auto hidden items-center gap-4 md:flex">
-            <AuthControls user={user} authReady={authReady} onLogout={onLogout} />
-            <ActionButtons />
-          </div>
-        </div>
-
-        {/* тело панели */}
-        <div className="mt-5 grid gap-4 md:grid-cols-[260px_1fr]">
-          {/* категории */}
-          <ul className="flex flex-col gap-1">
-            {SERVICE_CATEGORIES.map((c, i) => (
-              <li key={c.key}>
-                <a
-                  href={c.href}
-                  onMouseEnter={() => setActive(i)}
-                  onFocus={() => setActive(i)}
-                  className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm leading-[28px] transition-colors ${
-                    active === i ? "bg-white font-medium ring-1 ring-black/5" : "text-ink hover:bg-white"
-                  }`}
-                >
-                  <img src={c.icon} alt="" className="h-5 w-5 shrink-0 object-contain" />
-                  <span>{c.label}</span>
-                </a>
-              </li>
-            ))}
-          </ul>
-
-          {/* услуги активной категории */}
-          <ul className="grid gap-1 sm:grid-cols-2">
-            {cat.items.map((it) => (
-              <li key={it}>
-                <a
-                  href={cat.href}
-                  onClick={onClose}
-                  className="block rounded-lg px-3 py-2.5 text-sm leading-[28px] text-ink transition-colors hover:bg-white"
-                >
-                  {it}
-                </a>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </div>
     </div>
   );
 }
@@ -484,69 +420,113 @@ export default function Header() {
     return () => { document.body.style.overflow = prev; };
   }, [servicesOpen]);
 
-  return (
-    <header className="relative bg-page font-tight">
-      <div className="mx-auto flex h-header max-w-[1700px] items-center gap-5 px-6 lg:px-10">
-        {/* Логотип */}
-        <a href="/" className="shrink-0 text-[30px] font-bold leading-none text-ink">c.</a>
+  const cat = SERVICE_CATEGORIES[activeCat];
 
-        {/* Навигация (desktop) */}
-        <nav className="hidden items-center gap-6 lg:flex">
+  return (
+    <header className="relative z-50 pt-3 font-tight">
+      {/* тёмный фон вокруг карточки (только при открытой панели) */}
+      {servicesOpen && (
+        <div className="fixed inset-0 z-40 bg-black/50" onClick={() => setServicesOpen(false)} />
+      )}
+
+      {/* КАРТОЧКА: шапка + раскрытый список — единый блок, поэтому ничего не сдвигается */}
+      <div
+        className={`relative z-50 mx-auto max-w-[1700px] bg-page px-6 lg:px-10 ${
+          servicesOpen ? "rounded-2xl shadow-2xl" : ""
+        }`}
+      >
+        {/* строка шапки */}
+        <div className="flex h-header items-center gap-5">
+          {/* Логотип */}
+          <a href="/" className="relative -top-1 mr-4 shrink-0 text-[30px] font-bold leading-none text-ink">
+            c.
+          </a>
+
+          {/* Навигация (desktop) */}
+          <nav className="hidden items-center gap-6 lg:flex">
+            <button
+              type="button"
+              onClick={() => setServicesOpen((v) => !v)}
+              aria-expanded={servicesOpen}
+              className={`flex items-center gap-1 ${NAV_LINK_CLASS}`}
+            >
+              Услуги
+              <ChevronDown size={16} className={`transition-transform ${servicesOpen ? "rotate-180" : ""}`} />
+            </button>
+            {NAV_LINKS.map((l) => (
+              <a key={l.href} href={l.href} className={`flex items-center gap-2 ${NAV_LINK_CLASS}`}>
+                {l.label}
+                {l.badge && (
+                  <span className="rounded bg-dark px-1.5 py-0.5 text-[10px] font-medium leading-none text-white">
+                    {l.badge}
+                  </span>
+                )}
+              </a>
+            ))}
+          </nav>
+
+          {/* Поиск (растягивается) */}
+          <div className="hidden flex-1 md:flex">
+            <SearchField className="w-full max-w-[980px]" />
+          </div>
+
+          {/* Действия (desktop) */}
+          <div className="ml-auto hidden items-center gap-4 md:flex">
+            <AuthControls user={user} authReady={authReady} onLogout={handleLogout} />
+            <ActionButtons />
+          </div>
+
+          {/* Бургер (узкие экраны; мобилка позже) */}
           <button
             type="button"
             onClick={() => setServicesOpen((v) => !v)}
+            aria-label="Меню"
             aria-expanded={servicesOpen}
-            className={`flex items-center gap-1 ${NAV_LINK_CLASS}`}
+            className="ml-auto inline-flex h-10 w-10 items-center justify-center rounded-lg text-ink lg:hidden"
           >
-            Услуги
-            <ChevronDown size={16} className={`transition-transform ${servicesOpen ? "rotate-180" : ""}`} />
+            {servicesOpen ? <X size={22} /> : <Menu size={22} />}
           </button>
-          {NAV_LINKS.map((l) => (
-            <a key={l.href} href={l.href} className={`flex items-center gap-2 ${NAV_LINK_CLASS}`}>
-              {l.label}
-              {l.badge && (
-                <span className="rounded bg-dark px-1.5 py-0.5 text-[10px] font-medium uppercase leading-none text-white">
-                  {l.badge}
-                </span>
-              )}
-            </a>
-          ))}
-        </nav>
-
-        {/* Поиск (растягивается) */}
-        <div className="hidden flex-1 md:flex">
-          <SearchField className="w-full max-w-[980px]" />
         </div>
 
-        {/* Действия (desktop) */}
-        <div className="ml-auto hidden items-center gap-4 md:flex">
-          <AuthControls user={user} authReady={authReady} onLogout={handleLogout} />
-          <ActionButtons />
-        </div>
+        {/* Раскрытый список услуг (внутри той же карточки) */}
+        {servicesOpen && (
+          <div className="mt-1 grid gap-x-8 gap-y-1 border-t border-black/5 pb-6 pt-4 md:grid-cols-[260px_1fr]">
+            {/* категории */}
+            <ul className="flex flex-col gap-1">
+              {SERVICE_CATEGORIES.map((c, i) => (
+                <li key={c.key}>
+                  <a
+                    href={c.href}
+                    onMouseEnter={() => setActiveCat(i)}
+                    onFocus={() => setActiveCat(i)}
+                    className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm leading-[28px] transition-colors ${
+                      activeCat === i ? "bg-white font-medium ring-1 ring-black/5" : "text-ink hover:bg-white"
+                    }`}
+                  >
+                    <img src={c.icon} alt="" className="h-5 w-5 shrink-0 object-contain" />
+                    <span>{c.label}</span>
+                  </a>
+                </li>
+              ))}
+            </ul>
 
-        {/* Кнопка-бургер (узкие экраны — открывает панель услуг; мобилка позже) */}
-        <button
-          type="button"
-          onClick={() => setServicesOpen((v) => !v)}
-          aria-label="Меню"
-          aria-expanded={servicesOpen}
-          className="ml-auto inline-flex h-10 w-10 items-center justify-center rounded-lg text-ink lg:hidden"
-        >
-          {servicesOpen ? <X size={22} /> : <Menu size={22} />}
-        </button>
+            {/* услуги активной категории — в один столбец */}
+            <ul className="flex flex-col gap-1">
+              {cat.items.map((it) => (
+                <li key={it}>
+                  <a
+                    href={cat.href}
+                    onClick={() => setServicesOpen(false)}
+                    className="block rounded-lg px-3 py-2.5 text-sm leading-[28px] text-ink transition-colors hover:bg-white"
+                  >
+                    {it}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
-
-      {/* Панель «Услуги» */}
-      {servicesOpen && (
-        <ServicesPanel
-          active={activeCat}
-          setActive={setActiveCat}
-          user={user}
-          authReady={authReady}
-          onLogout={handleLogout}
-          onClose={() => setServicesOpen(false)}
-        />
-      )}
     </header>
   );
 }
