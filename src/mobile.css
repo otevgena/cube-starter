@@ -1,0 +1,338 @@
+/* =========================================================
+   MOBILE LAYER · cube-starter
+   ---------------------------------------------------------
+   Подключается в src/main.jsx ПОСЛЕ index.css.
+   Все правила действуют ТОЛЬКО на экранах шириной < 1024px.
+   Десктоп (>= 1024px) полностью сохраняется: ни одна строка
+   index.css не редактируется, старые override'ы не трогаются.
+
+   Принципы:
+   - mobile-first правки только внутри @media (max-width: 1023px);
+   - !important применяем осознанно — только чтобы перебить
+     уже существующие в index.css !important-правила;
+   - один блок сайта = одна секция здесь (см. оглавление ниже).
+
+   Оглавление:
+     0. Глобальная база
+     1. Первый экран (HomeMain / about-hero)
+   ========================================================= */
+
+@media (max-width: 1023px) {
+
+  /* ── 0. Глобальная база ──────────────────────────────────
+     Гасим горизонтальный скролл, который дают широкие
+     десктоп-блоки (ромб 1441px, форма 683px и т.п.).
+     Это временный «предохранитель»: каждый внутренний блок
+     всё равно будет адаптирован отдельно. */
+  html, body {
+    overflow-x: hidden;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  /* ── 1. ПЕРВЫЙ ЭКРАН (HomeMain / about-hero) ──────────────
+     Разметка: section.home-hero > .about-hero-header >
+       (.container-wide > .about-hero-meta, h1.about-hero-title,
+        .about-hero-sign) , .about-hero-diamond > img */
+
+  /* убираем десктопный сдвиг блока вверх */
+  .about-hero-header { transform: none !important; }
+
+  /* Верхняя строка: «Сегодня • дата • Загруженность» —
+     разрешаем перенос, чтобы не вылезала за край */
+  .about-hero-meta {
+    flex-wrap: wrap;
+    gap: 8px 10px;
+    padding: 0 4px;
+  }
+  .about-hero-date { white-space: nowrap; }
+
+  /* Главный заголовок CUBE-TECH — резиновый размер вместо 137px */
+  .about-hero-title {
+    font-size: clamp(40px, 13.5vw, 92px) !important;
+    line-height: 1.03 !important;
+    margin: 14px 0 10px !important;
+    word-break: break-word;
+  }
+
+  /* Подпись «Генеральный директор» + бейдж — даём переносить */
+  .about-hero-sign {
+    flex-wrap: wrap;
+    row-gap: 4px;
+  }
+
+  /* «Ромб» с картинкой — на всю ширину, пропорции сохраняем
+     (десктоп: 1441×1112 → соотношение 1441/1112) */
+  .about-hero-diamond {
+    width: 92vw !important;
+    max-width: 1441px;
+    height: auto !important;
+    aspect-ratio: 1441 / 1112;
+    margin-top: 28px !important;   /* боковые margin: auto из index.css сохраняются → блок по центру */
+    border-radius: 12px !important;
+  }
+
+  /* Внутренняя картинка: тонкая рамка вместо десктопных 62px,
+     иначе на телефоне почти весь ромб — чёрная рамка */
+  .about-hero-diamond > img {
+    inset: 14px !important;
+    width: calc(100% - 28px) !important;
+    height: calc(100% - 28px) !important;
+    border-radius: 10px !important;
+  }
+
+  /* ── 3. ФОРМА ЗАЯВКИ (Contact) ───────────────────────────
+     Поля свёрстаны инлайн с шириной 683px → перебиваем !important.
+     Зацепки-классы добавлены в Contact.jsx: .contact-shift,
+     .contact-cols, .contact-form */
+
+  /* убираем десктопный подъём секции на -98px */
+  .contact-shift { transform: translateY(-24px) !important; }
+
+  /* две колонки → одна; боковые поля 20px */
+  .contact-cols {
+    display: block !important;
+    margin-left: 20px !important;
+    margin-right: 20px !important;
+    margin-top: 32px !important;
+  }
+  /* левый текстовый блок — на всю ширину */
+  .contact-cols > div:first-child { max-width: 100% !important; }
+
+  /* форма и все её поля — резиновые */
+  .contact-form {
+    width: 100% !important;
+    height: auto !important;
+    margin-top: 28px !important;
+  }
+  .contact-form input,
+  .contact-form textarea,
+  .contact-form [role="button"],
+  .contact-form [role="listbox"] {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+}
+
+/* =========================================================
+   2. ШАПКА · мобильный бургер и меню
+   ---------------------------------------------------------
+   Элементы рендерятся только из мобильного блока Header.jsx
+   (.md\:hidden, т.е. <768px), поэтому медиа-запрос не нужен —
+   на десктопе их просто нет в DOM.
+   ========================================================= */
+
+/* Кнопка-бургер */
+.mobile-burger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  background: transparent;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  color: #222;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+.mobile-burger:hover,
+.mobile-burger:focus-visible { background: rgba(0, 0, 0, 0.05); outline: none; }
+
+/* Затемнение под меню */
+.mobile-menu-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  background: rgba(0, 0, 0, 0.45);
+  animation: mobileOverlayIn 0.2s ease-out both;
+}
+@keyframes mobileOverlayIn { from { opacity: 0; } to { opacity: 1; } }
+
+/* Панель меню — выезжает справа */
+.mobile-menu {
+  position: fixed;
+  z-index: 71;
+  top: 0;
+  right: 0;
+  height: 100vh;
+  height: 100dvh;            /* надёжная полная высота — не зависит от предков */
+  width: min(86vw, 360px);
+  background: #fff;
+  box-shadow: -8px 0 30px rgba(0, 0, 0, 0.18);
+  padding: 18px 16px calc(18px + env(safe-area-inset-bottom, 0px));
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-family: var(--font-tight);
+  animation: mobileMenuIn 0.22s ease-out both;
+}
+@keyframes mobileMenuIn {
+  from { transform: translateX(100%); }
+  to   { transform: translateX(0); }
+}
+
+.mobile-menu-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #8a8a8a;
+  padding: 6px 12px 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.mobile-menu-sub {
+  display: block;
+  padding: 10px 14px;
+  border-radius: 10px;
+  color: #222;
+  text-decoration: none;
+  font-size: 15px;
+  font-weight: 500;
+}
+.mobile-menu-sub:hover,
+.mobile-menu-sub:active { background: #f2f2f2; }
+
+.mobile-menu-link {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 12px 12px;
+  border-radius: 10px;
+  color: #222;
+  text-decoration: none;
+  font-size: 16px;
+  font-weight: 500;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-family: var(--font-tight);
+}
+.mobile-menu-link:hover,
+.mobile-menu-link:active { background: #f2f2f2; }
+
+.mobile-menu-divider {
+  height: 1px;
+  background: rgba(0, 0, 0, 0.08);
+  margin: 8px 4px;
+}
+
+.mobile-menu-auth { display: flex; gap: 8px; }
+.mobile-menu-auth .mobile-menu-link {
+  flex: 1;
+  text-align: center;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+}
+
+.mobile-menu-cta {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 16px;
+}
+.mobile-menu-cta-btn { width: 100%; height: 46px; }
+
+.mobile-menu-logout { color: #c0392b; }
+
+@media (prefers-reduced-motion: reduce) {
+  .mobile-menu,
+  .mobile-menu-overlay { animation: none; }
+}
+
+/* =========================================================
+   4. ШАПКА · сброс десктопных пиксельных сдвигов (<768px)
+   ---------------------------------------------------------
+   В index.css есть НЕ обёрнутые в медиа-запрос «живые правки»,
+   которые подогнаны под десктоп и на мобиле уводят логотип и
+   бургер за края экрана:
+     .logo-wrap .items-center span { left:-77px !important }
+     .container-header .items-center .ml-auto { left:119px }
+     .container-header > .items-center { top:16px; left:-8px }
+   Здесь нейтрализуем их ТОЛЬКО для зоны бургера (<768px).
+   Десктоп (>=768px) сохраняет исходные сдвиги без изменений.
+   ========================================================= */
+@media (max-width: 767px) {
+  /* контейнер шапки центрирует строку по вертикали */
+  .container-header {
+    height: 56px !important;
+    display: flex !important;
+    align-items: center !important;
+    padding-left: 14px !important;
+    padding-right: 14px !important;
+  }
+
+  /* строка шапки — на всю ширину, по центру, без десктопных сдвигов */
+  .container-header > .items-center,
+  .header-row {
+    width: 100% !important;
+    position: relative !important;
+    top: 0 !important;
+    left: 0 !important;
+    transform: none !important;
+    align-items: center !important;
+    gap: 0 !important;
+  }
+
+  /* на мобиле прячем ВСЮ десктопную начинку шапки — у нас своя строка .mobile-header */
+  .logo-wrap { display: none !important; }
+
+  /* ── awwwards-стиль: [бургер] [c.] [поиск] [вход] ── */
+  .mobile-burger-plain {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    background: transparent;
+    border: none;
+    color: #222;
+    cursor: pointer;
+  }
+
+  .mobile-logo {
+    flex: 0 0 auto;
+    font-family: var(--font-tight);
+    font-size: 26px;
+    line-height: 1;
+    font-weight: 700;
+    color: #222;
+    text-decoration: none;
+  }
+
+  .mobile-search {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 40px;
+    padding: 0 12px;
+    background: #e9e9e9;
+    border-radius: 10px;
+  }
+  .mobile-search .search-input {
+    width: 100%;
+    min-width: 0;
+    background: transparent;
+    font-size: 15px;
+  }
+
+  .mobile-login-icon {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    background: transparent;
+    border: none;
+    color: #222;
+    cursor: pointer;
+    text-decoration: none;
+  }
+}

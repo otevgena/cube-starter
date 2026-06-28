@@ -233,7 +233,7 @@ export default function Contact({ sectionRef }) {
 
   return (
     <section id="contact" ref={sectionRef} className="about-hero contact-hero" aria-label="Контакты">
-      <div style={{ transform: "translateY(-98px)", willChange: "transform" }}>
+      <div className="contact-shift" style={{ transform: "translateY(-98px)", willChange: "transform" }}>
         {/* Шапка */}
         <div className="about-hero-flow" style={{ marginTop: 30 }}>
           <div className="about-hero-overview" style={{ textAlign: "center", fontSize: 14, lineHeight: "28px", fontWeight: 300, color: GRAY, margin: 0 }}>
@@ -248,6 +248,7 @@ export default function Contact({ sectionRef }) {
 
         {/* Колонки */}
         <div
+          className="contact-cols"
           style={{
             marginTop: 78, marginLeft: GUTTER, marginRight: GUTTER,
             display: "grid", gridTemplateColumns: "1fr auto", alignItems: "start", columnGap: 40,
@@ -270,7 +271,7 @@ export default function Contact({ sectionRef }) {
           </div>
 
           {/* Правая колонка */}
-          <form onSubmit={submit} noValidate style={{ width: FORM_W, height: FORM_H, border: "none", background: "transparent", textAlign: "left" }}>
+          <form className="contact-form" onSubmit={submit} noValidate style={{ width: FORM_W, height: FORM_H, border: "none", background: "transparent", textAlign: "left" }}>
             {/* Имя */}
             <div style={{ marginTop: 0 }}>
               <label style={labelStyle}>имя (*)</label>
