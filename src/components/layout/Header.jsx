@@ -1,6 +1,7 @@
 // src/components/layout/Header.jsx
 import React from "react";
-import { ChevronDown, Search } from "lucide-react";
+import { createPortal } from "react-dom";
+import { ChevronDown, Search, Menu, X, User } from "lucide-react";
 
 /* === API base === */
 const API_BASE =
@@ -245,6 +246,7 @@ function AvatarMenu({ user, onLogout }) {
 
 export default function Header() {
   const [servicesOpen, setServicesOpen] = React.useState(false);
+  const [mobileOpen, setMobileOpen] = React.useState(false);
   const [activeLeft, setActiveLeft] = React.useState(0);
   const [activeRight, setActiveRight] = React.useState(0);
 
@@ -377,7 +379,7 @@ export default function Header() {
     const onKey = (e) => {
       const key = (e.key || "").toLowerCase();
       if (e.altKey && key === "s") { e.preventDefault(); setServicesOpen(v => !v); }
-      if (key === "escape") setServicesOpen(false);
+      if (key === "escape") { setServicesOpen(false); setMobileOpen(false); }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -409,6 +411,14 @@ export default function Header() {
     document.body.style.overflow = "hidden";
     return () => { document.body.style.overflow = prev; };
   }, [servicesOpen]);
+
+  // блокируем прокрутку body, пока открыто мобильное меню
+  React.useEffect(() => {
+    if (!mobileOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = prev; };
+  }, [mobileOpen]);
 
   React.useEffect(() => {
     const aNode = actionsNodeRef.current;
@@ -491,6 +501,41 @@ export default function Header() {
     <header id="site-header-static" className="z-50" style={{ position: "relative", background: "transparent", ...VARS }}>
       <div className="container-header" style={{ height: "var(--header-height)" }}>
         <div className="header-row flex items-center gap-4">
+          {/* ===== Мобильная шапка (awwwards-стиль): бургер · c. · поиск · вход ===== */}
+          <div className="mobile-header flex md:hidden items-center gap-3 w-full">
+            <button
+              type="button"
+              className="mobile-burger-plain"
+              aria-label="Меню"
+              aria-expanded={mobileOpen}
+              onClick={() => setMobileOpen((v) => !v)}
+            >
+              {mobileOpen ? <X size={24} /> : <Menu size={24} />}
+            </button>
+
+            <a href="/" className="mobile-logo">c.</a>
+
+            <div className="mobile-search">
+              <Search size={18} className="text-[#4a4a4a]" />
+              <input type="text" className="search-input" placeholder="Поиск" aria-label="Поиск" />
+            </div>
+
+            {user ? (
+              <a href="/account" className="mobile-login-icon" aria-label="Профиль">
+                <img src="/profile/profile.png" alt="" width={28} height={28} style={{ borderRadius: "50%", display: "block" }} />
+              </a>
+            ) : (
+              <button
+                type="button"
+                className="mobile-login-icon"
+                aria-label="Вход"
+                onClick={() => { if (window.openModal) window.openModal("login"); }}
+              >
+                <User size={24} />
+              </button>
+            )}
+          </div>
+
           {/* ЛОГО */}
           <div className="logo-wrap" ref={logoHomeRef} style={{ display: "flex", alignItems: "center" }}>
             {servicesOpen && <div style={{ width: (logoPlaceholderW || 24), height: 1 }} />}
@@ -581,12 +626,70 @@ export default function Header() {
             </div>
           </div>
 
-          {/* Мобилка */}
-          <div className="ml-auto flex md:hidden items-center gap-2">
-            <a href="/pro" className="btn-pro" style={{ height: "var(--header-search-height)" }}>Ищу работу</a>
-          </div>
         </div>
       </div>
+
+      {/* ===== Мобильное меню (портал в body, чтобы fixed считался от окна) ===== */}
+      {mobileOpen && createPortal(
+        <div className="mobile-menu-root md:hidden">
+          <div className="mobile-menu-overlay" onClick={() => setMobileOpen(false)} />
+          <nav className="mobile-menu" aria-label="Мобильное меню">
+            <div className="mobile-menu-section">
+              <div className="mobile-menu-title">Услуги</div>
+              <a className="mobile-menu-sub" href="/services/electrical" onClick={() => setMobileOpen(false)}>Электромонтаж</a>
+              <a className="mobile-menu-sub" href="/services/lowcurrent" onClick={() => setMobileOpen(false)}>Слаботочные системы</a>
+              <a className="mobile-menu-sub" href="/services/ventilation" onClick={() => setMobileOpen(false)}>Климат-системы</a>
+              <a className="mobile-menu-sub" href="/services/design" onClick={() => setMobileOpen(false)}>Проектирование</a>
+              <a className="mobile-menu-sub" href="/services/construction" onClick={() => setMobileOpen(false)}>Общестрой</a>
+            </div>
+
+            <div className="mobile-menu-divider" />
+
+            <a className="mobile-menu-link" href="/#about" onClick={() => setMobileOpen(false)}>О нас</a>
+            <a className="mobile-menu-link" href="/#projects" onClick={() => setMobileOpen(false)}>Проекты</a>
+            <a className="mobile-menu-link" href="/#contact" onClick={() => setMobileOpen(false)}>Контакты</a>
+            <a className="mobile-menu-link" href="/#reviews" onClick={() => setMobileOpen(false)}>Отзывы</a>
+
+            <div className="mobile-menu-divider" />
+
+            {user ? (
+              <>
+                <a className="mobile-menu-link" href="/account" onClick={() => setMobileOpen(false)}>Профиль</a>
+                <button
+                  type="button"
+                  className="mobile-menu-link mobile-menu-logout"
+                  onClick={() => { setMobileOpen(false); handleLogout(); }}
+                >
+                  Выход
+                </button>
+              </>
+            ) : (
+              <div className="mobile-menu-auth">
+                <a
+                  href="/login"
+                  className="mobile-menu-link"
+                  onClick={(e) => { e.preventDefault(); setMobileOpen(false); window.openModal && window.openModal("login"); }}
+                >
+                  Вход
+                </a>
+                <a
+                  href="/register"
+                  className="mobile-menu-link"
+                  onClick={(e) => { e.preventDefault(); setMobileOpen(false); window.openModal && window.openModal("register", { email: "" }); }}
+                >
+                  Регистрация
+                </a>
+              </div>
+            )}
+
+            <div className="mobile-menu-cta">
+              <a href="/contact" className="btn-submit mobile-menu-cta-btn" onClick={() => setMobileOpen(false)}>Оставить заявку</a>
+              <a href="/pro" className="btn-pro mobile-menu-cta-btn" onClick={() => setMobileOpen(false)}>Ищу работу</a>
+            </div>
+          </nav>
+        </div>,
+        document.body
+      )}
 
       {/* ===== слой панели ===== */}
       {servicesOpen && (
