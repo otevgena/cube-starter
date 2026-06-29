@@ -11,7 +11,7 @@ const PROJECTS = [
     logo: "/projects/rmm/nng_logo.png",
     shots: ["/projects/rmm/2-1200.jpg", "/projects/rmm/3-1200.jpg"],
     location: "Ноябрьск",
-    title: "Учебный центр",
+    objectTitle: "Учебный центр",
     customer: "Газпром нефть",
     servicesLabel: "5 Услуг",
     days: 94,
@@ -26,7 +26,7 @@ const PROJECTS = [
     logo: "/projects/Frank/frank_logo.png",
     shots: ["/projects/Frank/1-1200.jpg", "/projects/Frank/2-1200.jpg"],
     location: "Тюмень",
-    title: "FRANK by БАСТА",
+    objectTitle: "FRANK by БАСТА",
     customer: "frankmeat",
     servicesLabel: "3 услуги",
     days: 76,
@@ -94,7 +94,7 @@ function Dots({ active, total, onSelect }) {
 }
 
 /* Карточка проекта */
-function ProjectCard({ logo, shots = [], location, title, customer, servicesLabel, days }) {
+function ProjectCard({ logo, shots = [], location, objectTitle, customer, servicesLabel, days }) {
   const [idx, setIdxState] = React.useState(0);
   const [prevIdx, setPrevIdx] = React.useState(0);
   const [opacity, setOpacity] = React.useState(1);
@@ -165,7 +165,7 @@ function ProjectCard({ logo, shots = [], location, title, customer, servicesLabe
       {/* location + title */}
       <div className="absolute bottom-[115px] left-[47px] right-5 flex flex-col gap-3 text-left">
         <div className="text-[15px] font-light leading-[22px] opacity-95">{location}</div>
-        <div className="text-[43px] font-semibold leading-[50px]">{title}</div>
+        <div className="text-[43px] font-semibold leading-[50px]">{objectTitle}</div>
       </div>
 
       {/* customer */}
