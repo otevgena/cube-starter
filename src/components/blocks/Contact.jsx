@@ -1,30 +1,12 @@
+// src/components/blocks/Contact.jsx
+// Блок «Контакты» (clean-rebuild): заголовок + форма заявки.
+// Логика валидации и отправки в Yandex Cloud сохранена 1-в-1; разметка на Tailwind.
 import React from "react";
 
-// 1) URL функции: сначала берём из .env, если вдруг не подхватился — используем запасной
-//   В .env оставляй РОВНО одну строку, например (без $latest проще):
-//   VITE_BACKEND_URL=https://functions.yandexcloud.net/d4emaopknkiq93o92km8?versionId=ВАШ_VERSION_ID&integration=raw
-//   или, если с тегом — ОБЯЗАТЕЛЬНО экранированный: ?tag=%24latest
 const FALLBACK_URL = "https://functions.yandexcloud.net/d4emaopknkiq93o92km8?tag=%24latest&integration=raw";
 const BACKEND_URL = (import.meta.env?.VITE_BACKEND_URL || FALLBACK_URL).trim();
 
-const UI = "'Inter Tight','Inter',system-ui";
-
-const GUTTER = 52;
-const FORM_W = 683;
-const FORM_H = 750;
-const FIELD_H = 48;
-const LABEL = "#A7A7A7";
-const BLACK = "#000";
-const GRAY = "#222222";
-const BORDER = "#d9d9d9";
-const ARROW = "#b3b3b3";
-const ERR = "#fa5d29";
-
-const GROUP_GAP = 12;
-const ERROR_OFFSET = 11;
-const ERROR_TEXT_SIZE = 11;
-const ERROR_SLOT_H = ERROR_OFFSET + ERROR_TEXT_SIZE; // 22px
-const CHECKBOX_EXTRA_SHIFT = 6;
+const TITLE = { fontSize: "clamp(48px, 13.5vw, 137px)" };
 
 const PLACEHOLDER = "-- Выберите вариант --";
 const OPTIONS = [
@@ -41,28 +23,21 @@ const OPTIONS = [
   "Другое",
 ];
 
-/* Валидации */
 const isEmail = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((v || "").trim());
-const isPhoneLike = (v) => ((v || "").replace(/\D/g, "").length >= 10);
+const isPhoneLike = (v) => (v || "").replace(/\D/g, "").length >= 10;
 
-/* Слот ошибки под полем, верстка не прыгает */
+const LABEL_CLASS = "block text-left text-xs font-light uppercase tracking-[0.04em] text-[#a7a7a7]";
+const fieldClass = (err) =>
+  `block h-12 w-[683px] max-w-full border-0 border-b bg-white px-3.5 text-base leading-6 text-black outline-none ${
+    err ? "border-[#fa5d29]" : "border-[#d9d9d9]"
+  }`;
+
+/* Слот ошибки под полем (фикс. высота, верстка не прыгает) */
 function ErrorSlot({ text }) {
   return (
-    <div style={{ height: ERROR_SLOT_H, position: "relative" }}>
+    <div className="relative h-[22px]">
       {text ? (
-        <span
-          style={{
-            position: "absolute",
-            top: ERROR_OFFSET,
-            left: 0,
-            color: ERR,
-            fontSize: ERROR_TEXT_SIZE,
-            lineHeight: `${ERROR_TEXT_SIZE}px`,
-            fontWeight: 300,
-          }}
-        >
-          {text}
-        </span>
+        <span className="absolute left-0 top-[11px] text-[11px] font-light leading-[11px] text-[#fa5d29]">{text}</span>
       ) : null}
     </div>
   );
@@ -70,7 +45,6 @@ function ErrorSlot({ text }) {
 
 /* Чекбокс */
 function FancyCheckbox({ checked, onChange }) {
-  const size = 18, inner = 10;
   return (
     <span
       role="checkbox"
@@ -78,44 +52,34 @@ function FancyCheckbox({ checked, onChange }) {
       tabIndex={0}
       onClick={() => onChange(!checked)}
       onKeyDown={(e) => { if (e.key === " " || e.key === "Enter") { e.preventDefault(); onChange(!checked); } }}
-      style={{
-        width: size, height: size, display: "inline-grid", placeItems: "center",
-        border: `1px solid ${BORDER}`, borderRadius: 4, background: "transparent",
-        cursor: "pointer", userSelect: "none",
-      }}
+      className="inline-grid h-[18px] w-[18px] cursor-pointer select-none place-items-center rounded border border-[#d9d9d9]"
       aria-label="Принять условия"
       title="Принять условия"
     >
       <span
         aria-hidden="true"
-        style={{
-          width: inner, height: inner, borderRadius: 3, background: "#111",
-          transform: checked ? "scale(1)" : "scale(0)", transition: "transform 140ms ease-out",
-        }}
+        className="h-2.5 w-2.5 rounded-[3px] bg-[#111] transition-transform duration-150"
+        style={{ transform: checked ? "scale(1)" : "scale(0)" }}
       />
     </span>
   );
 }
 
-export default function Contact({ sectionRef }) {
+export default function Contact() {
   const [open, setOpen] = React.useState(false);
-  const [btnHover, setBtnHover] = React.useState(false);
-  const [modal, setModal] = React.useState(false); // центр. всплывающий блок
+  const [modal, setModal] = React.useState(false);
   const [sending, setSending] = React.useState(false);
   const [sendError, setSendError] = React.useState("");
 
-  // значения полей
-  const [name, setName]       = React.useState("");
-  const [email, setEmail]     = React.useState("");
-  const [phone, setPhone]     = React.useState("");
+  const [name, setName] = React.useState("");
+  const [email, setEmail] = React.useState("");
+  const [phone, setPhone] = React.useState("");
   const [comment, setComment] = React.useState("");
-  const [opt, setOpt]         = React.useState(PLACEHOLDER);
-  const [agree, setAgree]     = React.useState(false);
+  const [opt, setOpt] = React.useState(PLACEHOLDER);
+  const [agree, setAgree] = React.useState(false);
 
-  // ошибки
-  const [errors, setErrors] = React.useState({
-    name: "", email: "", phone: "", help: "", comment: "", agree: ""
-  });
+  const [errors, setErrors] = React.useState({ name: "", email: "", phone: "", help: "", comment: "", agree: "" });
+  const clearErr = (k) => errors[k] && setErrors((s) => ({ ...s, [k]: "" }));
 
   const selectRef = React.useRef(null);
   React.useEffect(() => {
@@ -124,67 +88,27 @@ export default function Contact({ sectionRef }) {
     return () => window.removeEventListener("mousedown", onDown);
   }, [open]);
 
-  // поле с нижней границей
-  const fieldBottomBorder = (isError) => ({
-    width: FORM_W,
-    height: FIELD_H,
-    border: "none",
-    borderBottom: `1px solid ${isError ? ERR : BORDER}`,
-    outline: "none",
-    padding: "0 14px",
-    fontSize: 16,
-    lineHeight: "24px",
-    color: BLACK,
-    background: "#fff",
-    boxSizing: "border-box",
-    marginTop: 0,
-  });
-
-  const labelStyle = {
-    display: "block",
-    textAlign: "left",
-    fontSize: 12,
-    fontWeight: 300,
-    letterSpacing: "0.04em",
-    textTransform: "uppercase",
-    color: LABEL,
-    marginBottom: 0,
-  };
-
   const submit = async (e) => {
     e?.preventDefault();
     setSendError("");
 
-    // моментальная проверка ВСЕХ полей
     const next = { name: "", email: "", phone: "", help: "", comment: "", agree: "" };
-
-    if (!name.trim())        next.name    = "Это значение не должно быть пустым.";
-    if (!email.trim())       next.email   = "Это значение не должно быть пустым.";
+    if (!name.trim()) next.name = "Это значение не должно быть пустым.";
+    if (!email.trim()) next.email = "Это значение не должно быть пустым.";
     if (email.trim() && !isEmail(email)) next.email = "Неверный формат электронного адреса.";
     if (phone.trim() && !isPhoneLike(phone)) next.phone = "Укажите телефон в формате +7 (XXX) XXX-XX-XX.";
-    if (opt === PLACEHOLDER) next.help    = "Необходимо выбрать вариант из списка.";
-    if (!comment.trim())     next.comment = "Это значение не должно быть пустым.";
-    if (!agree)              next.agree   = "Подтвердите, что ознакомлены с условиями и принимаете их.";
-
+    if (opt === PLACEHOLDER) next.help = "Необходимо выбрать вариант из списка.";
+    if (!comment.trim()) next.comment = "Это значение не должно быть пустым.";
+    if (!agree) next.agree = "Подтвердите, что ознакомлены с условиями и принимаете их.";
     setErrors(next);
+    if (!Object.values(next).every((v) => !v)) return;
 
-    const ok = Object.values(next).every((v) => !v);
-    if (!ok) return;
-
-    // ===== отправка в вашу функцию (Yandex Cloud) — «простой» CORS, без preflight =====
     try {
       setSending(true);
-
       const payload = {
-        name,
-        email,
-        phone,
-        option: opt,
-        message: comment,
+        name, email, phone, option: opt, message: comment,
         page: typeof window !== "undefined" ? window.location.href : "unknown",
       };
-
-      // авто-чиним $latest и пустой tag= (если вдруг прилетело криво из .env)
       const url = (() => {
         try {
           let s = BACKEND_URL;
@@ -193,36 +117,23 @@ export default function Contact({ sectionRef }) {
           return s;
         } catch { return BACKEND_URL; }
       })();
-      console.log("[contact] POST →", url, payload);
 
       const res = await fetch(url, {
         method: "POST",
         mode: "cors",
-        // делаем «простой» запрос: text/plain, чтобы браузер НЕ делал preflight (OPTIONS)
         headers: { "Content-Type": "text/plain;charset=UTF-8" },
         body: JSON.stringify(payload),
       });
-
       const text = await res.text();
       let data = null;
-      try { data = JSON.parse(text); } catch { /* может прийти пусто/текст — ок */ }
-
-      // YC иногда заворачивает {statusCode, body}; распакуем
+      try { data = JSON.parse(text); } catch {}
       if (data && data.statusCode && typeof data.body === "string") {
         try { data = JSON.parse(data.body); } catch {}
       }
+      if (!res.ok || !(data && data.ok === true)) throw new Error(`send_failed_${res.status}`);
 
-      console.log("[contact] resp", res.status, text);
-
-      if (!res.ok || !(data && data.ok === true)) {
-        throw new Error(`send_failed_${res.status}`);
-      }
-
-      // успех — показываем тост
       setModal(true);
       setTimeout(() => setModal(false), 2000);
-      // если хочешь — можно очистить поля:
-      // setName(""); setEmail(""); setPhone(""); setComment(""); setOpt(PLACEHOLDER); setAgree(false);
     } catch (err) {
       console.error("Send error:", err);
       setSendError("Не удалось отправить заявку. Попробуйте ещё раз или напишите на info@cube-tech.ru");
@@ -232,236 +143,131 @@ export default function Contact({ sectionRef }) {
   };
 
   return (
-    <section id="contact" ref={sectionRef} className="about-hero contact-hero" aria-label="Контакты">
-      <div style={{ transform: "translateY(-98px)", willChange: "transform" }}>
-        {/* Шапка */}
-        <div className="about-hero-flow" style={{ marginTop: 30 }}>
-          <div className="about-hero-overview" style={{ textAlign: "center", fontSize: 14, lineHeight: "28px", fontWeight: 300, color: GRAY, margin: 0 }}>
-            Напишите нам
-          </div>
-          <div className="about-hero-more" style={{ textAlign: "center", position: "relative" }}>
-            <h2 className="about-hero-title" style={{ margin: 0, textTransform: "uppercase", fontWeight: 600 }}>
-              КОНТАКТЫ
-            </h2>
-          </div>
-        </div>
-
-        {/* Колонки */}
-        <div
-          style={{
-            marginTop: 78, marginLeft: GUTTER, marginRight: GUTTER,
-            display: "grid", gridTemplateColumns: "1fr auto", alignItems: "start", columnGap: 40,
-          }}
-        >
-          {/* Левый текст */}
-          <div style={{ color: GRAY, textAlign: "left", maxWidth: 760 }}>
-            <p style={{ margin: 0, fontSize: 21, lineHeight: "28px", fontWeight: 600 }}>
-              Мы — КУБ, и мы рядом, чтобы помочь!
-            </p>
-            <p style={{ marginTop: 8, fontSize: 21, lineHeight: "28px", fontWeight: 600 }}>
-              Чем можем быть полезны?
-            </p>
-            <p style={{ marginTop: 18, fontSize: 14, lineHeight: "24px", fontWeight: 300 }}>
-              Если у вас есть вопросы по нашим услугам, проектам, сметам, договорам
-            </p>
-            <p style={{ marginTop: 6, fontSize: 14, lineHeight: "24px", fontWeight: 300 }}>
-              или любым другим вопросам — мы всегда готовы помочь.
-            </p>
-          </div>
-
-          {/* Правая колонка */}
-          <form onSubmit={submit} noValidate style={{ width: FORM_W, height: FORM_H, border: "none", background: "transparent", textAlign: "left" }}>
-            {/* Имя */}
-            <div style={{ marginTop: 0 }}>
-              <label style={labelStyle}>имя (*)</label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => { setName(e.target.value); if (errors.name) setErrors({ ...errors, name: "" }); }}
-                style={fieldBottomBorder(!!errors.name)}
-              />
-              <ErrorSlot text={errors.name} />
-            </div>
-
-            {/* Почта */}
-            <div style={{ marginTop: GROUP_GAP }}>
-              <label style={labelStyle}>почта (*)</label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => { setEmail(e.target.value); if (errors.email) setErrors({ ...errors, email: "" }); }}
-                style={fieldBottomBorder(!!errors.email)}
-              />
-              <ErrorSlot text={errors.email} />
-            </div>
-
-            {/* Телефон (необяз.) */}
-            <div style={{ marginTop: GROUP_GAP }}>
-              <label style={labelStyle}>телефон</label>
-              <input
-                type="text"
-                value={phone}
-                onChange={(e) => { setPhone(e.target.value); if (errors.phone) setErrors({ ...errors, phone: "" }); }}
-                style={fieldBottomBorder(!!errors.phone)}
-              />
-              <ErrorSlot text={errors.phone} />
-            </div>
-
-            {/* Чем помочь */}
-            <div style={{ marginTop: GROUP_GAP }}>
-              <label style={labelStyle}>чем помочь (*)</label>
-              <div ref={selectRef}>
-                {/* триггер */}
-                <div
-                  role="button"
-                  aria-haspopup="listbox"
-                  aria-expanded={open}
-                  onClick={() => setOpen((v) => !v)}
-                  style={{ ...fieldBottomBorder(!!errors.help), display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer" }}
-                >
-                  <span style={{ fontWeight: 300, fontSize: opt === PLACEHOLDER ? 14 : 16, color: BLACK }}>
-                    {opt}
-                  </span>
-                  <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" style={{ transform: open ? "rotate(180deg)" : "none" }}>
-                    <path d="M6 9l6 6 6-6" fill="none" stroke={ARROW} strokeWidth="2" strokeLinecap="square" strokeLinejoin="round" />
-                  </svg>
-                </div>
-
-                {/* список */}
-                {open && (
-                  <div
-                    role="listbox"
-                    style={{
-                      width: FORM_W,
-                      marginTop: 0,
-                      background: "#fff",
-                      border: `1px solid ${BORDER}`,
-                      borderRadius: 0,
-                      boxShadow: "none",
-                      maxHeight: 280,
-                      overflowY: "auto",
-                    }}
-                  >
-                    {OPTIONS.map((o) => (
-                      <div
-                        key={o}
-                        onClick={() => { setOpt(o); setOpen(false); if (errors.help) setErrors({ ...errors, help: "" }); }}
-                        role="option"
-                        aria-selected={opt === o}
-                        style={{
-                          padding: "12px 14px",
-                          fontSize: 16,
-                          fontWeight: 300,
-                          color: "#333",
-                          cursor: "pointer",
-                          userSelect: "none",
-                        }}
-                        onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(0,0,0,0.06)"; }}
-                        onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
-                      >
-                        {o}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-              <ErrorSlot text={errors.help} />
-            </div>
-
-            {/* Комментарий */}
-            <div style={{ marginTop: GROUP_GAP }}>
-              <label style={labelStyle}>Комментарий (*)</label>
-              <textarea
-                value={comment}
-                onChange={(e) => { setComment(e.target.value); if (errors.comment) setErrors({ ...errors, comment: "" }); }}
-                style={{
-                  width: FORM_W, height: 150,
-                  border: "none", borderBottom: `1px solid ${errors.comment ? ERR : BORDER}`,
-                  outline: "none", padding: "12px 14px",
-                  fontSize: 16, lineHeight: "24px", color: BLACK,
-                  background: "#fff", boxSizing: "border-box", marginTop: 0, resize: "none",
-                }}
-              />
-              <ErrorSlot text={errors.comment} />
-            </div>
-
-            {/* Чекбокс + текст — ниже на 6px */}
-            <div style={{ marginTop: GROUP_GAP + CHECKBOX_EXTRA_SHIFT, display: "flex", alignItems: "center", gap: 10, color: GRAY, fontSize: 14, lineHeight: "20px", fontWeight: 400 }}>
-              <FancyCheckbox checked={agree} onChange={(v) => { setAgree(v); if (errors.agree) setErrors({ ...errors, agree: "" }); }} />
-              <span>
-                Я прочитал(а) и принимаю{" "}
-                <strong style={{ fontWeight: 600 }}>Правовые положения</strong>{" "}
-                и{" "}
-                <strong style={{ fontWeight: 600 }}>Политику конфиденциальности</strong>.
-              </span>
-            </div>
-            <ErrorSlot text={errors.agree} />
-
-            {/* Кнопка */}
-            <button
-              type="button"
-              onClick={submit}
-              onMouseEnter={() => setBtnHover(true)}
-              onMouseLeave={() => setBtnHover(false)}
-              disabled={sending}
-              aria-busy={sending ? "true" : "false"}
-              style={{
-                display: "block",
-                margin: "22px 0 0 0",
-                width: 210,
-                height: 60,
-                background: sending ? "#3a3a3a" : (btnHover ? "#2f2f2f" : "#000"),
-                color: "#fff",
-                borderRadius: 10,
-                textTransform: "uppercase",
-                fontWeight: 600,
-                letterSpacing: ".02em",
-                border: "none",
-                cursor: sending ? "not-allowed" : "pointer",
-                transition: "background-color .16s ease", opacity: sending ? .85 : 1,
-              }}
-            >
-              {sending ? "Отправка..." : "Оставить заявку"}
-            </button>
-            <ErrorSlot text={sendError} />
-          </form>
-        </div>
-
-        <div style={{ height: 58 }} />
+    <section className="bg-page pt-10 font-tight text-ink" aria-label="Контакты">
+      {/* Шапка */}
+      <div className="text-center text-sm font-light leading-7">Напишите нам</div>
+      <div className="mt-[26px] text-center">
+        <h2 className="font-semibold uppercase leading-none" style={TITLE}>КОНТАКТЫ</h2>
       </div>
 
-      {/* ===== Всплывающий ЧЁРНЫЙ БЛОК по центру (без затемнения) ===== */}
-      {modal && (
-        <div
-          role="status"
-          aria-live="assertive"
-          style={{
-            position: "fixed", inset: 0,
-            zIndex: 2147483647,
-            display: "grid", placeItems: "center",
-            pointerEvents: "none",
-          }}
-        >
-          <div
-            style={{
-              background: "#000",
-              color: "#fff",
-              borderRadius: 12,
-              padding: "14px 18px",
-              fontFamily: UI,
-              fontSize: 16,
-              lineHeight: "22px",
-              fontWeight: 500,
-              maxWidth: 560,
-              textAlign: "center",
-              boxShadow: "0 6px 30px rgba(0,0,0,.35)",
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 10,
-              animation: "toastIn .18s ease-out both, toastOut .18s ease-in both 1.82s",
-            }}
+      {/* Колонки: слева текст, справа форма */}
+      <div className="mx-[52px] mt-20 grid grid-cols-[1fr_auto] items-start gap-10">
+        {/* Левый текст */}
+        <div className="max-w-[760px] text-left">
+          <p className="text-[21px] font-semibold leading-7">Мы — КУБ, и мы рядом, чтобы помочь!</p>
+          <p className="mt-2 text-[21px] font-semibold leading-7">Чем можем быть полезны?</p>
+          <p className="mt-[18px] text-sm font-light leading-6">
+            Если у вас есть вопросы по нашим услугам, проектам, сметам, договорам
+          </p>
+          <p className="mt-1.5 text-sm font-light leading-6">
+            или любым другим вопросам — мы всегда готовы помочь.
+          </p>
+        </div>
+
+        {/* Форма */}
+        <form onSubmit={submit} noValidate className="w-[683px] max-w-full text-left">
+          {/* Имя */}
+          <div>
+            <label className={LABEL_CLASS}>имя (*)</label>
+            <input type="text" value={name} onChange={(e) => { setName(e.target.value); clearErr("name"); }} className={fieldClass(!!errors.name)} />
+            <ErrorSlot text={errors.name} />
+          </div>
+
+          {/* Почта */}
+          <div className="mt-3">
+            <label className={LABEL_CLASS}>почта (*)</label>
+            <input type="email" value={email} onChange={(e) => { setEmail(e.target.value); clearErr("email"); }} className={fieldClass(!!errors.email)} />
+            <ErrorSlot text={errors.email} />
+          </div>
+
+          {/* Телефон */}
+          <div className="mt-3">
+            <label className={LABEL_CLASS}>телефон</label>
+            <input type="text" value={phone} onChange={(e) => { setPhone(e.target.value); clearErr("phone"); }} className={fieldClass(!!errors.phone)} />
+            <ErrorSlot text={errors.phone} />
+          </div>
+
+          {/* Чем помочь — кастомный селект */}
+          <div className="mt-3">
+            <label className={LABEL_CLASS}>чем помочь (*)</label>
+            <div ref={selectRef} className="relative">
+              <div
+                role="button"
+                aria-haspopup="listbox"
+                aria-expanded={open}
+                onClick={() => setOpen((v) => !v)}
+                className={`${fieldClass(!!errors.help)} flex cursor-pointer items-center justify-between`}
+              >
+                <span className={`font-light text-black ${opt === PLACEHOLDER ? "text-sm" : "text-base"}`}>{opt}</span>
+                <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" className={`transition-transform ${open ? "rotate-180" : ""}`}>
+                  <path d="M6 9l6 6 6-6" fill="none" stroke="#b3b3b3" strokeWidth="2" strokeLinecap="square" strokeLinejoin="round" />
+                </svg>
+              </div>
+              {open && (
+                <div role="listbox" className="absolute z-10 max-h-[280px] w-[683px] max-w-full overflow-y-auto border border-[#d9d9d9] bg-white">
+                  {OPTIONS.map((o) => (
+                    <div
+                      key={o}
+                      role="option"
+                      aria-selected={opt === o}
+                      onClick={() => { setOpt(o); setOpen(false); clearErr("help"); }}
+                      className="cursor-pointer select-none px-3.5 py-3 text-base font-light text-[#333] hover:bg-black/[0.06]"
+                    >
+                      {o}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <ErrorSlot text={errors.help} />
+          </div>
+
+          {/* Комментарий */}
+          <div className="mt-3">
+            <label className={LABEL_CLASS}>Комментарий (*)</label>
+            <textarea
+              value={comment}
+              onChange={(e) => { setComment(e.target.value); clearErr("comment"); }}
+              className={`block h-[150px] w-[683px] max-w-full resize-none border-0 border-b bg-white px-3.5 py-3 text-base leading-6 text-black outline-none ${
+                errors.comment ? "border-[#fa5d29]" : "border-[#d9d9d9]"
+              }`}
+            />
+            <ErrorSlot text={errors.comment} />
+          </div>
+
+          {/* Согласие */}
+          <div className="mt-[18px] flex items-center gap-2.5 text-sm font-normal leading-5 text-ink">
+            <FancyCheckbox checked={agree} onChange={(v) => { setAgree(v); clearErr("agree"); }} />
+            <span>
+              Я прочитал(а) и принимаю <strong className="font-semibold">Правовые положения</strong> и{" "}
+              <strong className="font-semibold">Политику конфиденциальности</strong>.
+            </span>
+          </div>
+          <ErrorSlot text={errors.agree} />
+
+          {/* Кнопка */}
+          <button
+            type="button"
+            onClick={submit}
+            disabled={sending}
+            aria-busy={sending ? "true" : "false"}
+            className="mt-[22px] block h-[60px] w-[210px] rounded-[10px] bg-black text-sm font-semibold uppercase tracking-[0.02em] text-white transition-colors hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-85"
           >
-            {/* белая галочка */}
+            {sending ? "Отправка..." : "Оставить заявку"}
+          </button>
+          <ErrorSlot text={sendError} />
+        </form>
+      </div>
+
+      <div className="h-[58px]" />
+
+      {/* Тост успеха */}
+      {modal && (
+        <div role="status" aria-live="assertive" className="pointer-events-none fixed inset-0 z-[2147483647] grid place-items-center">
+          <div
+            className="inline-flex max-w-[560px] items-center gap-2.5 rounded-xl bg-black px-[18px] py-3.5 text-base font-medium leading-[22px] text-white shadow-2xl"
+            style={{ animation: "toastIn .18s ease-out both, toastOut .18s ease-in both 1.82s" }}
+          >
             <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
               <path d="M20 6L9 17l-5-5" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
