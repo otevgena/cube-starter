@@ -88,7 +88,7 @@ export default function About() {
       <div className="text-center text-sm font-light leading-7">Обзор</div>
 
       {/* УЗНАТЬ БОЛЬШЕ / О НАС (отступ от метки «Обзор» — фирменный, держим одинаковым) */}
-      <div ref={learnMoreRef} onMouseEnter={replayScrew} className="mt-10 text-center">
+      <div ref={learnMoreRef} onMouseEnter={replayScrew} className="mt-[42px] text-center">
         <h2 className="font-semibold uppercase leading-none" style={TITLE}>УЗНАТЬ БОЛЬШЕ</h2>
         <h2 className="font-semibold uppercase leading-none" style={TITLE}>
           О НА
