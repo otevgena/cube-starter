@@ -74,14 +74,14 @@ const SERVICE_CATEGORIES = [
     href: "/services/electrical",
     icon: "/electricity.png",
     items: [
-      "Подключение объектов к электросетям",
-      "Увеличение мощности и модернизация сетей",
-      "Внутренние электромонтажные работы",
-      "Наружные электросети и уличное освещение",
-      "Монтаж электрощитов и ВРУ",
-      "Системы заземления и молниезащиты",
-      "Автоматизация и учёт электроэнергии",
-      "Резервное электроснабжение",
+      { label: "Подключение объектов к электросетям", tag: "ТУ" },
+      { label: "Увеличение мощности и модернизация сетей", tag: "кВт" },
+      { label: "Внутренние электромонтажные работы", tag: "0,4 кВ" },
+      { label: "Наружные электросети и уличное освещение", tag: "10 кВ" },
+      { label: "Монтаж электрощитов и ВРУ", tag: "ВРУ" },
+      { label: "Системы заземления и молниезащиты", tag: "Rз" },
+      { label: "Автоматизация и учёт электроэнергии", tag: "АСКУЭ" },
+      { label: "Резервное электроснабжение", tag: "ДГУ" },
     ],
   },
   {
@@ -90,14 +90,14 @@ const SERVICE_CATEGORIES = [
     href: "/services/lowcurrent",
     icon: "/lowcurrent.png",
     items: [
-      "СКС и структурированные кабельные сети",
-      "Видеонаблюдение (CCTV)",
-      "Охранно-пожарная сигнализация",
-      "Системы контроля и управления доступом",
-      "Домофония и интерком",
-      "Серверные, кроссовые и шкафы",
-      "ЛВС и активное сетевое оборудование",
-      "Системы оповещения и звука",
+      { label: "СКС и структурированные кабельные сети", tag: "СКС" },
+      { label: "Видеонаблюдение (CCTV)", tag: "CCTV" },
+      { label: "Охранно-пожарная сигнализация", tag: "ОПС" },
+      { label: "Системы контроля и управления доступом", tag: "СКУД" },
+      { label: "Домофония и интерком", tag: "IP" },
+      { label: "Серверные, кроссовые и шкафы", tag: "19\"" },
+      { label: "ЛВС и активное сетевое оборудование", tag: "LAN" },
+      { label: "Системы оповещения и звука", tag: "СОУЭ" },
     ],
   },
   {
@@ -106,14 +106,14 @@ const SERVICE_CATEGORIES = [
     href: "/services/ventilation",
     icon: "/climat.png",
     items: [
-      "Проектирование и монтаж вентиляции",
-      "Системы кондиционирования (VRF/VRV)",
-      "Чиллер-фанкойл системы",
-      "Системы отопления и теплоснабжения",
-      "Автоматика ОВиК",
-      "Паспортизация и балансировка систем",
-      "Воздуховоды, шумоглушение, КИПиА",
-      "Сервис и регламентное обслуживание",
+      { label: "Проектирование и монтаж вентиляции", tag: "ОВ" },
+      { label: "Системы кондиционирования (VRF/VRV)", tag: "VRF" },
+      { label: "Чиллер-фанкойл системы", tag: "FCU" },
+      { label: "Системы отопления и теплоснабжения", tag: "ИТП" },
+      { label: "Автоматика ОВиК", tag: "BMS" },
+      { label: "Паспортизация и балансировка систем", tag: "ПНР" },
+      { label: "Воздуховоды, шумоглушение, КИПиА", tag: "КИП" },
+      { label: "Сервис и регламентное обслуживание", tag: "ТО" },
     ],
   },
   {
@@ -122,14 +122,14 @@ const SERVICE_CATEGORIES = [
     href: "/services/design",
     icon: "/design.png",
     items: [
-      "Проект электроснабжения (ЭОМ)",
-      "Проект ОВ и ВК",
-      "Проект СС (слаботочные системы)",
-      "АСУ ТП и разделы автоматики",
-      "Молниезащита и заземление",
-      "Сметная документация",
-      "Авторский надзор",
-      "Согласования в сетевых организациях",
+      { label: "Проект электроснабжения (ЭОМ)", tag: "ЭОМ" },
+      { label: "Проект ОВ и ВК", tag: "ОВ/ВК" },
+      { label: "Проект СС (слаботочные системы)", tag: "СС" },
+      { label: "АСУ ТП и разделы автоматики", tag: "АСУ" },
+      { label: "Молниезащита и заземление", tag: "МЗ" },
+      { label: "Сметная документация", tag: "СД" },
+      { label: "Авторский надзор", tag: "АН" },
+      { label: "Согласования в сетевых организациях", tag: "СО" },
     ],
   },
   {
@@ -138,14 +138,14 @@ const SERVICE_CATEGORIES = [
     href: "/services/construction",
     icon: "/construction.png",
     items: [
-      "Общестроительные и отделочные работы",
-      "Монолитные и бетонные работы",
-      "Фундамент и земляные работы",
-      "Кровля и фасад",
-      "Внутренние перегородки и проёмы",
-      "Усиление конструкций",
-      "Генподряд и технадзор",
-      "Пуско-наладка инженерных систем",
+      { label: "Общестроительные и отделочные работы", tag: "СМР" },
+      { label: "Монолитные и бетонные работы", tag: "ЖБ" },
+      { label: "Фундамент и земляные работы", tag: "ЗР" },
+      { label: "Кровля и фасад", tag: "КФ" },
+      { label: "Внутренние перегородки и проёмы", tag: "ГКЛ" },
+      { label: "Усиление конструкций", tag: "УК" },
+      { label: "Генподряд и технадзор", tag: "ГП" },
+      { label: "Пуско-наладка инженерных систем", tag: "ПНР" },
     ],
   },
 ];
@@ -286,64 +286,63 @@ function ServicesPanel({ activeCat, setActiveCat, barProps, onClose }) {
         <div className="mx-auto max-w-[1700px] px-6 lg:px-10">
           <div className="-mx-5 rounded-lg bg-[#ededed] px-5 shadow-2xl">
             <div className="flex gap-5">
-            {/* логотип в левом «жёлобе» (выровнен с верхней строкой; справа от него — поиск) */}
-            <div className="flex h-header shrink-0 items-center">
-              <a href="/" className="relative -top-1 mr-8 text-[30px] font-bold leading-none text-ink">
-                c.
-              </a>
-            </div>
+              {/* логотип — левый жёлоб */}
+              <div className="flex h-header shrink-0 items-center">
+                <a href="/" className="relative -top-1 mr-8 text-[30px] font-bold leading-none text-ink">
+                  c.
+                </a>
+              </div>
 
-            {/* контент: поиск+действия сверху, категории+услуги снизу — с одного левого края */}
-            <div className="min-w-0 flex-1">
-              {/* верхняя строка: поиск (белый, на всю ширину) + действия */}
-              <div className="flex h-header items-center gap-5">
-                <div className="hidden flex-1 md:flex">
+              {/* поиск + тело: правый край колонки = конец поиска (под кнопками пусто) */}
+              <div className="min-w-0 flex-1">
+                <div className="flex h-header items-center">
                   <SearchField className="w-full" white />
                 </div>
-                <div className="ml-auto hidden items-center gap-3 md:flex">
-                  <AuthControls user={user} authReady={authReady} onLogout={onLogout} />
-                  <ActionButtons />
+
+                <div className="mt-1 grid grid-cols-[260px_1fr] gap-x-8 pb-6">
+                  {/* категории */}
+                  <ul className="flex flex-col gap-0.5">
+                    {SERVICE_CATEGORIES.map((c, i) => (
+                      <li key={c.key}>
+                        <a
+                          href={c.href}
+                          onMouseEnter={() => setActiveCat(i)}
+                          onFocus={() => setActiveCat(i)}
+                          className={`flex items-center gap-3 rounded-lg px-3 py-1.5 text-sm leading-[28px] transition-colors ${
+                            activeCat === i ? "bg-white font-medium shadow-sm" : "text-ink hover:bg-white"
+                          }`}
+                        >
+                          <img src={c.icon} alt="" className="h-5 w-5 shrink-0 object-contain" />
+                          <span>{c.label}</span>
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+
+                  {/* услуги активной категории — сокращение справа, плавное появление */}
+                  <ul key={activeCat} className="flex flex-col gap-0.5 animate-svcfade">
+                    {cat.items.map((it) => (
+                      <li key={it.label}>
+                        <a
+                          href={cat.href}
+                          onClick={onClose}
+                          className="flex items-center gap-4 rounded-lg px-3 py-1.5 text-sm leading-[28px] text-ink transition-colors hover:bg-white"
+                        >
+                          <span className="truncate">{it.label}</span>
+                          <span className="ml-auto shrink-0 text-neutral-400">{it.tag}</span>
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               </div>
 
-              {/* тело: категории слева начинаются ровно под поиском */}
-              <div className="grid grid-cols-[260px_1fr] gap-x-8 pb-6 -mt-2">
-                {/* категории */}
-                <ul className="flex flex-col gap-0.5">
-                  {SERVICE_CATEGORIES.map((c, i) => (
-                    <li key={c.key}>
-                      <a
-                        href={c.href}
-                        onMouseEnter={() => setActiveCat(i)}
-                        onFocus={() => setActiveCat(i)}
-                        className={`flex items-center gap-3 rounded-lg px-3 py-1.5 text-sm leading-[28px] transition-colors ${
-                          activeCat === i ? "bg-white font-medium shadow-sm" : "text-ink hover:bg-white"
-                        }`}
-                      >
-                        <img src={c.icon} alt="" className="h-5 w-5 shrink-0 object-contain" />
-                        <span>{c.label}</span>
-                      </a>
-                    </li>
-                  ))}
-                </ul>
-
-                {/* услуги активной категории — один столбец, с плавным появлением */}
-                <ul key={activeCat} className="flex flex-col gap-0.5 animate-svcfade">
-                  {cat.items.map((it) => (
-                    <li key={it}>
-                      <a
-                        href={cat.href}
-                        onClick={onClose}
-                        className="block rounded-lg px-3 py-1.5 text-sm leading-[28px] text-ink transition-colors hover:bg-white"
-                      >
-                        {it}
-                      </a>
-                    </li>
-                  ))}
-                </ul>
+              {/* действия — правый жёлоб */}
+              <div className="hidden h-header shrink-0 items-center gap-3 md:flex">
+                <AuthControls user={user} authReady={authReady} onLogout={onLogout} />
+                <ActionButtons />
               </div>
             </div>
-          </div>
           </div>
         </div>
       </div>
