@@ -283,7 +283,7 @@ function ServicesPanel({ activeCat, setActiveCat, barProps, onClose }) {
 
       {/* карточка */}
       <div className="absolute inset-x-0 top-3">
-        <div className="mx-auto max-w-[1450px] rounded-lg bg-[#ededed] px-6 shadow-2xl lg:px-10">
+        <div className="mx-auto max-w-[1360px] rounded-lg bg-[#ededed] px-6 shadow-2xl lg:px-10">
           <div className="flex gap-5">
             {/* логотип в левом «жёлобе» (выровнен с верхней строкой; справа от него — поиск) */}
             <div className="flex h-header shrink-0 items-center">
@@ -306,16 +306,16 @@ function ServicesPanel({ activeCat, setActiveCat, barProps, onClose }) {
               </div>
 
               {/* тело: категории слева начинаются ровно под поиском */}
-              <div className="grid grid-cols-[260px_1fr] gap-x-8 pb-6 pt-2">
+              <div className="grid grid-cols-[260px_1fr] gap-x-8 pb-6 -mt-2">
                 {/* категории */}
-                <ul className="flex flex-col gap-1">
+                <ul className="flex flex-col gap-0.5">
                   {SERVICE_CATEGORIES.map((c, i) => (
                     <li key={c.key}>
                       <a
                         href={c.href}
                         onMouseEnter={() => setActiveCat(i)}
                         onFocus={() => setActiveCat(i)}
-                        className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm leading-[28px] transition-colors ${
+                        className={`flex items-center gap-3 rounded-lg px-3 py-1.5 text-sm leading-[28px] transition-colors ${
                           activeCat === i ? "bg-white font-medium shadow-sm" : "text-ink hover:bg-white"
                         }`}
                       >
@@ -327,13 +327,13 @@ function ServicesPanel({ activeCat, setActiveCat, barProps, onClose }) {
                 </ul>
 
                 {/* услуги активной категории — один столбец */}
-                <ul className="flex flex-col gap-1">
+                <ul className="flex flex-col gap-0.5">
                   {cat.items.map((it) => (
                     <li key={it}>
                       <a
                         href={cat.href}
                         onClick={onClose}
-                        className="block rounded-lg px-3 py-2.5 text-sm leading-[28px] text-ink transition-colors hover:bg-white"
+                        className="block rounded-lg px-3 py-1.5 text-sm leading-[28px] text-ink transition-colors hover:bg-white"
                       >
                         {it}
                       </a>
@@ -567,7 +567,7 @@ export default function Header() {
   return (
     <header className="relative z-40 pt-3 font-tight">
       {/* Реальная шапка (всегда на месте; при открытой панели её ровно накрывает карточка) */}
-      <div className="mx-auto max-w-[1450px] px-6 lg:px-10">
+      <div className="mx-auto max-w-[1360px] px-6 lg:px-10">
         <HeaderBar {...barProps} />
       </div>
 
