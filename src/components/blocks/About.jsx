@@ -107,13 +107,8 @@ export default function About() {
         <p className="mt-4 text-[21px] font-light leading-7">Наши проекты, опыт, решения.</p>
       </div>
 
-      {/* Доп. изображение */}
-      <div className="mt-20">
-        <img src="/about/about1.png" alt="О компании" className="ml-20 block h-auto rounded-2xl" loading="lazy" />
-      </div>
-
-      {/* Крупные абзацы */}
-      <div className="ml-20 mt-[220px] max-w-[1100px] text-left text-[40px] leading-[52px]">
+      {/* Крупные абзацы (картинку убрали — текст идёт сразу) */}
+      <div className="ml-20 mt-24 max-w-[1100px] text-left text-[40px] leading-[52px]">
         <p className="font-semibold">
           Признание и опыт, отмечающие вклад нашей команды в развитие инженерных систем.
         </p>
