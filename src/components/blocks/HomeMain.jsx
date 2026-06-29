@@ -10,11 +10,11 @@ export default function HomeMain() {
   const dateStr = `${MONTHS[now.getMonth()]} ${now.getDate()}, ${now.getFullYear()}`;
 
   return (
-    <section className="bg-page pt-2 text-center font-tight text-ink" aria-label="Главная">
-      {/* Сегодня • дата • загруженность (14px/14px, обычный вес) */}
+    <section className="-mt-2 bg-page text-center font-tight text-ink" aria-label="Главная">
+      {/* Сегодня • дата • загруженность (14px/14px) */}
       <div className="flex flex-wrap items-center justify-center gap-3 px-4 text-sm font-normal leading-none">
         <span>Сегодня</span>
-        <span className="rounded-md border border-black/20 px-2.5 py-1">{dateStr}</span>
+        <span className="rounded-md border border-black/20 px-2.5 py-1 font-medium">{dateStr}</span>
         <span>Загруженность 7.49 из 10</span>
       </div>
 
