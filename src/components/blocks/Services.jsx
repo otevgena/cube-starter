@@ -148,7 +148,7 @@ function FeatureIcon({ icon, top, bottom, offset = 0, speed = 1.5, size = 22 }) 
       >
         <img src={icon} alt="" width={size} height={size} className="block" />
       </object>
-      <div className="text-[13px] font-normal leading-[16px] text-dark">
+      <div className="text-[13px] font-light leading-[16px] text-dark">
         <div>{top}</div>
         <div>{bottom}</div>
       </div>
@@ -224,13 +224,15 @@ export default function Services() {
               <h4 className="text-[28px] font-semibold leading-tight text-dark">{s.title}</h4>
             </div>
 
-            {/* «Подробно» */}
+            {/* «Подробно» — подчёркивание как у «Генеральный директор» */}
             <a
               href={s.href}
-              className="flex h-[58px] items-center justify-between border-y border-[#e9e9e9] px-5"
+              className="group flex h-[58px] items-center justify-between border-y border-[#e9e9e9] px-5"
             >
-              <span className="text-base font-semibold text-dark underline decoration-gold decoration-2 underline-offset-4">
+              <span className="relative pb-1 text-base font-semibold text-dark">
                 Подробно
+                <span className="absolute inset-x-0 bottom-0 h-0.5 bg-neutral-300" />
+                <span className="absolute bottom-0 left-0 h-0.5 w-0 bg-ink transition-[width] duration-300 group-hover:w-full" />
               </span>
               <Arrow />
             </a>
@@ -250,8 +252,10 @@ export default function Services() {
         Каждая деталь имеет{" "}
         <span className="inline-flex items-center gap-1.5 align-middle">
           <Arrow />
-          <a href="#value" onClick={(e) => e.preventDefault()} className="font-semibold underline underline-offset-4">
+          <a href="#value" onClick={(e) => e.preventDefault()} className="group relative pb-1 font-semibold">
             Значение
+            <span className="absolute inset-x-0 bottom-0 h-0.5 bg-neutral-300" />
+            <span className="absolute bottom-0 left-0 h-0.5 w-0 bg-ink transition-[width] duration-300 group-hover:w-full" />
           </a>
         </span>
       </div>
