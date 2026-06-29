@@ -28,8 +28,8 @@ const isPhoneLike = (v) => (v || "").replace(/\D/g, "").length >= 10;
 
 const LABEL_CLASS = "block text-left text-xs font-light uppercase tracking-[0.04em] text-[#a7a7a7]";
 const fieldClass = (err) =>
-  `block h-12 w-[683px] max-w-full border-0 border-b bg-white px-3.5 text-sm font-normal leading-6 text-black outline-none transition-colors ${
-    err ? "border-[#fa5d29]" : "border-line focus:border-ink"
+  `block h-12 w-[683px] max-w-full border-0 border-b bg-white px-3.5 text-sm font-normal leading-6 text-black outline-none transition-colors duration-500 ${
+    err ? "border-[#fa5d29]" : "border-line focus:border-[#999]"
   }`;
 
 /* Слот ошибки под полем (фикс. высота, верстка не прыгает) */
@@ -196,8 +196,8 @@ export default function Contact() {
                 aria-haspopup="listbox"
                 aria-expanded={open}
                 onClick={() => setOpen((v) => !v)}
-                className={`flex h-12 w-[683px] max-w-full cursor-pointer items-center justify-between border-0 border-b bg-white px-3.5 outline-none transition-colors ${
-                  errors.help ? "border-[#fa5d29]" : open ? "border-ink" : "border-line"
+                className={`flex h-12 w-[683px] max-w-full cursor-pointer items-center justify-between border-0 border-b bg-white px-3.5 outline-none transition-colors duration-500 ${
+                  errors.help ? "border-[#fa5d29]" : open ? "border-[#999]" : "border-line"
                 }`}
               >
                 <span className="text-sm font-normal text-black">{opt}</span>
@@ -230,8 +230,8 @@ export default function Contact() {
             <textarea
               value={comment}
               onChange={(e) => { setComment(e.target.value); clearErr("comment"); }}
-              className={`block h-[150px] w-[683px] max-w-full resize-none border-0 border-b bg-white px-3.5 py-3 text-sm font-normal leading-6 text-black outline-none transition-colors ${
-                errors.comment ? "border-[#fa5d29]" : "border-line focus:border-ink"
+              className={`block h-[150px] w-[683px] max-w-full resize-none border-0 border-b bg-white px-3.5 py-3 text-sm font-normal leading-6 text-black outline-none transition-colors duration-500 ${
+                errors.comment ? "border-[#fa5d29]" : "border-line focus:border-[#999]"
               }`}
             />
             <ErrorSlot text={errors.comment} />
