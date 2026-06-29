@@ -28,8 +28,8 @@ const isPhoneLike = (v) => (v || "").replace(/\D/g, "").length >= 10;
 
 const LABEL_CLASS = "block text-left text-xs font-light uppercase tracking-[0.04em] text-[#a7a7a7]";
 const fieldClass = (err) =>
-  `block h-12 w-[683px] max-w-full border-0 border-b bg-white px-3.5 text-base leading-6 text-black outline-none ${
-    err ? "border-[#fa5d29]" : "border-[#d9d9d9]"
+  `block h-12 w-[683px] max-w-full border-0 border-b bg-white px-3.5 text-sm font-normal leading-6 text-black outline-none transition-colors ${
+    err ? "border-[#fa5d29]" : "border-line focus:border-ink"
   }`;
 
 /* Слот ошибки под полем (фикс. высота, верстка не прыгает) */
@@ -196,9 +196,11 @@ export default function Contact() {
                 aria-haspopup="listbox"
                 aria-expanded={open}
                 onClick={() => setOpen((v) => !v)}
-                className={`${fieldClass(!!errors.help)} flex cursor-pointer items-center justify-between`}
+                className={`flex h-12 w-[683px] max-w-full cursor-pointer items-center justify-between border-0 border-b bg-white px-3.5 outline-none transition-colors ${
+                  errors.help ? "border-[#fa5d29]" : open ? "border-ink" : "border-line"
+                }`}
               >
-                <span className={`font-light text-black ${opt === PLACEHOLDER ? "text-sm" : "text-base"}`}>{opt}</span>
+                <span className="text-sm font-normal text-black">{opt}</span>
                 <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" className={`transition-transform ${open ? "rotate-180" : ""}`}>
                   <path d="M6 9l6 6 6-6" fill="none" stroke="#b3b3b3" strokeWidth="2" strokeLinecap="square" strokeLinejoin="round" />
                 </svg>
@@ -228,8 +230,8 @@ export default function Contact() {
             <textarea
               value={comment}
               onChange={(e) => { setComment(e.target.value); clearErr("comment"); }}
-              className={`block h-[150px] w-[683px] max-w-full resize-none border-0 border-b bg-white px-3.5 py-3 text-base leading-6 text-black outline-none ${
-                errors.comment ? "border-[#fa5d29]" : "border-[#d9d9d9]"
+              className={`block h-[150px] w-[683px] max-w-full resize-none border-0 border-b bg-white px-3.5 py-3 text-sm font-normal leading-6 text-black outline-none transition-colors ${
+                errors.comment ? "border-[#fa5d29]" : "border-line focus:border-ink"
               }`}
             />
             <ErrorSlot text={errors.comment} />
@@ -239,8 +241,15 @@ export default function Contact() {
           <div className="mt-[18px] flex items-center gap-2.5 text-sm font-normal leading-5 text-ink">
             <FancyCheckbox checked={agree} onChange={(v) => { setAgree(v); clearErr("agree"); }} />
             <span>
-              Я прочитал(а) и принимаю <strong className="font-semibold">Правовые положения</strong> и{" "}
-              <strong className="font-semibold">Политику конфиденциальности</strong>.
+              Я прочитал(а) и принимаю{" "}
+              <a href="/legal/terms" target="_blank" rel="noopener noreferrer" className="font-semibold hover:underline">
+                Правовые положения
+              </a>{" "}
+              и{" "}
+              <a href="/legal/privacy" target="_blank" rel="noopener noreferrer" className="font-semibold hover:underline">
+                Политику конфиденциальности
+              </a>
+              .
             </span>
           </div>
           <ErrorSlot text={errors.agree} />
