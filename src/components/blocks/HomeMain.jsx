@@ -1,53 +1,49 @@
 // src/components/blocks/HomeMain.jsx
+// Первый экран (clean-rebuild): мета-строка, заголовок CUBE-TECH, подпись
+// директора и «ромб» с главным изображением. Чистый Tailwind + токены.
 import React from "react";
 
-/** Главная карточка («Сегодня», дата, загруженность, титулы + ромб с изображением) */
+const MONTHS = ["Янв", "Фев", "Мар", "Апр", "Май", "Июн", "Июл", "Авг", "Сен", "Окт", "Ноя", "Дек"];
+
 export default function HomeMain() {
-  const MONTHS = ["Янв","Фев","Мар","Апр","Май","Июн","Июл","Авг","Сен","Окт","Ноя","Дек"];
   const now = new Date();
   const dateStr = `${MONTHS[now.getMonth()]} ${now.getDate()}, ${now.getFullYear()}`;
 
   return (
-    <section className="home-hero" aria-label="Главная">
-      {/* опущено на 58px: c -74px → -16px */}
-      <div className="about-hero-header" style={{ transform: "translateY(-16px)", willChange: "transform" }}>
-        <div className="container-wide">
-          {/* Сегодня • [дата] • Загруженность */}
-          <div className="about-hero-meta">
-            <span className="about-hero-today" style={{ fontWeight: 400 }}>Сегодня</span>
-            <span className="about-hero-date">{dateStr}</span>
-            <span className="about-hero-load" style={{ fontWeight: 400 }}>Загруженность 7.49 из 10</span>
-          </div>
+    <section className="bg-page pt-10 text-center font-tight text-ink" aria-label="Главная">
+      {/* Сегодня • дата • загруженность */}
+      <div className="flex flex-wrap items-center justify-center gap-3 px-4 text-sm">
+        <span>Сегодня</span>
+        <span className="rounded-md border border-black/20 px-2.5 py-1">{dateStr}</span>
+        <span>Загруженность 7.49 из 10</span>
+      </div>
 
-          {/* Заголовок по центру, 600 */}
-          <h1 className="about-hero-title" style={{ textAlign: "center", fontWeight: 600 }}>
-            CUBE-TECH
-          </h1>
+      {/* Заголовок */}
+      <h1
+        className="mt-5 font-semibold uppercase leading-none"
+        style={{ fontSize: "clamp(48px, 13.5vw, 137px)" }}
+      >
+        CUBE-TECH
+      </h1>
 
-          {/* Директор + бейдж CUBE (9px / 1.55em) */}
-          <div className="about-hero-sign">
-            <img src="/about/director.png" alt="" className="about-hero-avatar" />
-            <a className="about-hero-role" href="#director">Генеральный директор</a>
-            <span
-              className="about-hero-badge"
-              aria-hidden="true"
-              style={{
-                fontSize: "9px",
-                lineHeight: "1.55em",
-                display: "inline-block",
-                transform: "translate(-13px, 4px)", // ← левее на 14px и ниже на 4px
-                willChange: "transform"
-              }}
-            >
-              CUBE
-            </span>
-          </div>
-        </div>
+      {/* Подпись: директор + бейдж */}
+      <div className="mt-4 flex items-center justify-center gap-2.5 text-sm">
+        <img src="/about/director.png" alt="" className="h-8 w-8 rounded-full object-cover" />
+        <a href="#director" className="group relative pb-1 font-semibold">
+          Генеральный директор
+          <span className="absolute inset-x-0 bottom-0 h-0.5 bg-neutral-300" />
+          <span className="absolute bottom-0 left-0 h-0.5 w-0 bg-ink transition-[width] duration-300 group-hover:w-full" />
+        </a>
+        <span className="self-start text-[9px] leading-none">CUBE</span>
+      </div>
 
-        {/* Ромб с главным изображением */}
-        <div className="about-hero-diamond">
-          <img src="/main/main.png" alt="Главное изображение" />
-        </div>
+      {/* «Ромб» с главным изображением (тёмная рамка вокруг картинки) */}
+      <div className="mx-auto mt-20 aspect-[1441/1112] w-[min(1441px,96vw)] rounded-2xl bg-ink p-[clamp(20px,4.3vw,62px)]">
+        <img
+          src="/main/main.png"
+          alt="Главное изображение"
+          className="h-full w-full rounded-xl object-cover"
+        />
       </div>
     </section>
   );
