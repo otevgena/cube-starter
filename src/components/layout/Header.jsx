@@ -6,6 +6,7 @@
 import React from "react";
 import { createPortal } from "react-dom";
 import { ChevronDown, Search, Menu, X } from "lucide-react";
+import { search } from "@/data/search-index";
 
 /* === API base === */
 const API_BASE =
@@ -162,7 +163,7 @@ const NAV_LINK_CLASS =
   "text-sm font-medium leading-[28px] text-ink transition-opacity hover:opacity-70";
 
 /* ===== Переиспользуемые куски ===== */
-function SearchField({ className = "", white = false }) {
+function SearchField({ className = "", white = false, value, onChange, onFocus, autoFocus = false, readOnly = false }) {
   return (
     <label
       className={`flex h-[42px] items-center gap-2 rounded-lg px-4 ${
@@ -174,9 +175,41 @@ function SearchField({ className = "", white = false }) {
         type="text"
         placeholder="Поиск"
         aria-label="Поиск"
+        value={value}
+        onChange={onChange}
+        onFocus={onFocus}
+        autoFocus={autoFocus}
+        readOnly={readOnly}
         className="w-full min-w-0 bg-transparent text-sm leading-[28px] text-ink outline-none placeholder:text-neutral-500"
       />
     </label>
+  );
+}
+
+/* ===== Результаты поиска по сайту ===== */
+function SearchResults({ query, onClose }) {
+  const results = React.useMemo(() => search(query), [query]);
+  if (results.length === 0) {
+    return <div className="px-3 py-8 text-sm text-neutral-500">Ничего не найдено</div>;
+  }
+  return (
+    <ul className="flex flex-col gap-0.5 pb-6 pt-1">
+      {results.map((r) => (
+        <li key={`${r.title}-${r.href}`}>
+          <a
+            href={r.href}
+            onClick={onClose}
+            className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm leading-[28px] text-ink transition-colors hover:bg-white"
+          >
+            <Search size={16} className="shrink-0 text-neutral-400" />
+            <span className="truncate">{r.title}</span>
+            <span className="ml-auto shrink-0 text-[12px] text-neutral-400">
+              {r.category}{r.marker ? ` · ${r.marker}` : ""}
+            </span>
+          </a>
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -247,9 +280,9 @@ function HeaderBar({ servicesOpen, setServicesOpen, user, authReady, onLogout, i
           ))}
       </nav>
 
-      {/* Поиск. В панели — белый и на всю ширину; в обычной шапке — серый, до 980px */}
+      {/* Поиск — клик открывает панель с поиском по сайту */}
       <div className="hidden flex-1 md:flex">
-        <SearchField className={`w-full ${inPanel ? "" : "max-w-[980px]"}`} white={inPanel} />
+        <SearchField className="w-full max-w-[980px]" readOnly onFocus={() => setServicesOpen(true)} />
       </div>
 
       {/* Действия (desktop) */}
@@ -273,7 +306,7 @@ function HeaderBar({ servicesOpen, setServicesOpen, user, authReady, onLogout, i
 }
 
 /* ===== Панель «Услуги» — портал в body; раскладка как у awwwards ===== */
-function ServicesPanel({ activeCat, setActiveCat, barProps, onClose }) {
+function ServicesPanel({ activeCat, setActiveCat, barProps, onClose, query, setQuery }) {
   const cat = SERVICE_CATEGORIES[activeCat];
   const { user, authReady, onLogout } = barProps;
   return createPortal(
@@ -296,9 +329,18 @@ function ServicesPanel({ activeCat, setActiveCat, barProps, onClose }) {
               {/* поиск + тело: правый край колонки = конец поиска (под кнопками пусто) */}
               <div className="min-w-0 flex-1">
                 <div className="flex h-header items-center">
-                  <SearchField className="w-full" white />
+                  <SearchField
+                    className="w-full"
+                    white
+                    autoFocus
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                  />
                 </div>
 
+                {query.trim() ? (
+                  <SearchResults query={query} onClose={onClose} />
+                ) : (
                 <div className="mt-1 grid grid-cols-[260px_1fr] gap-x-8 pb-6">
                   {/* категории */}
                   <ul className="flex flex-col gap-0.5">
@@ -335,6 +377,7 @@ function ServicesPanel({ activeCat, setActiveCat, barProps, onClose }) {
                     ))}
                   </ul>
                 </div>
+                )}
               </div>
 
               {/* действия — правый жёлоб */}
@@ -419,6 +462,10 @@ function AvatarMenu({ user, onLogout }) {
 export default function Header() {
   const [servicesOpen, setServicesOpen] = React.useState(false);
   const [activeCat, setActiveCat] = React.useState(0);
+  const [query, setQuery] = React.useState("");
+
+  // при закрытии панели сбрасываем поисковый запрос
+  React.useEffect(() => { if (!servicesOpen) setQuery(""); }, [servicesOpen]);
 
   // === auth state (без мигания) ===
   const initialUser = (typeof window !== "undefined") ? readCachedUser() : null;
@@ -579,8 +626,11 @@ export default function Header() {
           setActiveCat={setActiveCat}
           barProps={barProps}
           onClose={() => setServicesOpen(false)}
+          query={query}
+          setQuery={setQuery}
         />
       )}
     </header>
   );
 }
+
