@@ -166,7 +166,7 @@ function SearchField({ className = "", white = false }) {
   return (
     <label
       className={`flex h-[42px] items-center gap-2 rounded-lg px-4 ${
-        white ? "bg-white ring-1 ring-black/10" : "bg-field"
+        white ? "bg-white" : "bg-field"
       } ${className}`}
     >
       <Search size={18} className="shrink-0 text-neutral-500" />
@@ -272,55 +272,76 @@ function HeaderBar({ servicesOpen, setServicesOpen, user, authReady, onLogout, i
   );
 }
 
-/* ===== Панель «Услуги» — портал в body (всегда поверх), карточка ровно над шапкой ===== */
+/* ===== Панель «Услуги» — портал в body; раскладка как у awwwards ===== */
 function ServicesPanel({ activeCat, setActiveCat, barProps, onClose }) {
   const cat = SERVICE_CATEGORIES[activeCat];
+  const { user, authReady, onLogout } = barProps;
   return createPortal(
     <div className="fixed inset-0 z-[100] font-tight">
       {/* затемнение */}
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
 
-      {/* карточка — top-3 и тот же контейнер, что у шапки → дубль ложится ровно поверх */}
+      {/* карточка */}
       <div className="absolute inset-x-0 top-3">
-        <div className="mx-auto max-w-[1450px] rounded-lg bg-page px-6 shadow-2xl lg:px-10">
-          {/* дубль шапки (на тех же координатах — ничего не «прыгает») */}
-          <HeaderBar {...barProps} inPanel />
+        <div className="mx-auto max-w-[1450px] rounded-lg bg-[#ededed] px-6 shadow-2xl lg:px-10">
+          <div className="flex gap-5">
+            {/* логотип в левом «жёлобе» (выровнен с верхней строкой; справа от него — поиск) */}
+            <div className="flex h-header shrink-0 items-center">
+              <a href="/" className="relative -top-1 mr-4 text-[30px] font-bold leading-none text-ink">
+                c.
+              </a>
+            </div>
 
-          {/* список услуг */}
-          <div className="mt-1 grid gap-x-8 gap-y-1 pb-6 pt-2 md:grid-cols-[260px_1fr]">
-            {/* категории */}
-            <ul className="flex flex-col gap-1">
-              {SERVICE_CATEGORIES.map((c, i) => (
-                <li key={c.key}>
-                  <a
-                    href={c.href}
-                    onMouseEnter={() => setActiveCat(i)}
-                    onFocus={() => setActiveCat(i)}
-                    className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm leading-[28px] transition-colors ${
-                      activeCat === i ? "bg-white font-medium ring-1 ring-black/5" : "text-ink hover:bg-white"
-                    }`}
-                  >
-                    <img src={c.icon} alt="" className="h-5 w-5 shrink-0 object-contain" />
-                    <span>{c.label}</span>
-                  </a>
-                </li>
-              ))}
-            </ul>
+            {/* контент: поиск+действия сверху, категории+услуги снизу — с одного левого края */}
+            <div className="min-w-0 flex-1">
+              {/* верхняя строка: поиск (белый, на всю ширину) + действия */}
+              <div className="flex h-header items-center gap-5">
+                <div className="hidden flex-1 md:flex">
+                  <SearchField className="w-full" white />
+                </div>
+                <div className="ml-auto hidden items-center gap-4 md:flex">
+                  <AuthControls user={user} authReady={authReady} onLogout={onLogout} />
+                  <ActionButtons />
+                </div>
+              </div>
 
-            {/* услуги активной категории — один столбец */}
-            <ul className="flex flex-col gap-1">
-              {cat.items.map((it) => (
-                <li key={it}>
-                  <a
-                    href={cat.href}
-                    onClick={onClose}
-                    className="block rounded-lg px-3 py-2.5 text-sm leading-[28px] text-ink transition-colors hover:bg-white"
-                  >
-                    {it}
-                  </a>
-                </li>
-              ))}
-            </ul>
+              {/* тело: категории слева начинаются ровно под поиском */}
+              <div className="grid grid-cols-[260px_1fr] gap-x-8 pb-6 pt-2">
+                {/* категории */}
+                <ul className="flex flex-col gap-1">
+                  {SERVICE_CATEGORIES.map((c, i) => (
+                    <li key={c.key}>
+                      <a
+                        href={c.href}
+                        onMouseEnter={() => setActiveCat(i)}
+                        onFocus={() => setActiveCat(i)}
+                        className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm leading-[28px] transition-colors ${
+                          activeCat === i ? "bg-white font-medium shadow-sm" : "text-ink hover:bg-white"
+                        }`}
+                      >
+                        <img src={c.icon} alt="" className="h-5 w-5 shrink-0 object-contain" />
+                        <span>{c.label}</span>
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+
+                {/* услуги активной категории — один столбец */}
+                <ul className="flex flex-col gap-1">
+                  {cat.items.map((it) => (
+                    <li key={it}>
+                      <a
+                        href={cat.href}
+                        onClick={onClose}
+                        className="block rounded-lg px-3 py-2.5 text-sm leading-[28px] text-ink transition-colors hover:bg-white"
+                      >
+                        {it}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
           </div>
         </div>
       </div>
