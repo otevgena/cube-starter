@@ -27,16 +27,6 @@ const REVIEWS = [
   },
 ];
 
-/* колонка метаданных */
-function Meta({ label, value }) {
-  return (
-    <div className="min-w-0">
-      <div className="text-xs font-light uppercase tracking-[0.04em] text-neutral-400">{label}</div>
-      <div className="mt-1 truncate text-sm font-medium text-ink">{value || "—"}</div>
-    </div>
-  );
-}
-
 /* модалка отзыва: PDF + закреплённая снизу плашка с данными */
 function ReviewModal({ review, onClose }) {
   React.useEffect(() => {
@@ -67,15 +57,31 @@ function ReviewModal({ review, onClose }) {
           </svg>
         </button>
 
-        {/* PDF (листается внутри) */}
-        <iframe src={review.pdf} title="Отзыв клиента" className="min-h-0 w-full flex-1 border-0" />
+        {/* PDF (листается внутри; тулбар просмотрщика скрыт) */}
+        <iframe
+          src={`${review.pdf}#toolbar=0&navpanes=0`}
+          title="Отзыв клиента"
+          className="min-h-0 w-full flex-1 border-0"
+        />
 
-        {/* закреплённая плашка с данными клиента */}
-        <div className="grid grid-cols-4 gap-4 border-t border-line bg-white px-6 py-4">
-          <Meta label="Имя клиента" value={review.name} />
-          <Meta label="Компания" value={review.company} />
-          <Meta label="Дата" value={review.date} />
-          <Meta label="Город" value={review.city} />
+        {/* закреплённая плашка с данными — в стиле таблицы проектов */}
+        <div className="bg-page px-8 py-5">
+          <div className="grid grid-cols-4 gap-6 text-sm font-light text-neutral-500">
+            <span>Имя клиента</span>
+            <span>Компания</span>
+            <span>Дата</span>
+            <span>Город</span>
+          </div>
+          <div
+            className="my-3 h-px w-full"
+            style={{ backgroundImage: "repeating-linear-gradient(to right, #bdbdbd 0 1px, rgba(0,0,0,0) 1px 9px)" }}
+          />
+          <div className="grid grid-cols-4 gap-6 text-[18px] text-dark">
+            <span className="truncate">{review.name || "—"}</span>
+            <span className="truncate">{review.company || "—"}</span>
+            <span>{review.date || "—"}</span>
+            <span>{review.city || "—"}</span>
+          </div>
         </div>
       </div>
     </div>,
