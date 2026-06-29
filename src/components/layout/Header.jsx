@@ -281,10 +281,11 @@ function ServicesPanel({ activeCat, setActiveCat, barProps, onClose }) {
       {/* затемнение */}
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
 
-      {/* карточка */}
+      {/* карточка: контейнер = как у шапки (контент совпадает), фон «поджат» к содержимому */}
       <div className="absolute inset-x-0 top-3">
-        <div className="mx-auto max-w-[1360px] rounded-lg bg-[#ededed] px-6 shadow-2xl lg:px-10">
-          <div className="flex gap-5">
+        <div className="mx-auto max-w-[1700px] px-6 lg:px-10">
+          <div className="-mx-5 rounded-lg bg-[#ededed] px-5 shadow-2xl">
+            <div className="flex gap-5">
             {/* логотип в левом «жёлобе» (выровнен с верхней строкой; справа от него — поиск) */}
             <div className="flex h-header shrink-0 items-center">
               <a href="/" className="relative -top-1 mr-4 text-[30px] font-bold leading-none text-ink">
@@ -326,8 +327,8 @@ function ServicesPanel({ activeCat, setActiveCat, barProps, onClose }) {
                   ))}
                 </ul>
 
-                {/* услуги активной категории — один столбец */}
-                <ul className="flex flex-col gap-0.5">
+                {/* услуги активной категории — один столбец, с плавным появлением */}
+                <ul key={activeCat} className="flex flex-col gap-0.5 animate-svcfade">
                   {cat.items.map((it) => (
                     <li key={it}>
                       <a
@@ -342,6 +343,7 @@ function ServicesPanel({ activeCat, setActiveCat, barProps, onClose }) {
                 </ul>
               </div>
             </div>
+          </div>
           </div>
         </div>
       </div>
@@ -567,7 +569,7 @@ export default function Header() {
   return (
     <header className="relative z-40 pt-3 font-tight">
       {/* Реальная шапка (всегда на месте; при открытой панели её ровно накрывает карточка) */}
-      <div className="mx-auto max-w-[1360px] px-6 lg:px-10">
+      <div className="mx-auto max-w-[1700px] px-6 lg:px-10">
         <HeaderBar {...barProps} />
       </div>
 
