@@ -41,6 +41,7 @@
 }
 
 /* ===== Глобальная типографика ===== */
+html { scrollbar-gutter: stable; } /* резерв под скроллбар, чтобы фон не «прыгал» при блокировке прокрутки */
 html, body { height:100%; }
 body{
   font-family: var(--font-tight);

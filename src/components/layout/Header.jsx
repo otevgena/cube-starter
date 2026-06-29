@@ -162,9 +162,13 @@ const NAV_LINK_CLASS =
   "text-sm font-medium leading-[28px] text-ink transition-opacity hover:opacity-70";
 
 /* ===== Переиспользуемые куски ===== */
-function SearchField({ className = "" }) {
+function SearchField({ className = "", white = false }) {
   return (
-    <label className={`flex h-[42px] items-center gap-2 rounded-lg bg-field px-4 ${className}`}>
+    <label
+      className={`flex h-[42px] items-center gap-2 rounded-lg px-4 ${
+        white ? "bg-white ring-1 ring-black/10" : "bg-field"
+      } ${className}`}
+    >
       <Search size={18} className="shrink-0 text-neutral-500" />
       <input
         type="text"
@@ -211,7 +215,7 @@ function AuthControls({ user, authReady, onLogout }) {
 }
 
 /* ===== Строка шапки (используется и в шапке, и в карточке панели) ===== */
-function HeaderBar({ servicesOpen, setServicesOpen, user, authReady, onLogout }) {
+function HeaderBar({ servicesOpen, setServicesOpen, user, authReady, onLogout, inPanel = false }) {
   return (
     <div className="flex h-header items-center gap-5">
       {/* Логотип */}
@@ -219,7 +223,7 @@ function HeaderBar({ servicesOpen, setServicesOpen, user, authReady, onLogout })
         c.
       </a>
 
-      {/* Навигация (desktop) */}
+      {/* Навигация (desktop). В открытой панели — только «Услуги» (как на awwwards) */}
       <nav className="hidden items-center gap-6 lg:flex">
         <button
           type="button"
@@ -230,21 +234,22 @@ function HeaderBar({ servicesOpen, setServicesOpen, user, authReady, onLogout })
           Услуги
           <ChevronDown size={16} className={`transition-transform ${servicesOpen ? "rotate-180" : ""}`} />
         </button>
-        {NAV_LINKS.map((l) => (
-          <a key={l.href} href={l.href} className={`flex items-center gap-2 ${NAV_LINK_CLASS}`}>
-            {l.label}
-            {l.badge && (
-              <span className="rounded bg-dark px-1.5 py-0.5 text-[10px] font-medium leading-none text-white">
-                {l.badge}
-              </span>
-            )}
-          </a>
-        ))}
+        {!inPanel &&
+          NAV_LINKS.map((l) => (
+            <a key={l.href} href={l.href} className={`flex items-center gap-2 ${NAV_LINK_CLASS}`}>
+              {l.label}
+              {l.badge && (
+                <span className="rounded bg-dark px-1.5 py-0.5 text-[10px] font-medium leading-none text-white">
+                  {l.badge}
+                </span>
+              )}
+            </a>
+          ))}
       </nav>
 
-      {/* Поиск (растягивается) */}
+      {/* Поиск. В панели — белый и на всю ширину; в обычной шапке — серый, до 980px */}
       <div className="hidden flex-1 md:flex">
-        <SearchField className="w-full max-w-[980px]" />
+        <SearchField className={`w-full ${inPanel ? "" : "max-w-[980px]"}`} white={inPanel} />
       </div>
 
       {/* Действия (desktop) */}
@@ -277,9 +282,9 @@ function ServicesPanel({ activeCat, setActiveCat, barProps, onClose }) {
 
       {/* карточка — top-3 и тот же контейнер, что у шапки → дубль ложится ровно поверх */}
       <div className="absolute inset-x-0 top-3">
-        <div className="mx-auto max-w-[1600px] rounded-xl bg-page px-6 shadow-2xl lg:px-10">
+        <div className="mx-auto max-w-[1450px] rounded-lg bg-page px-6 shadow-2xl lg:px-10">
           {/* дубль шапки (на тех же координатах — ничего не «прыгает») */}
-          <HeaderBar {...barProps} />
+          <HeaderBar {...barProps} inPanel />
 
           {/* список услуг */}
           <div className="mt-1 grid gap-x-8 gap-y-1 pb-6 pt-2 md:grid-cols-[260px_1fr]">
@@ -528,18 +533,12 @@ export default function Header() {
   }, []);
 
   // блокируем прокрутку body при открытой панели
-  // + компенсируем ширину скроллбара, чтобы фон не «подпрыгивал»
+  // (scrollbar-gutter:stable в index.css не даёт фону «прыгать»)
   React.useEffect(() => {
     if (!servicesOpen) return;
-    const sbw = window.innerWidth - document.documentElement.clientWidth;
-    const prevOverflow = document.body.style.overflow;
-    const prevPad = document.body.style.paddingRight;
+    const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    if (sbw > 0) document.body.style.paddingRight = `${sbw}px`;
-    return () => {
-      document.body.style.overflow = prevOverflow;
-      document.body.style.paddingRight = prevPad;
-    };
+    return () => { document.body.style.overflow = prev; };
   }, [servicesOpen]);
 
   const barProps = { servicesOpen, setServicesOpen, user, authReady, onLogout: handleLogout };
@@ -547,7 +546,7 @@ export default function Header() {
   return (
     <header className="relative z-40 pt-3 font-tight">
       {/* Реальная шапка (всегда на месте; при открытой панели её ровно накрывает карточка) */}
-      <div className="mx-auto max-w-[1600px] px-6 lg:px-10">
+      <div className="mx-auto max-w-[1450px] px-6 lg:px-10">
         <HeaderBar {...barProps} />
       </div>
 
