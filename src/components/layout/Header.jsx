@@ -186,6 +186,22 @@ function SearchField({ className = "", white = false, value, onChange, onFocus, 
   );
 }
 
+/* подсветка совпадения в названии (наш «морковный» цвет) */
+function Highlight({ text, query }) {
+  const q = (query || "").trim();
+  if (!q) return <>{text}</>;
+  const norm = (s) => s.toLowerCase().replace(/ё/g, "е");
+  const i = norm(text).indexOf(norm(q));
+  if (i < 0) return <>{text}</>;
+  return (
+    <>
+      {text.slice(0, i)}
+      <span className="font-medium text-carrot">{text.slice(i, i + q.length)}</span>
+      {text.slice(i + q.length)}
+    </>
+  );
+}
+
 /* ===== Результаты поиска по сайту ===== */
 function SearchResults({ query, onClose }) {
   const results = React.useMemo(() => search(query), [query]);
@@ -202,7 +218,7 @@ function SearchResults({ query, onClose }) {
             className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm leading-[28px] text-ink transition-colors hover:bg-white"
           >
             <Search size={16} className="shrink-0 text-neutral-400" />
-            <span className="truncate">{r.title}</span>
+            <span className="truncate"><Highlight text={r.title} query={query} /></span>
             <span className="ml-auto shrink-0 text-[12px] text-neutral-400">
               {r.category}{r.marker ? ` · ${r.marker}` : ""}
             </span>
