@@ -191,7 +191,7 @@ function ActionButtons() {
       </a>
       <a
         href="/contact"
-        className="inline-flex h-[42px] items-center rounded-lg border border-dark px-4 text-sm font-semibold leading-[28px] text-ink transition-colors hover:bg-dark hover:text-white"
+        className="inline-flex h-[42px] items-center rounded-lg border border-neutral-300 px-4 text-sm font-semibold leading-[28px] text-ink transition-colors hover:border-dark hover:bg-dark hover:text-white"
       >
         Оставить заявку
       </a>
@@ -219,17 +219,17 @@ function HeaderBar({ servicesOpen, setServicesOpen, user, authReady, onLogout, i
   return (
     <div className="flex h-header items-center gap-5">
       {/* Логотип */}
-      <a href="/" className="relative -top-1 mr-4 shrink-0 text-[30px] font-bold leading-none text-ink">
+      <a href="/" className="relative -top-1 mr-8 shrink-0 text-[30px] font-bold leading-none text-ink">
         c.
       </a>
 
       {/* Навигация (desktop). В открытой панели — только «Услуги» (как на awwwards) */}
-      <nav className="hidden items-center gap-6 lg:flex">
+      <nav className="hidden items-center gap-5 lg:flex">
         <button
           type="button"
           onClick={() => setServicesOpen((v) => !v)}
           aria-expanded={servicesOpen}
-          className={`flex items-center gap-1 ${NAV_LINK_CLASS}`}
+          className={`flex items-center gap-1 outline-none ${NAV_LINK_CLASS}`}
         >
           Услуги
           <ChevronDown size={16} className={`transition-transform ${servicesOpen ? "rotate-180" : ""}`} />
@@ -253,7 +253,7 @@ function HeaderBar({ servicesOpen, setServicesOpen, user, authReady, onLogout, i
       </div>
 
       {/* Действия (desktop) */}
-      <div className="ml-auto hidden items-center gap-4 md:flex">
+      <div className="ml-auto hidden items-center gap-3 md:flex">
         <AuthControls user={user} authReady={authReady} onLogout={onLogout} />
         <ActionButtons />
       </div>
@@ -288,7 +288,7 @@ function ServicesPanel({ activeCat, setActiveCat, barProps, onClose }) {
             <div className="flex gap-5">
             {/* логотип в левом «жёлобе» (выровнен с верхней строкой; справа от него — поиск) */}
             <div className="flex h-header shrink-0 items-center">
-              <a href="/" className="relative -top-1 mr-4 text-[30px] font-bold leading-none text-ink">
+              <a href="/" className="relative -top-1 mr-8 text-[30px] font-bold leading-none text-ink">
                 c.
               </a>
             </div>
@@ -300,7 +300,7 @@ function ServicesPanel({ activeCat, setActiveCat, barProps, onClose }) {
                 <div className="hidden flex-1 md:flex">
                   <SearchField className="w-full" white />
                 </div>
-                <div className="ml-auto hidden items-center gap-4 md:flex">
+                <div className="ml-auto hidden items-center gap-3 md:flex">
                   <AuthControls user={user} authReady={authReady} onLogout={onLogout} />
                   <ActionButtons />
                 </div>
