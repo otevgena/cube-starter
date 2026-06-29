@@ -1,659 +1,171 @@
 // src/components/blocks/Services.jsx
+// Секция «Услуги» (clean-rebuild): заголовок УСЛУГИ + «Делегируйте всё…» +
+// карточки услуг. Чистый Tailwind, без анимированных <object>-SVG.
 import React from "react";
-import SpaLink from "@/components/common/SpaLink.jsx";
 
-/* =========================
-   PRELOAD / WARM-UP HELPERS
-   ========================= */
+const SERVICES = [
+  {
+    key: "electrical",
+    title: "Электромонтаж",
+    img: "/services/electrical.png",
+    href: "/services/electrical",
+    features: [
+      { icon: "/services/icon/thumbs_up.svg", top: "Долговечный", bottom: "результат" },
+      { icon: "/services/icon/calendar.svg", top: "Планирование", bottom: "этапов" },
+      { icon: "/services/icon/graduation_hat.svg", top: "Профессиональная", bottom: "команда" },
+    ],
+  },
+  {
+    key: "low_current",
+    title: "Слаботочные системы",
+    img: "/services/low_current_systems.png",
+    href: "/services/lowcurrent",
+    features: [
+      { icon: "/services/icon/phone.svg", top: "Надёжная", bottom: "связь" },
+      { icon: "/services/icon/lock.svg", top: "Безопасность", bottom: "объекта" },
+      { icon: "/services/icon/list.svg", top: "Интеграция", bottom: "систем" },
+    ],
+  },
+  {
+    key: "ventilation",
+    title: "Климат-системы",
+    img: "/services/ventilation.png",
+    href: "/services/ventilation",
+    features: [
+      { icon: "/services/icon/drop.svg", top: "Эффективное", bottom: "охлаждение" },
+      { icon: "/services/icon/clock.svg", top: "Свежий", bottom: "воздух" },
+      { icon: "/services/icon/bolt.svg", top: "Экономия", bottom: "ресурсов" },
+    ],
+  },
+  {
+    key: "design",
+    title: "Проектирование",
+    img: "/services/design.png",
+    href: "/services/design",
+    features: [
+      { icon: "/services/icon/expand.svg", top: "Точные", bottom: "расчёты" },
+      { icon: "/services/icon/doc.svg", top: "Соответствие", bottom: "нормам" },
+      { icon: "/services/icon/bulb.svg", top: "Оптимальные", bottom: "решения" },
+    ],
+  },
+  {
+    key: "construction",
+    title: "Общестрой",
+    img: "/services/construction.png",
+    href: "/services/construction",
+    features: [
+      { icon: "/services/icon/home.svg", top: "Надёжное", bottom: "строительство" },
+      { icon: "/services/icon/clock2.svg", top: "Соблюдение", bottom: "сроков" },
+      { icon: "/services/icon/tool.svg", top: "Качество", bottom: "работ" },
+    ],
+  },
+];
 
-const unique = (arr = []) => [...new Set(arr.filter(Boolean))];
-
-function useHeadPreload({ images = [], svgDocs = [] }) {
-  React.useEffect(() => {
-    const head = document.head;
-    const added = [];
-    const add = (attrs) => {
-      // не добавляем, если уже есть ровно такой link
-      const exists = head.querySelector(
-        `link[rel="${attrs.rel}"][as="${attrs.as}"][href="${attrs.href}"]`
-      );
-      if (exists) return;
-      const l = document.createElement("link");
-      Object.entries(attrs).forEach(([k, v]) => (l[k] = v));
-      head.appendChild(l);
-      added.push(l);
-    };
-
-    try {
-      unique(images).forEach((href) => {
-        add({ rel: "preload", as: "image", href });
-      });
-
-      unique(svgDocs).forEach((href) => {
-        add({ rel: "preload", as: "image", href, type: "image/svg+xml" });
-      });
-    } catch {}
-
-    return () => {
-      try {
-        added.forEach((l) => l.remove());
-      } catch {}
-    };
-  }, [images, svgDocs]);
-}
-
-function WarmSVGObjects({ svgs, batch = 4, delay = 60 }) {
-  const uniqueSvgs = React.useMemo(() => unique(svgs), [svgs]);
-  const [mounted, setMounted] = React.useState([]);
-  const seenRef = React.useRef(new Set());
-
-  React.useEffect(() => {
-    // при смене списка — сброс
-    setMounted([]);
-    seenRef.current = new Set();
-
-    let i = 0,
-      cancel = false;
-
-    const step = () => {
-      if (cancel || i >= uniqueSvgs.length) return;
-
-      const nextSlice = uniqueSvgs.slice(i, i + batch).filter((src) => {
-        if (seenRef.current.has(src)) return false;
-        seenRef.current.add(src);
-        return true;
-      });
-
-      if (nextSlice.length) {
-        setMounted((p) => p.concat(nextSlice));
-      }
-
-      i += batch;
-      if ("requestIdleCallback" in window) {
-        requestIdleCallback(step, { timeout: 200 });
-      } else {
-        setTimeout(step, delay);
-      }
-    };
-
-    const kickoff = () => step();
-
-    if (document.readyState === "complete") {
-      kickoff();
-    } else {
-      window.addEventListener("load", kickoff, { once: true });
-    }
-
-    return () => {
-      cancel = true;
-      window.removeEventListener("load", kickoff);
-    };
-  }, [uniqueSvgs, batch, delay]);
-
+/* стрелка → (как в оригинале) */
+function Arrow() {
   return (
-    <div
-      aria-hidden="true"
-      style={{
-        position: "fixed",
-        left: -9999,
-        top: -9999,
-        width: 1,
-        height: 1,
-        opacity: 0,
-        pointerEvents: "none",
-        overflow: "hidden",
-      }}
-    >
-      {mounted.map((src) => (
-        <object
-          key={src}
-          data={src}
-          type="image/svg+xml"
-          width={1}
-          height={1}
-          tabIndex={-1}
-          title=""
-          aria-hidden="true"
-        />
-      ))}
-    </div>
+    <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" className="block shrink-0">
+      <path d="M4 12h13" stroke="#222" strokeWidth="1.4" strokeLinecap="round" />
+      <path d="M11 6l6 6-6 6" fill="none" stroke="#222" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   );
 }
 
-function PreloadServicesAssets({ images, svgDocs }) {
-  const imgs = React.useMemo(() => unique(images), [images]);
-  const svgs = React.useMemo(() => unique(svgDocs), [svgDocs]);
-  useHeadPreload({ images: imgs, svgDocs: svgs });
-  return <WarmSVGObjects svgs={svgs} />;
-}
-
-/* =========================
-   ОСНОВНОЙ КОМПОНЕНТ
-   ========================= */
+/* позиция гифки на букве «И» */
+const GIF_POS = {
+  position: "absolute",
+  left: "50%",
+  top: "50%",
+  transform: "translate(calc(-50% + 39px), calc(-50% - 34px))",
+  width: "120px",
+  height: "auto",
+  maxWidth: "none",
+  pointerEvents: "none",
+  userSelect: "none",
+  zIndex: 2,
+  display: "block",
+};
 
 export default function Services() {
-  const SERVICES = [
-    { key: "electrical",   title: "Электромонтаж",        img: "/services/electrical.png" },
-    { key: "low_current",  title: "Слаботочные системы",  img: "/services/low_current_systems.png" },
-    { key: "ventilation",  title: "Климат-системы",       img: "/services/ventilation.png" },
-    { key: "design",       title: "Проектирование",       img: "/services/design.png" },
-    { key: "construction", title: "Общестрой",            img: "/services/construction.png" },
-  ];
-
-  const ICON_SVGS = [
-    "/services/icon/thumbs_up.svg",
-    "/services/icon/calendar.svg",
-    "/services/icon/graduation_hat.svg",
-    "/services/icon/phone.svg",
-    "/services/icon/lock.svg",
-    "/services/icon/list.svg",
-    "/services/icon/drop.svg",
-    "/services/icon/clock.svg",
-    "/services/icon/bolt.svg",
-    "/services/icon/expand.svg",
-    "/services/icon/doc.svg",
-    "/services/icon/bulb.svg",
-    "/services/icon/home.svg",
-    "/services/icon/clock2.svg",
-    "/services/icon/tool.svg",
-  ];
-
-  // GIF на букве «И»
-  const GIF_SIZE = 120, GIF_X = 39, GIF_Y = -34;
-  const gifPos = {
-    position: "absolute",
-    left: "50%",
-    top: "50%",
-    transform: `translate(calc(-50% + ${GIF_X}px), calc(-50% + ${GIF_Y}px))`,
-    pointerEvents: "none",
-    userSelect: "none",
-    width: `${GIF_SIZE}px`,
-    height: "auto",
-    maxWidth: "none",
-    maxHeight: "none",
-    zIndex: 2,
-    display: "block",
-  };
-
   return (
-    <section
-      id="services"
-      className="bg-page"
-      style={{
-        position: "relative",
-        zIndex: 2,
-        marginTop: "255px",
-        paddingTop: 0,
-        paddingBottom: "96px",
-        backgroundColor: "#e9e9e9",
-      }}
-      data-section="services"
-    >
-      <PreloadServicesAssets images={SERVICES.map((s) => s.img)} svgDocs={ICON_SVGS} />
-
-      {/* Заголовок по центру + GIF на «И» */}
-      <div className="container-wide" style={{ position: "relative" }}>
-        <div style={{ textAlign: "center", fontFamily: "'Inter Tight','Inter',system-ui" }}>
-          <h2
-            className="about-hero-title"
-            style={{ margin: 0, textTransform: "uppercase", fontWeight: 600, position: "relative", display: "inline-block" }}
-          >
-            УСЛУГ
-            <span style={{ position: "relative", display: "inline-block" }}>
-              И
-              <img src="/services/hammer_chisel_logo.gif" alt="" style={gifPos} />
-            </span>
-          </h2>
-        </div>
-      </div>
-
-      {/* Левый вводный блок — 52px от левого края */}
-      <div
-        style={{
-          marginTop: "30px",
-          paddingLeft: "52px",
-          textAlign: "left",
-          fontFamily: "'Inter Tight','Inter',system-ui",
-          color: "#222222",
-        }}
-      >
-        <div style={{ fontSize: 14, lineHeight: "28px", fontWeight: 300, margin: 0 }}>
-          Технологии под задачу
-        </div>
-        <h3 style={{ marginTop: 14, marginBottom: 0, fontSize: 43, lineHeight: "51.8901px", fontWeight: 600 }}>
-          Делегируйте всё
-        </h3>
-        <h3 style={{ marginTop: 0, marginBottom: 0, fontSize: 43, lineHeight: "51.8901px", fontWeight: 600 }}>
-          — оставьте себе контроль.
-        </h3>
-      </div>
-
-      {/* Сетка карточек */}
-      <div className="container-wide">
-        <div
-          style={{
-            marginTop: "78px",
-            display: "grid",
-            gridTemplateColumns: "repeat(3, 467px)",
-            gap: "20px",
-            justifyContent: "center",
-          }}
+    <section className="mt-[255px] bg-field pb-24 font-tight text-ink">
+      {/* Заголовок УСЛУГИ + гифка на «И» */}
+      <div className="text-center">
+        <h2
+          className="relative inline-block font-semibold uppercase leading-none"
+          style={{ fontSize: "clamp(48px, 13.5vw, 137px)" }}
         >
-          {SERVICES.map((s, idx) => {
-            const isFirst  = idx === 0;
-            const isSecond = idx === 1;
-            const isThird  = idx === 2;
-            const isFourth = idx === 3;
-            const isFifth  = idx === 4;
-
-            const isElectrical   = s.key === "electrical";
-            const isLowCurrent   = s.key === "low_current";
-            const isVentilation  = s.key === "ventilation";
-            const isDesign       = s.key === "design";
-            const isConstruction = s.key === "construction";
-
-            const serviceTo = isElectrical
-              ? "/services/electrical"
-              : isLowCurrent
-              ? "/services/lowcurrent"
-              : isVentilation
-              ? "/services/ventilation"
-              : isDesign
-              ? "/services/design"
-              : isConstruction
-              ? "/services/construction"
-              : null;
-
-            return (
-              <article
-                key={s.key}
-                style={{
-                  width: 467,
-                  height: 537,
-                  background: "#fefefe",
-                  borderRadius: 14,
-                  overflow: "hidden",
-                  display: "flex",
-                  flexDirection: "column",
-                }}
-              >
-                {/* Верхнее изображение с кликом через SpaLink для доступных разделов */}
-                <div style={{ width: "100%", height: 263, position: "relative" }}>
-                  <ServiceImageBase img={s.img} title={s.title} eager={idx < 3} />
-                  {serviceTo ? (
-                    <SpaLink
-                      to={serviceTo}
-                      ariaLabel={s.title}
-                      title={s.title}
-                      className="block"
-                      style={{ position: "absolute", inset: 0, zIndex: 3, cursor: "pointer" }}
-                    />
-                  ) : (
-                    <a
-                      href={`/${s.key}`}
-                      onClick={(e)=>e.preventDefault()}
-                      aria-label={s.title}
-                      title={s.title}
-                      style={{ position: "absolute", inset: 0, zIndex: 3, display: "block", cursor: "not-allowed" }}
-                    />
-                  )}
-                </div>
-
-                {/* Заголовок 129px — слева */}
-                <div
-                  style={{
-                    height: 129,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "flex-start",
-                    padding: "0 20px",
-                    textAlign: "left",
-                  }}
-                >
-                  <h4
-                    style={{
-                      margin: 0,
-                      fontSize: 28,
-                      fontWeight: 600,
-                      lineHeight: 1.25,
-                      fontFamily: "'Inter Tight','Inter',system-ui",
-                      color: "#111",
-                    }}
-                  >
-                    {s.title}
-                  </h4>
-                </div>
-
-                {/* Средняя полоса: «Подробно» */}
-                {(isFirst || isSecond || isThird || isFourth || isFifth) ? (
-                  <div
-                    style={{
-                      height: 58,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      padding: "0 20px",
-                      borderTop: "1px solid #e9e9e9",
-                      borderBottom: "1px solid #e9e9e9",
-                      boxSizing: "border-box",
-                    }}
-                  >
-                    {serviceTo ? (
-                      <SpaLink
-                        to={serviceTo}
-                        className="about-hero-role"
-                        style={{
-                          fontSize: 16,
-                          lineHeight: "24px",
-                          fontWeight: 600,
-                          textDecorationLine: "underline",
-                          textDecorationThickness: "2px",
-                          textUnderlineOffset: 4,
-                          textDecorationColor: "#fbbf24",
-                          color: "#111",
-                        }}
-                      >
-                        Подробно
-                      </SpaLink>
-                    ) : (
-                      <a
-                        href={`/#services-${s.key}`}
-                        className="about-hero-role"
-                        style={{
-                          fontSize: 16,
-                          lineHeight: "24px",
-                          fontWeight: 600,
-                          textDecorationLine: "underline",
-                          textDecorationThickness: "2px",
-                          textUnderlineOffset: 4,
-                          textDecorationColor: "#fbbf24",
-                          color: "#111",
-                        }}
-                        onClick={(e)=>e.preventDefault()}
-                      >
-                        Подробно
-                      </a>
-                    )}
-                    <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" style={{ display: "block" }}>
-                      <path d="M4 12h13" stroke="#222" strokeWidth="1.4" strokeLinecap="round" />
-                      <path d="M11 6l6 6-6 6" fill="none" stroke="#222" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  </div>
-                ) : (
-                  <div
-                    style={{
-                      height: 58,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      padding: "0 20px",
-                      fontFamily: "'Inter Tight','Inter',system-ui",
-                      color: "#111",
-                      borderTop: "1px solid #e9e9e9",
-                      borderBottom: "1px solid #e9e9e9",
-                      boxSizing: "border-box",
-                    }}
-                  >
-                    <span style={{ fontSize: 14, lineHeight: "28px", fontWeight: 300 }}>Услуги</span>
-                    <span style={{ fontSize: 16, lineHeight: "24px", fontWeight: 600 }}>5</span>
-                  </div>
-                )}
-
-                {/* Нижняя полоса (85px): иконки по блокам */}
-                {isFirst ? (
-                  <div style={iconsRowStyle}>
-                    <IconItemHoverPlay src="/services/icon/thumbs_up.svg"   labelTop="Долговечный"   labelBottom="результат"   speedMult={1.5} offsetStartSec={0.3} />
-                    <IconItemHoverPlay src="/services/icon/calendar.svg"     labelTop="Планирование"  labelBottom="этапов"      speedMult={1.5} offsetStartSec={1.8} />
-                    <IconItemHoverPlay src="/services/icon/graduation_hat.svg" labelTop="Профессиональная" labelBottom="команда" speedMult={1.5} offsetStartSec={0.3} />
-                  </div>
-                ) : isSecond ? (
-                  <div style={iconsRowStyle}>
-                    <IconItemHoverPlay src="/services/icon/phone.svg" labelTop="Надёжная" labelBottom="связь" speedMult={1.5} offsetStartSec={0.1} />
-                    <IconItemHoverPlay src="/services/icon/lock.svg"  labelTop="Безопасность" labelBottom="объекта" speedMult={1.5} offsetStartSec={0.1} />
-                    <IconItemHoverPlay src="/services/icon/list.svg"  labelTop="Интеграция" labelBottom="систем" speedMult={1.5} offsetStartSec={0.1} />
-                  </div>
-                ) : isThird ? (
-                  <div style={iconsRowStyle}>
-                    <IconItemHoverPlay src="/services/icon/drop.svg"  labelTop="Эффективное" labelBottom="охлаждение" speedMult={1.5} offsetStartSec={0.1} />
-                    <IconItemHoverPlay src="/services/icon/clock.svg" labelTop="Свежий" labelBottom="воздух" speedMult={1.5} offsetStartSec={1.8} />
-                    <IconItemHoverPlay src="/services/icon/bolt.svg"  labelTop="Экономия" labelBottom="ресурсов" speedMult={1.5} offsetStartSec={1.6} />
-                  </div>
-                ) : isFourth ? (
-                  <div style={iconsRowStyle}>
-                    <IconItemHoverPlay src="/services/icon/expand.svg" labelTop="Точные" labelBottom="расчёты" speedMult={1.5} offsetStartSec={1.7} />
-                    <IconItemHoverPlay src="/services/icon/doc.svg"    labelTop="Соответствие" labelBottom="нормам" speedMult={1.5} offsetStartSec={0.0} />
-                    <IconItemHoverPlay src="/services/icon/bulb.svg"   labelTop="Оптимальные" labelBottom="решения" speedMult={1.5} offsetStartSec={0.1} />
-                  </div>
-                ) : isFifth ? (
-                  <div style={iconsRowStyle}>
-                    <IconItemHoverPlay src="/services/icon/home.svg"  labelTop="Надёжное" labelBottom="строительство" speedMult={1.5} offsetStartSec={1.7} />
-                    <IconItemHoverPlay src="/services/icon/clock2.svg" labelTop="Соблюдение" labelBottom="сроков" speedMult={1.5} offsetStartSec={1.7} />
-                    <IconItemHoverPlay src="/services/icon/tool.svg"  labelTop="Качество" labelBottom="работ" speedMult={1.5} offsetStartSec={1.7} />
-                  </div>
-                ) : (
-                  <div style={{ height: 85, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 20px" }}>
-                    <a
-                      href={`/#services-${s.key}`}
-                      className="about-hero-role"
-                      style={{ fontSize: 16, lineHeight: "24px", fontWeight: 600, textDecoration: "underline", textUnderlineOffset: 4, textDecorationThickness: "2px", textDecorationColor: "#fbbf24", color: "#111" }}
-                      onClick={(e)=>e.preventDefault()}
-                    >
-                      Подробно
-                    </a>
-                    <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" style={{ display: "block" }}>
-                      <path d="M4 12h13" stroke="#222" strokeWidth="1.4" strokeLinecap="round" />
-                      <path d="M11 6l6 6-6 6" fill="none" stroke="#222" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  </div>
-                )}
-              </article>
-            );
-          })}
-        </div>
+          УСЛУГ
+          <span className="relative inline-block">
+            И
+            <img src="/services/hammer_chisel_logo.gif" alt="" style={GIF_POS} />
+          </span>
+        </h2>
       </div>
 
-      {/* Центр страницы: как в About → "Каждая деталь имеет Значение" */}
-      <div
-        style={{
-          marginTop: "108px",
-          marginLeft: "80px",
-          marginRight: "80px",
-          textAlign: "center",
-          fontFamily: "'Inter Tight','Inter',system-ui",
-          fontSize: "16px",
-          lineHeight: "24px",
-          fontWeight: 300,
-          color: "#222",
-        }}
-      >
-        <span>Каждая деталь имеет </span>
-        <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", verticalAlign: "middle" }}>
-          <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" style={{ display: "block" }}>
-            <path d="M4 12h13" stroke="#222" strokeWidth="1.4" strokeLinecap="round" />
-            <path d="M11 6l6 6-6 6" fill="none" stroke="#222" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-          <a href="#value" className="about-hero-role" style={{ fontSize: "16px", lineHeight: "24px", fontWeight: 600, textDecoration: "underline" }} onClick={(e) => e.preventDefault()}>
+      {/* Вводный блок слева */}
+      <div className="mt-8 pl-[52px] text-left">
+        <div className="text-sm font-light leading-7">Технологии под задачу</div>
+        <h3 className="mt-3.5 text-[43px] font-semibold leading-[1.2]">Делегируйте всё</h3>
+        <h3 className="text-[43px] font-semibold leading-[1.2]">— оставьте себе контроль.</h3>
+      </div>
+
+      {/* Карточки услуг */}
+      <div className="mt-20 flex flex-wrap justify-center gap-5 px-6">
+        {SERVICES.map((s) => (
+          <article key={s.key} className="flex w-[467px] flex-col overflow-hidden rounded-2xl bg-white">
+            {/* картинка (клик → страница услуги, лёгкое затемнение на ховере) */}
+            <a href={s.href} aria-label={s.title} className="group relative block h-[263px] overflow-hidden">
+              <img
+                src={s.img}
+                alt={s.title}
+                className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+              />
+              <div className="absolute inset-0 bg-black/0 transition-colors duration-300 group-hover:bg-black/10" />
+            </a>
+
+            {/* заголовок */}
+            <div className="flex h-[129px] items-center px-5">
+              <h4 className="text-[28px] font-semibold leading-tight text-dark">{s.title}</h4>
+            </div>
+
+            {/* «Подробно» */}
+            <a
+              href={s.href}
+              className="flex h-[58px] items-center justify-between border-y border-[#e9e9e9] px-5"
+            >
+              <span className="text-base font-semibold text-dark underline decoration-gold decoration-2 underline-offset-4">
+                Подробно
+              </span>
+              <Arrow />
+            </a>
+
+            {/* фичи */}
+            <div className="flex h-[85px] items-center justify-between px-5">
+              {s.features.map((f) => (
+                <div key={f.top} className="flex items-center gap-2">
+                  <img src={f.icon} alt="" className="h-6 w-6 shrink-0" />
+                  <div className="text-[11px] leading-tight text-dark">
+                    <div>{f.top}</div>
+                    <div>{f.bottom}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </article>
+        ))}
+      </div>
+
+      {/* Каждая деталь имеет → Значение */}
+      <div className="mt-[108px] px-6 text-center text-base font-light text-ink">
+        Каждая деталь имеет{" "}
+        <span className="inline-flex items-center gap-1.5 align-middle">
+          <Arrow />
+          <a href="#value" onClick={(e) => e.preventDefault()} className="font-semibold underline underline-offset-4">
             Значение
           </a>
         </span>
       </div>
     </section>
-  );
-}
-
-/* ——— Блок изображения карточки с затемнением и ховером ——— */
-function ServiceImageBase({ img, title, eager = false }) {
-  const [hover, setHover] = React.useState(false);
-  return (
-    <div
-      style={{ width: "100%", height: "100%", position: "relative", overflow: "hidden", background: "#f0f0f0" }}
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
-    >
-      <img
-        src={img}
-        alt={title}
-        style={{
-          width: "100%",
-          height: "100%",
-          objectFit: "cover",
-          display: "block",
-          transition: "transform 200ms ease",
-          transform: hover ? "scale(1.02)" : "none",
-        }}
-        loading={eager ? "eager" : "lazy"}
-        decoding={eager ? "sync" : "async"}
-        fetchpriority={eager ? "high" : undefined}
-      />
-      <div
-        aria-hidden="true"
-        style={{
-          position: "absolute",
-          inset: 0,
-          background: "rgba(0,0,0,0.18)",
-          opacity: hover ? 1 : 0,
-          transition: "opacity 200ms ease",
-          pointerEvents: "none",
-        }}
-      />
-    </div>
-  );
-}
-
-/* ——— стили строки с иконками ——— */
-const iconsRowStyle = {
-  height: 85,
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "flex-start",
-  gap: 20,
-  padding: "0 20px",
-  overflow: "hidden",
-};
-
-/** === Иконка: стоп-кадр на offset; ховер → ускоренно доигрываем; нельзя прервать === */
-function IconItemHoverPlay({
-  src,
-  labelTop,
-  labelBottom,
-  size = 22,
-  speedMult = 1.5,
-  offsetStartSec = 0.0,
-}) {
-  const objRef = React.useRef(null);
-  const rafRef = React.useRef(0);
-  const durSecRef = React.useRef(2);
-  const playingRef = React.useRef(false);
-
-  const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi);
-
-  React.useEffect(() => {
-    const obj = objRef.current;
-    if (!obj) return;
-
-    const onLoad = () => {
-      try {
-        const doc = obj.getSVGDocument ? obj.getSVGDocument() : obj.contentDocument;
-        const svg = doc && doc.documentElement;
-        if (!svg) return;
-
-        const anim = doc.querySelector('animate[dur], animateTransform[dur]');
-        if (anim) {
-          const val = anim.getAttribute('dur') || '2s';
-          const n = parseFloat(String(val).replace(/s$/i, ''));
-          if (!Number.isNaN(n) && n > 0.01) durSecRef.current = n;
-        }
-
-        const eps = 1e-4;
-        const offset = clamp(offsetStartSec, 0, Math.max(0, durSecRef.current - eps));
-        svg.pauseAnimations && svg.pauseAnimations();
-        svg.setCurrentTime && svg.setCurrentTime(offset);
-      } catch {}
-    };
-
-    obj.addEventListener('load', onLoad);
-    return () => obj.removeEventListener('load', onLoad);
-  }, [offsetStartSec]);
-
-  const playOnce = React.useCallback(() => {
-    if (playingRef.current) return;
-    const obj = objRef.current;
-    if (!obj) return;
-
-    try {
-      const doc = obj.getSVGDocument ? obj.getSVGDocument() : obj.contentDocument;
-      const svg = doc && doc.documentElement;
-      if (!svg) return;
-
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
-
-      const eps = 1e-4;
-      const dur = Math.max(eps, durSecRef.current);
-      const startT = clamp(offsetStartSec, 0, dur - eps);
-      const spanSec = Math.max(eps, dur - startT);
-      const totalMs = (spanSec * 1000) / Math.max(0.1, speedMult);
-
-      svg.pauseAnimations && svg.pauseAnimations();
-      svg.setCurrentTime && svg.setCurrentTime(startT);
-
-      playingRef.current = true;
-      const t0 = performance.now();
-
-      const step = (now) => {
-        const elapsed = now - t0;
-        const t = clamp(startT + (elapsed / 1000) * speedMult, 0, dur - eps);
-        try { svg.setCurrentTime && svg.setCurrentTime(t); } catch {}
-
-        if (elapsed >= totalMs) {
-          try {
-            svg.setCurrentTime && svg.setCurrentTime(startT);
-            svg.pauseAnimations && svg.pauseAnimations();
-          } catch {}
-          playingRef.current = false;
-          rafRef.current = 0;
-          return;
-        }
-        rafRef.current = requestAnimationFrame(step);
-      };
-
-      rafRef.current = requestAnimationFrame(step);
-    } catch {}
-  }, [speedMult, offsetStartSec]);
-
-  React.useEffect(() => {
-    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); playingRef.current = false; };
-  }, []);
-
-  return (
-    <div style={{ display: "inline-flex", alignItems: "center", gap: 8, cursor: "default" }}>
-      <object
-        ref={objRef}
-        data={src}
-        type="image/svg+xml"
-        width={size}
-        height={size}
-        style={{ display: "block", pointerEvents: "auto", cursor: "pointer" }}
-        onMouseEnter={playOnce}
-        aria-label=""
-      >
-        <img src={src} alt="" width={size} height={size} style={{ display: "block" }} />
-      </object>
-
-      <div
-        style={{
-          fontFamily: "'Inter Tight','Inter',system-ui",
-          fontSize: 13,
-          lineHeight: "16px",
-          fontWeight: 300,
-          color: "#111",
-          maxHeight: 32,
-          overflow: "hidden",
-          textAlign: "left",
-        }}
-      >
-        <div style={{ whiteSpace: "nowrap" }}>{labelTop}</div>
-        <div style={{ whiteSpace: "nowrap" }}>{labelBottom}</div>
-      </div>
-    </div>
   );
 }
