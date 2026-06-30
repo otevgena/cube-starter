@@ -1,97 +1,82 @@
 // src/components/layout/Footer.jsx
+// Подвал (clean-rebuild): нормальный поток вместо абсолютного позиционирования.
 import React from "react";
 
+const NAV = [
+  [
+    { label: "Услуги", href: "/#services" },
+    { label: "О нас", href: "/#about" },
+    { label: "Проекты", href: "/#projects" },
+  ],
+  [
+    { label: "Контакты", href: "/#contact" },
+    { label: "Отзывы", href: "/#reviews" },
+  ],
+];
+
+const LEGAL = [
+  { label: "Политика cookie", href: "/legal/cookies" },
+  { label: "Правовые положения", href: "/legal/terms" },
+  { label: "Политика конфиденциальности", href: "/legal/privacy" },
+];
+
 export default function Footer() {
-  // универсальный SPA-навигационный клик
+  // SPA-навигация для юр. ссылок (отдельные роуты)
   const go = (e, to) => {
     if (e) e.preventDefault();
     try {
       window.history.pushState({}, "", to);
       window.dispatchEvent(new PopStateEvent("popstate"));
     } catch {
-      // на всякий случай — обычный переход, если pushState недоступен
       window.location.href = to;
     }
   };
 
   return (
-    <footer className="text-[#222222]">
-      {/* Основной блок футера */}
-      <div className="bg-[#f8f8f8]">
-        {/* Сделали контейнер на всю ширину, чтобы боковые отступы были ровно 52px от краёв экрана */}
-        <div className="w-full h-[298px] relative">
-          {/* «c.» — 30px, Extra-Bold, отступ слева 52px */}
-          <div className="absolute left-[52px] top-0 leading-none select-none">
-            <span className="inline-block align-top text-[30px] font-extrabold tracking-tight">c.</span>
-          </div>
+    <footer className="bg-page font-tight text-ink">
+      <div className="px-[52px] pb-6 pt-24">
+        {/* логотип */}
+        <div className="select-none text-[30px] font-extrabold leading-none tracking-tight">c.</div>
 
-          {/* Навигационные колонки */}
-          <div className="absolute left-[52px] top-[59px] flex">
-            <nav className="text-[14px] leading-[1.2] font-semibold">
-              <a href="/#services" className="block hover:underline">Услуги</a>
-              <a href="/#about" className="block mt-[19px] hover:underline">О нас</a>
-              <a href="/#projects" className="block mt-[19px] hover:underline">Проекты</a>
+        {/* навигационные колонки */}
+        <div className="mt-[35px] flex text-[14px] font-semibold leading-[1.2]">
+          {NAV.map((col, i) => (
+            <nav key={i} className={i === 0 ? "" : "ml-[234px]"}>
+              {col.map((item, j) => (
+                <a key={item.href} href={item.href} className={`block hover:underline ${j === 0 ? "" : "mt-[19px]"}`}>
+                  {item.label}
+                </a>
+              ))}
             </nav>
-            <nav className="ml-[234px] text-[14px] leading-[1.2] font-semibold">
-              <a href="/#contact" className="block hover:underline">Контакты</a>
-              <a href="/#reviews" className="block mt-[19px] hover:underline">Отзывы</a>
-            </nav>
-          </div>
+          ))}
+        </div>
 
-          {/* Полоса точек (как в Project.jsx) */}
-          <div className="absolute left-[52px] right-[52px]" style={{ top: 59 + 14 + 19 + 14 + 19 + 61 }}>
-            <div
-              className="w-full h-[1px]"
-              style={{
-                backgroundImage:
-                  "repeating-linear-gradient(to right, #2e2e2e 0 1px, rgba(0,0,0,0) 1px 9px)",
-              }}
-              aria-hidden="true"
-            />
-          </div>
+        {/* пунктирный разделитель (как в таблице проектов) */}
+        <div
+          className="mt-[28px] h-px w-full"
+          style={{ backgroundImage: "repeating-linear-gradient(to right, #2e2e2e 0 1px, rgba(0,0,0,0) 1px 9px)" }}
+          aria-hidden="true"
+        />
 
-          {/* Нижняя строка: слева юр. ссылки, справа почта/телефон */}
-          <div className="absolute left-[52px] right-[52px] bottom-[24px]">
-            <div className="mt-[52px] text-[14px] flex items-center flex-wrap gap-x-[24px]">
-              {/* ЛЕВО: юр. ссылки (normal 400) */}
-              <a
-                href="/legal/cookies"
-                className="hover:underline font-normal"
-                onClick={(e) => go(e, "/legal/cookies")}
-              >
-                Политика cookie
-              </a>
+        {/* нижняя строка: слева юр. ссылки, справа контакты */}
+        <div className="mt-[52px] flex flex-wrap items-center gap-x-[24px] text-[14px]">
+          {LEGAL.map((item) => (
+            <a key={item.href} href={item.href} onClick={(e) => go(e, item.href)} className="font-normal hover:underline">
+              {item.label}
+            </a>
+          ))}
 
-              <a
-                href="/legal/terms"
-                className="hover:underline font-normal"
-                onClick={(e) => go(e, "/legal/terms")}
-              >
-                Правовые положения
-              </a>
-
-              <a
-                href="/legal/privacy"
-                className="hover:underline font-normal"
-                onClick={(e) => go(e, "/legal/privacy")}
-              >
-                Политика конфиденциальности
-              </a>
-
-              {/* ПРАВО: контактная секция — выравнивание по правому краю */}
-              <div className="ml-auto flex items-center flex-wrap gap-x-[24px] text-right">
-                <span className="font-semibold">Почта:</span>
-                <a href="mailto:info@cube-tech.ru" className="hover:underline font-normal">info@cube-tech.ru</a>
-                <span className="font-semibold">Телефон:</span>
-                <a href="tel:+79129112000" className="hover:underline font-normal">+7 (912) 911-20-00</a>
-              </div>
-            </div>
+          <div className="ml-auto flex flex-wrap items-center gap-x-[24px]">
+            <span className="font-semibold">Почта:</span>
+            <a href="mailto:info@cube-tech.ru" className="font-normal hover:underline">info@cube-tech.ru</a>
+            <span className="font-semibold">Телефон:</span>
+            <a href="tel:+79129112000" className="font-normal hover:underline">+7 (912) 911-20-00</a>
           </div>
         </div>
       </div>
 
-      {/* Нижняя серая подложка 120px у самого низа */}
-      <div className="h-[120px] bg-[#f8f8f8]" />
+      {/* нижняя подложка */}
+      <div className="h-[120px] bg-page" />
     </footer>
   );
 }
