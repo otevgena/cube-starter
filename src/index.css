@@ -56,17 +56,7 @@ body{
 
 /* Контейнеры */
 .container-wide{ @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8; }
-.container-header{ @apply max-w-7xl mx-auto pl-2 sm:pl-3 pr-2 sm:pr-4 lg:pr-6; }
 
-/* Градиентные (однотонные) тексты */
-.text-grad-222{
-  background: linear-gradient(to right,#222 0%,#222 100%);
-  -webkit-background-clip: text; background-clip: text; color: transparent;
-}
-.text-grad-452f2d{
-  background: linear-gradient(to right,#452f2d 0%,#452f2d 100%);
-  -webkit-background-clip: text; background-clip: text; color: transparent;
-}
 
 /* === 1) ЧЁТКИЙ ТЕКСТ И РАМКИ (как на page3) === */
 html, body{
@@ -79,22 +69,6 @@ html, body{
 
 
 
-/* ===== О НАС (About) ===== */
-.about-hero{ margin-top:118px; text-align:center; color:#222; }
-
-/* Верхняя строка */
-.about-hero-meta{
-  display:flex; align-items:center; justify-content:center; gap:12px;
-  font-family: var(--font-tight);
-}
-.about-hero-today,.about-hero-load{
-  font-size:14px; line-height:14px; font-weight:500; color:#222;
-}
-.about-hero-date{
-  font-size:14px; line-height:14px; font-weight:500; color:#222;
-  padding:4px 10px; border:1px solid rgba(0,0,0,.20); border-radius:6px;
-}
-
 /* Заголовок CUBE-TECH — из ТЗ */
 .about-hero-title{
   margin:22px 0 12px;
@@ -102,30 +76,9 @@ html, body{
   font-size:137.549px; line-height:137.549px; font-weight:300; letter-spacing:0;
   color:#222; text-transform:uppercase;
 }
-
-/* Линия с директором */
-.about-hero-sign{ display:flex; align-items:center; justify-content:center; gap:10px; margin-top:14px; }
-.about-hero-avatar{ width:32px; height:32px; border-radius:9999px; object-fit:cover; }
-.about-hero-role{ position:relative; text-decoration:none; color:#222; font-size:14px; line-height:14px; font-weight:600; padding-bottom:4px; }
-.about-hero-role::before{ content:""; position:absolute; left:0; right:0; bottom:0; height:2px; background:#d0d0d0; }
-.about-hero-role::after{ content:""; position:absolute; left:0; bottom:0; height:2px; width:0; background:#222; transition:width .35s ease; }
-.about-hero-role:hover::after{ width:100%; }
-.about-hero-badge{ font-size:5px; line-height:14px; color:#222; align-self:flex-start; margin-left:6px; }
-
-/* Большой «ромб» */
-.about-hero-diamond{
-  width:1441px; height:1111.95px; background:#222; border-radius:14px; margin:78px auto 0;
-  position:relative; overflow:hidden;
-}
-.about-hero-diamond>img{
-  position:absolute; inset:62px; width:calc(100% - 124px); height:calc(100% - 124px);
-  object-fit:cover; border-radius:14px;
-}
-
 /* Адаптация ширины под узкие экраны */
 @media (max-width:1500px){
   .about-hero-title{ font-size:min(137.549px, 13.5vw); line-height:1; }
-  .about-hero-diamond{ width:min(1441px, 96vw); height:calc(min(1441px, 96vw) * 0.7715); }
 }
 
 /* ===== Скрыть «Услуги» в основном полотне ТОЛЬКО на главной ===== */
@@ -148,52 +101,6 @@ body.home a[href="#services"]{
   opacity: .9;
 }
 
-/* ====== ABOUT: поднять на 60px, правки шрифта и фон как у шапки ====== */
-
-/* Было 118px от верха, поднимаем весь блок "О нас" на 60px вверх → 58px */
-.about-hero{
-  margin-top: 58px !important;
-  background: var(--bg-page) !important; /* фон как у шапки */
-}
-
-/* Heading */
-.about-hero h1{
-  font-weight: 600 !important;
-}
-
-/* Span Tag — маленький "CUBE" рядом с должностью */
-.about-hero .about-hero-sign span{
-  font-size: 9px !important;
-  position: relative !important;
-  left: -13px !important;
-  top: 4px !important;
-}
-
-/* Bold Tag — внутри "Загруженность" делаем 400 */
-.about-hero-meta .about-hero-load b{
-  font-weight: 400 !important;
-}
-
-/* About hero load / today — 400 как просил */
-.about-hero .about-hero-meta .about-hero-load{
-  font-weight: 400 !important;
-}
-.about-hero .about-hero-meta .about-hero-today{
-  font-weight: 400 !important;
-}
-
-/* Main — без сдвигов (на всякий случай) */
-#root .min-h-dvh main{
-  transform: translateX(0) translateY(0) !important;
-}
-
-/* === 1) Полоска между шапкой и «О нас» (margin-collapsing) === */
-/* Меняем верхний отступ на паддинг, фон как у шапки */
-.about-hero{
-  margin-top: 0 !important;
-  padding-top: 58px !important;      /* раньше было margin-top:58px */
-  background: var(--bg-page) !important;
-}
 
 /* === 2) Скрываем ТОЛЬКО контент-секцию «Услуги» на главной === */
 body.home #services,
@@ -257,37 +164,6 @@ body, #root{
   to { transform: rotate(360deg); }
 }
 
-/* --- ABOUT: блок ниже ромба --- */
-.about-hero .about-hero-more{
-  margin-top: 96px;          /* расстояние от ромбика до текста */
-  text-align: center;
-  font-family: 'Inter Tight','Inter',system-ui,-apple-system,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;
-}
-
-/* Заголовки "УЗНАТЬ БОЛЬШЕ" / "О НАС" — как CUBE-TECH */
-.about-hero .about-hero-more .about-hero-title{
-  font-weight: 600;          /* как у CUBE-TECH */
-  margin: 0;                 /* чтобы две строки шли плотным блоком */
-  text-transform: uppercase; /* верхний регистр */
-  /* не задаём font-size/letter-spacing здесь — берутся из базового .about-hero-title */
-}
-
-/* Подзаголовок: "Наши проекты, опыт, решения." */
-.about-hero .about-hero-more .about-hero-more-sub{
-  margin-top: 15px;          /* отступ между "О НАС" и подзаголовком */
-  font-size: 20.9859px;
-  line-height: 28px;
-  font-weight: 300;          /* Light (300) */
-  letter-spacing: normal;
-  color: #222222;
-}
-
-/* About hero overview */
-.about-hero .about-hero-flow .about-hero-overview{
-  position: relative;
-  top: 71px;            /* визуальный сдвиг вниз */
-  margin-bottom: 71px;  /* столько же места в потоке, чтобы ниже не налезало */
-}
 
 
 /* контент всегда отступает на высоту шапки, чтобы не прыгал */
@@ -317,10 +193,6 @@ body.home [data-section="services"]{
   display: block !important;
 }
 
-/* Контакты: локально меняем фон секции на #f8f8f8 */
-.contact-hero{
-  --bg-page: linear-gradient(to right, #f8f8f8 0%, #f8f8f8 100%);
-}
 
 /* === Открыт отзыв (модалка PDF): анимационно прячем нижний док === */
 #dock-root .dock{
