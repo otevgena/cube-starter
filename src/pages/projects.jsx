@@ -1,90 +1,29 @@
 // src/pages/projects.jsx
 import React from "react";
 
+const TITLE = { fontSize: "clamp(48px, 13.5vw, 137px)" };
+
 export default function ProjectsPage() {
   const TOTAL = 26; // сколько проектов показываем
 
   return (
-    <section className="about-hero" aria-label="Смотреть работы">
-      {/* фон и поднятый header — как в About */}
-      <div
-        className="about-hero-header"
-        style={{ transform: "translateY(-74px)", willChange: "transform" }}
-      >
-        <div className="container-wide">
-          {/* Центровка, отступ 200px */}
-          <div className="about-hero-flow" style={{ marginTop: "200px" }}>
-            {/* маленький оверхедер */}
-            <div
-              className="about-hero-overview"
-              style={{
-                textAlign: "center",
-                fontFamily: "'Inter Tight','Inter',system-ui",
-                fontSize: "14px",
-                lineHeight: "28px",
-                fontWeight: 300,
-                color: "#222222",
-                margin: 0,
-              }}
-            >
-              Каталог
-            </div>
-
-            {/* заголовок */}
-            <h2
-              className="about-hero-title"
-              style={{
-                margin: 0,
-                marginTop: "25px",
-                textTransform: "uppercase",
-                fontWeight: 600,
-              }}
-            >
-              СМОТРЕТЬ РАБОТЫ
-            </h2>
-
-            {/* сабтайтл — минимальный текст */}
-            <p
-              className="about-hero-more-sub"
-              style={{
-                marginTop: "15px",
-                fontSize: "20.9859px",
-                lineHeight: "28px",
-                fontWeight: 300,
-                color: "#222222",
-                textAlign: "center",
-              }}
-            >
-              Всего <b>{TOTAL}</b> проектов — скоро здесь появится список и фильтры.
-            </p>
-          </div>
-
-          {/* простой плейсхолдер под список работ */}
-          <div
-            style={{
-              marginTop: "82px",
-              marginLeft: "80px",
-              marginRight: "80px",
-              fontFamily: "'Inter Tight','Inter',system-ui",
-              color: "#222222",
-            }}
-          >
-            <div
-              style={{
-                fontSize: "16px",
-                lineHeight: "24px",
-                fontWeight: 300,
-                opacity: 0.9,
-              }}
-            >
-              Здесь будут карточки проектов, сортировка и поиск.
-            </div>
-          </div>
-
-          {/* низ страницы для воздуха */}
-          <div style={{ height: 160 }} />
-        </div>
+    <section className="bg-page pt-[200px] font-tight text-ink" aria-label="Смотреть работы">
+      <div className="text-center">
+        <div className="text-sm font-light leading-7">Каталог</div>
+        <h1 className="mt-[26px] font-semibold uppercase leading-none" style={TITLE}>
+          СМОТРЕТЬ РАБОТЫ
+        </h1>
+        <p className="mt-4 text-[21px] font-light leading-7">
+          Всего <b className="font-semibold">{TOTAL}</b> проектов — скоро здесь появится список и фильтры.
+        </p>
       </div>
+
+      {/* плейсхолдер под список работ */}
+      <div className="mx-[80px] mt-[82px] text-base font-light leading-6 text-ink/90">
+        Здесь будут карточки проектов, сортировка и поиск.
+      </div>
+
+      <div className="h-[160px]" />
     </section>
   );
 }

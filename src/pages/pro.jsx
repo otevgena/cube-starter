@@ -807,23 +807,23 @@ export default function ProJobsPage() {
       <style>{`.with-ph::placeholder{color:${PH};opacity:1;}`}</style>
 
       {/* Хиро */}
-      <div style={{ paddingTop: 54, paddingBottom: 22, textAlign: "center" }}>
-        <div style={{ transform: "translateY(-80px)" }}>
-          <div style={{ fontSize: 14, lineHeight: "28px", fontWeight: 300, color: MUTED }}>Вакансии</div>
-          <h1 className="about-hero-title" style={{ margin: 0, textTransform: "uppercase", fontWeight: 600 }}>
+      <div className="px-4 pb-[22px] pt-[54px] text-center font-tight">
+        <div className="-translate-y-[80px]">
+          <div className="text-sm font-light leading-7 text-[#6b7280]">Вакансии</div>
+          <h1 className="m-0 font-semibold uppercase leading-none text-[#222]" style={{ fontSize: "clamp(48px, 13.5vw, 137px)" }}>
             РАБОТА В КУБ
           </h1>
-          <div style={{ marginTop: 12, fontSize: 16, lineHeight: "24px", fontWeight: 300, color: "#222" }}>
+          <div className="mt-3 text-base font-light leading-6 text-[#222]">
             Мы — компания КУБ, занимаемся инженерными системами под ключ: электрика, слаботочка, ОВиК и многое другое.
-            <br/>Проекты по всей России. Приглашаем монтажников, инженеров и студентов — на временную и постоянную работу.
+            <br />Проекты по всей России. Приглашаем монтажников, инженеров и студентов — на временную и постоянную работу.
           </div>
         </div>
-        <div style={{ height: 80 }} />
+        <div className="h-20" />
         <div>
-          <div style={{ marginTop: 22, fontSize: 21, lineHeight: "28px", fontWeight: 600, color: "#222" }}>
+          <div className="mt-[22px] text-[21px] font-semibold leading-7 text-[#222]">
             Архитектура карьеры строится из реальных задач.
           </div>
-          <div style={{ marginTop: 6, fontSize: 14, lineHeight: "24px", fontWeight: 300, color: "#222" }}>
+          <div className="mt-1.5 text-sm font-light leading-6 text-[#222]">
             Ниже — анкета. Заполните её, и мы свяжемся с вами.
           </div>
         </div>
