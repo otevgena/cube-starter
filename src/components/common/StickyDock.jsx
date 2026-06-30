@@ -56,9 +56,14 @@ export default function StickyDock() {
       return u.name || u.username || String(u.email || "").split("@")[0] || "Профиль";
     } catch { return ""; }
   };
+  const nameFromUser = (u) => (u ? (u.name || u.username || String(u.email || "").split("@")[0] || "") : "");
   const [userName, setUserName] = React.useState(readUserName());
   React.useEffect(() => {
-    const onAuth = () => setUserName(readUserName());
+    const onAuth = (e) => {
+      // имя берём прямо из события (без гонки с записью кэша), иначе из кэша
+      if (e && e.detail && "user" in e.detail) setUserName(nameFromUser(e.detail.user));
+      else setUserName(readUserName());
+    };
     window.addEventListener("auth:changed", onAuth);
     return () => window.removeEventListener("auth:changed", onAuth);
   }, []);
