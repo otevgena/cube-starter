@@ -77,10 +77,19 @@
   услуги → `/contact` с предвыбором услуги (`sessionStorage` → форма);
   плавная анимация ширины при смене режима.
 
+- **Чистка `index.css`** — удалён мёртвый CSS старой шапки (mega-panel,
+  `.svc-*`, `.nav-link`, `.search-*`, `.btn-*`, `.logo-c`, `.badge-new`,
+  `#site-header*`, пиксельные сдвиги `.min-h-dvh …`, dock-водопад). Файл
+  **1908 → 334 строки**. Живое сохранено: `.about-hero-*` (нужны legal/услугам/
+  pro/projects/модалкам), font-smoothing, `padding main`, токены `:root`,
+  preloader, `body.home #services`, `.contact-hero` фон, `.container-wide`.
+
 ## TODO (десктоп)
-ВСЕ блоки главной + Footer + StickyDock переписаны ✅. Осталось:
-7. Подчистить остатки мёртвого `index.css` (about-hero, services-on-home и т.п.).
-8. Страницы услуг и legal (по мере надобности).
+ВСЁ ключевое переписано и почищено ✅. Осталось по желанию:
+8. Страницы услуг и legal — причесать под чистый стиль (используют легаси
+   `.about-hero-*` + собственные `<style>` в файлах страниц).
+9. Глянуть, нужна ли ещё `.min-h-dvh > main { padding-top }` (зависит от
+   позиционирования новой шапки) и судьбу `body.home #services` (none/block).
 
 ## Потом
 - Мобильная адаптация на чистой основе (наработки из ветки
