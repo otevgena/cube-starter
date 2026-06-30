@@ -2,6 +2,10 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App.jsx'
 import './index.css'
+import { installDevAuth } from './lib/dev-auth.js'
+
+// === ВРЕМЕННЫЙ dev-вход без бэкенда: синхронно, ДО любых fetch (только в dev) ===
+if (import.meta.env.DEV) installDevAuth();
 
 // === метим главную страницу классом на <body> ===
 function applyHomeClass() {

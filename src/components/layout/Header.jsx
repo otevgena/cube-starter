@@ -438,6 +438,22 @@ function AvatarMenu({ user, onLogout }) {
     };
   }, []);
 
+  // вкладки аккаунта по роли (Партнёр/Поставщик — только при доступе, Администратор — только админу)
+  const isAdmin = Boolean(user?.isAdmin || user?.role === "admin" || user?.group === "admin");
+  const grp = String(user?.group || user?.role || "").toLowerCase();
+  const navItems = [
+    { label: "Профиль", href: "/account/profile", locked: false },
+    { label: "Партнёр", href: "/account/partner", locked: !(isAdmin || grp === "partner") },
+    { label: "Поставщик", href: "/account/supplier", locked: !(isAdmin || grp === "supplier") },
+    { label: "Настройки", href: "/account/personal", locked: false },
+  ];
+  const go = (e, to) => {
+    if (e) e.preventDefault();
+    setOpen(false);
+    try { window.history.pushState({}, "", to); window.dispatchEvent(new PopStateEvent("popstate")); }
+    catch { window.location.href = to; }
+  };
+
   return (
     <div ref={wrapRef} className="relative" onMouseEnter={openNow} onMouseLeave={scheduleClose}>
       <img
@@ -449,24 +465,55 @@ function AvatarMenu({ user, onLogout }) {
       />
       {open && (
         <div
-          className="absolute right-0 top-[calc(100%+10px)] z-[80] w-44 rounded-2xl bg-dark p-3 text-sm font-light text-white shadow-2xl"
+          className="absolute left-0 top-[calc(100%+10px)] z-[80] w-56 origin-top-left animate-svcfade rounded-2xl bg-dark p-2.5 text-sm font-light text-white shadow-2xl"
           onMouseEnter={openNow}
           onMouseLeave={scheduleClose}
         >
-          <div className="px-2 pb-3 pt-2">
-            <div className="mb-1 opacity-70">В аккаунте</div>
+          <div className="px-2 pb-1.5 pt-1">
+            <div className="mb-0.5 text-xs opacity-60">В аккаунте</div>
             <div className="truncate font-normal" title={user?.name || user?.email || "Пользователь"}>
               {user?.name || user?.email || "Пользователь"}
             </div>
           </div>
           <div className="my-1.5 h-px bg-white/15" />
-          <a href="/account" className="block rounded-lg px-2 py-2.5 hover:bg-white/10">Профиль</a>
-          <a href="/collections" className="block rounded-lg px-2 py-2.5 opacity-85 hover:bg-white/10">Коллекции</a>
-          <a href="/notifications" className="block rounded-lg px-2 py-2.5 opacity-85 hover:bg-white/10">Уведомления</a>
-          <div className="my-2.5 h-px bg-white/15" />
-          <a href="/dashboard" className="block rounded-lg px-2 py-2.5 hover:bg-white/10">Панель</a>
-          <div className="my-2.5 h-px bg-white/15" />
-          <button type="button" onClick={onLogout} className="w-full rounded-lg px-2 py-2.5 text-left font-normal hover:bg-white/10">
+          {navItems.map((it) => (
+            it.locked ? (
+              <div
+                key={it.href}
+                className="flex cursor-not-allowed items-center justify-between rounded-lg px-2 py-1.5 text-white/35"
+                title="Недоступно для вашего аккаунта"
+              >
+                <span>{it.label}</span>
+                <svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true" className="opacity-80">
+                  <rect x="5" y="11" width="14" height="9" rx="2" fill="none" stroke="currentColor" strokeWidth="1.7" />
+                  <path d="M8 11V8a4 4 0 0 1 8 0v3" fill="none" stroke="currentColor" strokeWidth="1.7" />
+                </svg>
+              </div>
+            ) : (
+              <a
+                key={it.href}
+                href={it.href}
+                onClick={(e) => go(e, it.href)}
+                className="block rounded-lg px-2 py-1.5 hover:bg-white/10"
+              >
+                {it.label}
+              </a>
+            )
+          ))}
+          {isAdmin && (
+            <>
+              <div className="my-1.5 h-px bg-white/15" />
+              <a
+                href="/account/admin"
+                onClick={(e) => go(e, "/account/admin")}
+                className="block rounded-lg px-2 py-1.5 hover:bg-white/10"
+              >
+                Администратор
+              </a>
+            </>
+          )}
+          <div className="my-1.5 h-px bg-white/15" />
+          <button type="button" onClick={onLogout} className="w-full rounded-lg px-2 py-1.5 text-left font-normal hover:bg-white/10">
             Выход
           </button>
         </div>
@@ -584,6 +631,8 @@ export default function Header() {
     accessRef.current = null;
     try { sessionStorage.removeItem("auth:accessToken"); } catch {}
     setAuthReady(true);
+    // уведомляем подписчиков (док, гард в App) → они уведут с приватных страниц
+    window.dispatchEvent(new CustomEvent("auth:changed", { detail: { user: null, accessToken: null } }));
   }
 
   // === Управление панелью услуг ===
@@ -621,9 +670,10 @@ export default function Header() {
   // (scrollbar-gutter:stable в index.css не даёт фону «прыгать»)
   React.useEffect(() => {
     if (!servicesOpen) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = prev; };
+    const root = document.documentElement;
+    const prev = root.style.overflow;
+    root.style.overflow = "hidden";
+    return () => { root.style.overflow = prev; };
   }, [servicesOpen]);
 
   const barProps = { servicesOpen, setServicesOpen, user, authReady, onLogout: handleLogout };

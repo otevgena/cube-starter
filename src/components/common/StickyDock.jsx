@@ -34,6 +34,7 @@ export default function StickyDock() {
   const getIsDesign       = () => { try { return /^\/services\/design(\/|$)/.test(window.location.pathname || "/"); } catch { return false; } };
   const getIsConstruction = () => { try { return /^\/services\/construction(\/|$)/.test(window.location.pathname || "/"); } catch { return false; } };
   const getIsContact      = () => { try { return /^\/contact(\/|$)/.test(window.location.pathname || "/"); } catch { return false; } };
+  const getIsAccount      = () => { try { return /^\/account(\/|$)/.test(window.location.pathname || "/"); } catch { return false; } };
 
   /* =============== state =============== */
   const [routeKey, setRouteKey] = React.useState(getPath());
@@ -45,6 +46,22 @@ export default function StickyDock() {
     getIsElectroOnly() || getIsLow() || getIsVent() || getIsDesign() || getIsConstruction()
   );
   const [isContact, setIsContact] = React.useState(getIsContact());
+  const [isAccount, setIsAccount] = React.useState(getIsAccount());
+
+  // имя профиля для дока (из кэша Header), обновляется на auth:changed
+  const readUserName = () => {
+    try {
+      const u = JSON.parse(sessionStorage.getItem("auth:lastUser") || "null");
+      if (!u) return "";
+      return u.name || u.username || String(u.email || "").split("@")[0] || "Профиль";
+    } catch { return ""; }
+  };
+  const [userName, setUserName] = React.useState(readUserName());
+  React.useEffect(() => {
+    const onAuth = () => setUserName(readUserName());
+    window.addEventListener("auth:changed", onAuth);
+    return () => window.removeEventListener("auth:changed", onAuth);
+  }, []);
 
   const defaultPills = ["Услуги", "О нас", "Проекты", "Контакты", "Отзывы"];
   const legalNav = [
@@ -81,7 +98,10 @@ export default function StickyDock() {
       } else {
         const prevLegal = isLegalPath(prevPath);
         const nextLegal = isLegalPath(nextPath);
-        allowAnimateRef.current = !(prevLegal && nextLegal);
+        const prevAcc = /^\/account(\/|$)/.test(prevPath || "");
+        const nextAcc = /^\/account(\/|$)/.test(nextPath || "");
+        // не анимируем док при переходах внутри legal или внутри аккаунта
+        allowAnimateRef.current = !((prevLegal && nextLegal) || (prevAcc && nextAcc));
       }
 
       prevPathRef.current = nextPath;
@@ -92,6 +112,7 @@ export default function StickyDock() {
       setIsLegal(legal);
       setIsElectro(compactService);
       setIsContact(getIsContact());
+      setIsAccount(getIsAccount());
 
       if (legal) {
         const p = window.location.pathname || "";
@@ -273,7 +294,18 @@ export default function StickyDock() {
     "--pill-h": "48px",
     "--pill-gap": "6px",
   };
-  const dockVars = isContact ? contactVars : isLegal ? legalVars : isElectro ? electroVars : defaultVars;
+  const accountVars = {
+    "--dock-w": "auto",
+    "--dock-h": "72px",
+    "--dock-radius": "12px",
+    "--dock-bottom": "21px",
+    "--dock-left-tile": "60px",
+    "--dock-group-w": "0px",
+    "--dock-right-btn": "0px",
+    "--pill-h": "48px",
+    "--pill-gap": "6px",
+  };
+  const dockVars = isAccount ? accountVars : isContact ? contactVars : isLegal ? legalVars : isElectro ? electroVars : defaultVars;
 
   /* =============== анимация (инлайн с !important) =============== */
   const panelRef = React.useRef(null);
@@ -381,7 +413,7 @@ export default function StickyDock() {
   }, []);
 
   /* =============== classes =============== */
-  const dockClass = `dock${isLegal ? " is-legal" : ""}${isElectro ? " is-electro" : ""}${isContact ? " is-contact" : ""}`;
+  const dockClass = `dock${isLegal ? " is-legal" : ""}${isElectro ? " is-electro" : ""}${isContact ? " is-contact" : ""}${isAccount ? " is-account" : ""}`;
 
   /* =============== render =============== */
   return (
@@ -451,8 +483,8 @@ export default function StickyDock() {
             </a>
           )}
 
-          {/* центр — скрыт в компактных сервисах */}
-          <div className="dock__group" role="tablist" aria-label="Dock" style={(isElectro || isContact) ? { display: "none" } : undefined}>
+          {/* центр — скрыт в компактных сервисах и аккаунте */}
+          <div className="dock__group" role="tablist" aria-label="Dock" style={(isElectro || isContact || isAccount) ? { display: "none" } : undefined}>
             {pills.map((t, i) => (
               <button
                 key={t}
@@ -467,8 +499,30 @@ export default function StickyDock() {
             ))}
           </div>
 
+          {/* аккаунт: кнопка профиля (иконка + имя с подчёркиванием) */}
+          {isAccount && (
+            <a
+              href="/account/profile"
+              onClick={(e) => { e.preventDefault(); go("/account/profile"); }}
+              className="dock__profile"
+              title="Профиль"
+            >
+              <img src="/profile/profile.png" alt="" className="dock__profile-avatar" />
+              <span className="dock__profile-name">{userName || "Профиль"}</span>
+            </a>
+          )}
+
           {/* CTA справа */}
-          {!isLegal && !isContact && (
+          {isAccount ? (
+            <a
+              href="/account/personal"
+              onClick={(e) => { e.preventDefault(); go("/account/personal"); }}
+              className="dock__settings"
+              role="button"
+            >
+              Настройки
+            </a>
+          ) : (!isLegal && !isContact && (
             isElectro ? (
               <a
                 href="/contact"
@@ -488,7 +542,7 @@ export default function StickyDock() {
                 Купить
               </a>
             )
-          )}
+          ))}
         </div>
       </div>
 
@@ -668,6 +722,47 @@ export default function StickyDock() {
         .dock.is-contact .dock__inner{
           grid-template-columns: var(--dock-left-tile);
         }
+
+        /* ===== режим аккаунта: c. + профиль (имя с подчёркиванием) + Настройки ===== */
+        .dock.is-account{ width: auto; padding: 6px; }
+        .dock.is-account a.dock__brand{ left: 0; }
+        .dock.is-account .dock__inner{
+          grid-template-columns: var(--dock-left-tile) auto auto;  /* c. + имя + Настройки */
+          column-gap: 6px;
+          width: auto;
+        }
+        .dock.is-account .dock__profile{
+          display: inline-flex; align-items: center; gap: 12px;
+          height: 60px; padding: 0 18px 0 12px;
+          border-radius: 10px;
+          background: #3E3E3E;            /* графитовая плашка как у пилюль */
+          color: #e8e8e8; text-decoration: none;
+          font-size: 14px; font-weight: 400; white-space: nowrap;
+        }
+        .dock.is-account .dock__profile-avatar{
+          width: 36px; height: 36px; border-radius: 9999px; object-fit: cover; flex: 0 0 auto;
+        }
+        .dock.is-account .dock__profile-name{ position: relative; padding-bottom: 3px; }
+        .dock.is-account .dock__profile-name::before{
+          content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 1px;
+          background: rgba(255,255,255,.28);
+        }
+        .dock.is-account .dock__profile-name::after{
+          content: ""; position: absolute; left: 0; bottom: 0; height: 1px; width: 0;
+          background: #fff; transition: width .3s ease;
+        }
+        .dock.is-account .dock__profile:hover .dock__profile-name::after{ width: 100%; }
+        .dock.is-account .dock__settings{
+          display: inline-grid; place-items: center;
+          height: 60px; padding: 0 18px;
+          border-radius: 8px;
+          background: #aceec4; color: #111;
+          border: none; text-decoration: none; white-space: nowrap;
+          font-size: 13px; font-weight: 600; cursor: pointer;
+          transition: filter .18s ease;
+        }
+        .dock.is-account .dock__settings:hover{ filter: brightness(0.96); }
+        .dock.is-account .dock__settings:active{ filter: brightness(0.92); }
       `}</style>
     </div>
   );

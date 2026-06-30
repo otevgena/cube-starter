@@ -79,6 +79,31 @@ export default function App(){
     }
   }, [])
 
+  // === Гард: страницы аккаунта только для авторизованных ===
+  useEffect(() => {
+    if (!path.startsWith('account')) return
+    let authed = false
+    try { authed = !!sessionStorage.getItem('auth:lastUser') } catch {}
+    if (!authed) {
+      window.history.replaceState({}, '', '/')
+      window.dispatchEvent(new PopStateEvent('popstate'))
+      setTimeout(() => { try { window.openModal?.('login') } catch {} }, 50)
+    }
+  }, [path])
+
+  // === Выход: уводим с приватных страниц аккаунта на главную ===
+  useEffect(() => {
+    const onAuth = (e) => {
+      const u = e?.detail?.user
+      if (!u && (window.location.pathname || '').startsWith('/account')) {
+        window.history.pushState({}, '', '/')
+        window.dispatchEvent(new PopStateEvent('popstate'))
+      }
+    }
+    window.addEventListener('auth:changed', onAuth)
+    return () => window.removeEventListener('auth:changed', onAuth)
+  }, [])
+
   // ——— ПРОКРУТКА НАВЕРХ + ТИТУЛ ———
   useEffect(() => {
     try {

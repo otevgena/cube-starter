@@ -21,33 +21,14 @@ export default function ModalsHost() {
     return () => document.body.classList.remove("has-modal");
   }, [view]);
 
-  // блокируем скролл под модалкой без «прыжка»
+  // блокируем скролл под модалкой без «прыжка» и без сдвига шапки/контента
+  // (html overflow:hidden + scrollbar-gutter:stable → ширина/позиция стабильны)
   React.useEffect(() => {
     if (!view) return;
-    const scrollY = window.scrollY || window.pageYOffset || 0;
-
-    const prev = {
-      overflow: document.body.style.overflow,
-      position: document.body.style.position,
-      top: document.body.style.top,
-      width: document.body.style.width,
-    };
-
-    document.body.style.overflow = "hidden";
-    document.body.style.position = "fixed";
-    document.body.style.top = `-${scrollY}px`;
-    document.body.style.width = "100%";
-
-    return () => {
-      document.body.style.overflow = prev.overflow;
-      document.body.style.position = prev.position;
-      const top = document.body.style.top;
-      document.body.style.top = prev.top;
-      document.body.style.width = prev.width;
-
-      const y = Math.max(0, parseInt((top || "0").replace("px", ""), 10) * -1);
-      window.scrollTo(0, y);
-    };
+    const root = document.documentElement;
+    const prev = root.style.overflow;
+    root.style.overflow = "hidden";
+    return () => { root.style.overflow = prev; };
   }, [view]);
 
   if (!view) return null;
