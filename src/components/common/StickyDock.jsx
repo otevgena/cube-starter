@@ -1,6 +1,15 @@
 // src/components/common/StickyDock.jsx
 import React from "react";
 
+// услуга (страница) → предвыбранный пункт «чем помочь» в форме контактов
+const SERVICE_HELP = {
+  "/services/electrical": "Электромонтажные работы",
+  "/services/lowcurrent": "Слаботочные системы",
+  "/services/ventilation": "Вентиляция и кондиционирование",
+  "/services/design": "Проектирование систем",
+  "/services/construction": "Общестрой и отделка",
+};
+
 export default function StickyDock() {
   /* =============== helpers =============== */
   const getPath = () => {
@@ -24,6 +33,7 @@ export default function StickyDock() {
   const getIsVent         = () => { try { return /^\/services\/ventilation(\/|$)/.test(window.location.pathname || "/"); } catch { return false; } };
   const getIsDesign       = () => { try { return /^\/services\/design(\/|$)/.test(window.location.pathname || "/"); } catch { return false; } };
   const getIsConstruction = () => { try { return /^\/services\/construction(\/|$)/.test(window.location.pathname || "/"); } catch { return false; } };
+  const getIsContact      = () => { try { return /^\/contact(\/|$)/.test(window.location.pathname || "/"); } catch { return false; } };
 
   /* =============== state =============== */
   const [routeKey, setRouteKey] = React.useState(getPath());
@@ -34,6 +44,7 @@ export default function StickyDock() {
   const [isElectro, setIsElectro] = React.useState(
     getIsElectroOnly() || getIsLow() || getIsVent() || getIsDesign() || getIsConstruction()
   );
+  const [isContact, setIsContact] = React.useState(getIsContact());
 
   const defaultPills = ["Услуги", "О нас", "Проекты", "Контакты", "Отзывы"];
   const legalNav = [
@@ -80,6 +91,7 @@ export default function StickyDock() {
       const compactService = getIsElectroOnly() || getIsLow() || getIsVent() || getIsDesign() || getIsConstruction();
       setIsLegal(legal);
       setIsElectro(compactService);
+      setIsContact(getIsContact());
 
       if (legal) {
         const p = window.location.pathname || "";
@@ -197,6 +209,25 @@ export default function StickyDock() {
 
   const scrollToTop = () => window.scrollTo({ top: 0, behavior: "smooth" });
 
+  // c.: на главной — наверх; на любой другой странице — на главную
+  const onBrandClick = (e) => {
+    if (e) e.preventDefault();
+    const p = window.location.pathname || "/";
+    if (p === "/" || p === "") { setActive(null); scrollToTop(); }
+    else goHome();
+  };
+
+  // «Оставить заявку» со страницы услуги → /contact с предвыбранной услугой
+  const onElectroCta = (e) => {
+    if (e) e.preventDefault();
+    try {
+      const p = window.location.pathname || "/";
+      const key = Object.keys(SERVICE_HELP).find((k) => p.startsWith(k));
+      if (key) sessionStorage.setItem("cube:help", SERVICE_HELP[key]);
+    } catch {}
+    go("/contact");
+  };
+
   /* =============== sizes (CSS vars) =============== */
   const legalVars = {
     "--dock-w": "346px",
@@ -221,7 +252,7 @@ export default function StickyDock() {
     "--pill-gap": "6px",
   };
   const electroVars = {
-    "--dock-w": "197px",
+    "--dock-w": "199px",
     "--dock-h": "72px",
     "--dock-radius": "12px",
     "--dock-bottom": "21px",
@@ -231,7 +262,18 @@ export default function StickyDock() {
     "--pill-h": "48px",
     "--pill-gap": "6px",
   };
-  const dockVars = isLegal ? legalVars : isElectro ? electroVars : defaultVars;
+  const contactVars = {
+    "--dock-w": "72px",
+    "--dock-h": "72px",
+    "--dock-radius": "12px",
+    "--dock-bottom": "21px",
+    "--dock-left-tile": "60px",
+    "--dock-group-w": "0px",
+    "--dock-right-btn": "0px",
+    "--pill-h": "48px",
+    "--pill-gap": "6px",
+  };
+  const dockVars = isContact ? contactVars : isLegal ? legalVars : isElectro ? electroVars : defaultVars;
 
   /* =============== анимация (инлайн с !important) =============== */
   const panelRef = React.useRef(null);
@@ -339,7 +381,7 @@ export default function StickyDock() {
   }, []);
 
   /* =============== classes =============== */
-  const dockClass = `dock${isLegal ? " is-legal" : ""}${isElectro ? " is-electro" : ""}`;
+  const dockClass = `dock${isLegal ? " is-legal" : ""}${isElectro ? " is-electro" : ""}${isContact ? " is-contact" : ""}`;
 
   /* =============== render =============== */
   return (
@@ -401,16 +443,16 @@ export default function StickyDock() {
             <a
               href="/"
               className="dock__brand"
-              aria-label={isElectro ? "На главную" : "Home"}
-              onClick={(e) => { e.preventDefault(); if (isElectro) goHome(); else { setActive(null); scrollToTop(); } }}
-              title={isElectro ? "На главную" : "Home"}
+              aria-label="На главную"
+              onClick={onBrandClick}
+              title="На главную"
             >
               <span className="dock__brand-text">c.</span>
             </a>
           )}
 
           {/* центр — скрыт в компактных сервисах */}
-          <div className="dock__group" role="tablist" aria-label="Dock" style={isElectro ? { display: "none" } : undefined}>
+          <div className="dock__group" role="tablist" aria-label="Dock" style={(isElectro || isContact) ? { display: "none" } : undefined}>
             {pills.map((t, i) => (
               <button
                 key={t}
@@ -426,11 +468,11 @@ export default function StickyDock() {
           </div>
 
           {/* CTA справа */}
-          {!isLegal && (
+          {!isLegal && !isContact && (
             isElectro ? (
               <a
-                href="#contact"
-                onClick={(e) => { e.preventDefault(); scrollToSection("Контакты"); }}
+                href="/contact"
+                onClick={onElectroCta}
                 className="electro-cta"
                 role="button"
               >
@@ -452,7 +494,8 @@ export default function StickyDock() {
 
       {/* локальные стили */}
       <style>{`
-        body.has-modal #dock-root { display: none !important; }
+        #dock-root{ position: relative; z-index: 2147483647; }
+        body.has-modal #dock-root{ display: none; }
 
         .dock-up{
           position: fixed;
@@ -498,34 +541,133 @@ export default function StickyDock() {
         .dock-toast__icon{ display: grid; place-items: center; }
         .dock-toast__text{ font-size: 15px; font-weight: 400; }
 
+        /* ===== База дока ===== */
         .dock{
           position: fixed;
           left: 50%;
           bottom: var(--dock-bottom, 21px);
-          width: var(--dock-w, 596px);
-          height: var(--dock-h, 72px);
-          border-radius: var(--dock-radius, 12px);
           transform: translateX(-50%);
-          z-index: 2147483646;
-          will-change: transform, opacity;
+          width: var(--dock-w);
+          height: var(--dock-h, 72px);
+          padding: 6px 0;
+          border-radius: var(--dock-radius, 12px);
+          background: rgba(69,69,69,.58);
+          border: 1px solid transparent;
+          backdrop-filter: saturate(115%) blur(6px);
+          -webkit-backdrop-filter: saturate(115%) blur(6px);
+          display: flex;
+          align-items: center;
+          z-index: 2147483647;
+          font-family: "Inter Tight", Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+          transition: width .4s cubic-bezier(.2,.8,.2,1);
+          will-change: transform, opacity, width;
+        }
+        @media (max-width: 640px){
+          .dock{ transform: translateX(-50%) scale(.92); transform-origin: bottom center; }
         }
 
-        /* compact: legal */
-        .dock.is-legal .dock__group{ width: var(--dock-group-w); }
-        .dock.is-legal .dock__cta{ display: none !important; }
+        .dock__inner{
+          display: grid;
+          grid-template-columns: var(--dock-left-tile) var(--dock-group-w) var(--dock-right-btn);
+          align-items: center;
+          column-gap: 10px;
+          width: 100%;
+          height: 100%;
+        }
 
-        /* compact services */
-        .dock.is-electro .dock__group{ display: none !important; }
+        /* левая плитка «c.» */
+        .dock__brand{
+          position: relative;
+          display: grid; place-items: center;
+          width: 60px; height: 60px;
+          border-radius: 8px;
+          background: #1B1B1B;
+          border: 1px solid rgba(255,255,255,.06);
+          text-decoration: none;
+        }
+        a.dock__brand{ left: 4px; }   /* выравнивание в сетке */
+        .dock__brand-text{ font-size: 26px; line-height: 28px; font-weight: 400; color: #e9e9e9; }
+
+        /* плашка под пилюлями */
+        .dock__group{
+          position: relative;
+          left: -1px;
+          width: 100%;
+          height: 60px;
+          display: flex; align-items: center; justify-content: center;
+          gap: var(--pill-gap, 6px);
+          padding: 6px 10px;
+          border-radius: 10px;
+          background: #3E3E3E;
+        }
+
+        /* пилюли */
+        .dock__pill{
+          display: inline-flex; align-items: center; justify-content: center;
+          height: var(--pill-h, 48px);
+          width: 82.5625px;
+          border-radius: 8px;
+          background: #3E3E3E;
+          border: 1px solid rgba(255,255,255,.12);
+          color: #e8e8e8;
+          font-size: 13px; line-height: 28px; font-weight: 300;
+          white-space: nowrap;
+          cursor: pointer;
+          transition: border-color .15s ease;
+        }
+        .dock__pill:hover,
+        .dock__pill:focus-visible{ outline: none; border-color: #8f8f8f; }
+        .dock__pill.is-active{ border-color: #ffffff; }
+
+        /* белая кнопка справа */
+        .dock__cta{
+          position: relative;
+          left: -6px;
+          display: grid; place-items: center;
+          width: calc(var(--dock-right-btn) - 3px);
+          height: 60px;
+          box-sizing: border-box;
+          border-radius: 8px;
+          background: #e9e9e9;
+          color: #111;
+          border: none;
+          text-decoration: none;
+          font-size: 13px; line-height: 28px; font-weight: 600;
+          cursor: pointer;
+          transition: background-color .18s ease;
+        }
+        .dock__cta:hover{ background: #dcdcdc; }
+        .dock__cta:active{ background: #d5d5d5; }
+
+        /* ===== режим legal ===== */
+        .dock.is-legal .dock__group{ width: var(--dock-group-w); }
+        .dock.is-legal .dock__cta{ display: none; }
+
+        /* ===== компактные режимы: ровная рамка 6px со всех сторон (как на главной) ===== */
+        .dock.is-electro,
+        .dock.is-contact{ padding: 6px; }
+        /* в компактных режимах убираем сдвиг главной (иначе рамка кривая) */
+        .dock.is-electro a.dock__brand,
+        .dock.is-contact a.dock__brand{ left: 0; }
+        .dock.is-electro .dock__inner{
+          grid-template-columns: var(--dock-left-tile) auto;  /* c. + кнопка рядом */
+          column-gap: 6px;
+        }
+        .dock.is-electro .dock__group{ display: none; }
         .dock.is-electro .electro-cta{
-          width: 121px !important; height: 60px !important;
-          display: inline-grid !important; place-items: center !important;
-          background: #FA5D29 !important; color: #000 !important;
-          border: 1px solid #FA5D29 !important; border-radius: 6px !important;
-          font-weight: 600 !important; text-decoration: none !important; white-space: nowrap !important;
-          box-shadow: none !important; transform: translateX(-5px);
+          width: 121px; height: 60px;
+          display: inline-grid; place-items: center;
+          background: #FA5D29; color: #000;
+          border: 1px solid #FA5D29; border-radius: 6px;
+          font-weight: 600; text-decoration: none; white-space: nowrap;
         }
         .dock.is-electro .electro-cta:hover{ filter: brightness(0.96); }
         .dock.is-electro .electro-cta:active{ filter: brightness(0.92); }
+
+        /* ===== страница «Контакты»: только плитка c. на прозрачной плашке ===== */
+        .dock.is-contact .dock__inner{
+          grid-template-columns: var(--dock-left-tile);
+        }
       `}</style>
     </div>
   );

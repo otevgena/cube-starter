@@ -65,7 +65,7 @@ function FancyCheckbox({ checked, onChange }) {
   );
 }
 
-export default function Contact() {
+export default function Contact({ topClass = "pt-10" }) {
   const [open, setOpen] = React.useState(false);
   const [modal, setModal] = React.useState(false);
   const [sending, setSending] = React.useState(false);
@@ -87,6 +87,17 @@ export default function Contact() {
     window.addEventListener("mousedown", onDown);
     return () => window.removeEventListener("mousedown", onDown);
   }, [open]);
+
+  // предвыбор услуги, если пришли из дока со страницы услуги
+  React.useEffect(() => {
+    try {
+      const pre = sessionStorage.getItem("cube:help");
+      if (pre && OPTIONS.includes(pre)) {
+        setOpt(pre);
+        sessionStorage.removeItem("cube:help");
+      }
+    } catch {}
+  }, []);
 
   const submit = async (e) => {
     e?.preventDefault();
@@ -143,7 +154,7 @@ export default function Contact() {
   };
 
   return (
-    <section className="bg-page pt-10 font-tight text-ink" aria-label="Контакты">
+    <section className={`bg-page font-tight text-ink ${topClass}`} aria-label="Контакты">
       {/* Шапка */}
       <div className="text-center text-sm font-light leading-7">Напишите нам</div>
       <div className="mt-[26px] text-center">
