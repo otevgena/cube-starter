@@ -5,5 +5,6 @@ import React from "react";
 import Contact from "@/components/blocks/Contact.jsx";
 
 export default function ContactPage() {
-  return <Contact />;
+  // на отдельной странице форма идёт сразу после шапки — подтягиваем выше
+  return <Contact topClass="-mt-8" />;
 }
