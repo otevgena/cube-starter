@@ -1,9 +1,10 @@
 // src/components/common/Modals.jsx
+// Модалки Вход / Регистрация / Восстановление / Custom — чистый Tailwind, без <style> и легаси .about-hero-*.
 import React from "react";
 import { createPortal } from "react-dom";
 import { registerUser, loginUser, auth } from "@/lib/auth";
 
-/* ===== Хост модалок (API: window.openModal("register" | "login" | "forgot" | "custom", props)) ===== */
+/* ===== Хост модалок (API: window.openModal("register"|"login"|"forgot"|"custom", props)) ===== */
 export default function ModalsHost() {
   const [view, setView] = React.useState(null);
   const [props, setProps] = React.useState({});
@@ -16,19 +17,17 @@ export default function ModalsHost() {
 
   // скрываем StickyDock на время модалки
   React.useEffect(() => {
-    const has = Boolean(view);
-    document.body.classList.toggle("has-modal", has);
+    document.body.classList.toggle("has-modal", Boolean(view));
     return () => document.body.classList.remove("has-modal");
   }, [view]);
 
-  // блокируем скролл под модалкой без «прыжка» и без сдвига шапки/контента
-  // (html overflow:hidden + scrollbar-gutter:stable → ширина/позиция стабильны)
+  // блокируем скролл под модалкой без «прыжка» (html overflow + scrollbar-gutter:stable)
   React.useEffect(() => {
     if (!view) return;
     const root = document.documentElement;
-    const prev = root.style.overflow;
-    root.style.overflow = "hidden";
-    return () => { root.style.overflow = prev; };
+    // !important — иначе html{overflow-y:scroll !important} из index.css не даст залочить скролл
+    root.style.setProperty("overflow", "hidden", "important");
+    return () => { root.style.removeProperty("overflow"); };
   }, [view]);
 
   if (!view) return null;
@@ -39,176 +38,138 @@ export default function ModalsHost() {
       {view === "login" && <LoginForm />}
       {view === "forgot" && <ForgotForm />}
       {view === "custom" && <CustomCard {...props} />}
-      {view === "review" && <div style={{ padding: 0 }}>{props.content}</div>}
+      {view === "review" && <div>{props.content}</div>}
     </ModalShell>,
     document.body
   );
 }
 
-/* ---------- Константы стилей ---------- */
-const ERR_COLOR = "#fa5d29";
-const BORDER = "#ededed";
-const BORDER_FC = "#d2d2d2";
+/* ===== Общие классы ===== */
+const BTN =
+  "h-[72px] rounded-[10px] bg-black px-[18px] text-[18px] font-semibold tracking-[.02em] text-white transition-colors hover:bg-[#2f2f2f] active:translate-y-px disabled:opacity-60";
+const LINK = "font-semibold text-[#111] underline underline-offset-2 hover:opacity-80";
+const MUTED_LINK = "font-semibold text-[#111]";
+const inputCls = (err) =>
+  "h-[42px] border-0 border-b bg-transparent px-0.5 font-light text-[#111] outline-none transition-colors placeholder:font-light placeholder:text-[#c7c7c7] " +
+  (err ? "border-carrot" : "border-[#ededed] focus:border-[#d2d2d2]");
 
-/* ---------- Слот ошибки ---------- */
+/* ===== Слот ошибки (фикс. высота, верстка не прыгает) ===== */
 function ErrorSlot({ text }) {
-  const OFFSET = 11, SIZE = 11;
   return (
-    <div style={{ height: OFFSET + SIZE, position: "relative" }}>
+    <div className="relative h-[22px]">
       {text ? (
-        <span
-          style={{
-            position: "absolute",
-            top: OFFSET,
-            left: 0,
-            color: ERR_COLOR,
-            fontSize: SIZE,
-            lineHeight: `${SIZE}px`,
-            fontWeight: 300,
-          }}
-        >
-          {text}
-        </span>
+        <span className="absolute left-0 top-[11px] text-[11px] font-light leading-[11px] text-carrot">{text}</span>
       ) : null}
     </div>
   );
 }
 
-/* ---------- Кастомный чекбокс ---------- */
+/* ===== Кастомный чекбокс ===== */
 function FancyCheckbox({ checked, onChange, ariaLabel }) {
-  const size = 18, inner = 10;
   return (
     <span
       role="checkbox"
       aria-checked={checked}
       tabIndex={0}
       onClick={() => onChange(!checked)}
-      onKeyDown={(e) => {
-        if (e.key === " " || e.key === "Enter") {
-          e.preventDefault();
-          onChange(!checked);
-        }
-      }}
+      onKeyDown={(e) => { if (e.key === " " || e.key === "Enter") { e.preventDefault(); onChange(!checked); } }}
       aria-label={ariaLabel}
       title={ariaLabel}
-      style={{
-        width: size,
-        height: size,
-        display: "inline-grid",
-        placeItems: "center",
-        border: `1px solid #d9d9d9`,
-        borderRadius: 4,
-        background: "transparent",
-        cursor: "pointer",
-        userSelect: "none",
-      }}
+      className="inline-grid h-[18px] w-[18px] flex-none cursor-pointer select-none place-items-center rounded border border-[#d9d9d9]"
     >
       <span
         aria-hidden="true"
-        style={{
-          width: inner,
-          height: inner,
-          borderRadius: 3,
-          background: "#111",
-          transform: checked ? "scale(1)" : "scale(0)",
-          transition: "transform 140ms ease-out",
-        }}
+        className="h-2.5 w-2.5 rounded-[3px] bg-[#111] transition-transform duration-150"
+        style={{ transform: checked ? "scale(1)" : "scale(0)" }}
       />
     </span>
   );
 }
 
-/* ---------- Оболочка модалки ---------- */
+/* ===== Оболочка модалки ===== */
 function ModalShell({ children, onClose, width }) {
   React.useEffect(() => {
-    const onKey = (e) => {
-      if ((e.key || "").toLowerCase() === "escape") onClose();
-    };
+    const onKey = (e) => { if ((e.key || "").toLowerCase() === "escape") onClose(); };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
   return (
-    <div aria-modal="true" role="dialog" className="m-root" onClick={onClose}>
+    <div
+      aria-modal="true"
+      role="dialog"
+      className="fixed inset-0 z-[1000] grid animate-svcfade place-items-center bg-black/55 p-6 font-tight"
+      onClick={onClose}
+    >
       <div
-        className="m-card"
-        style={{ ["--m-w"]: `${width || 980}px` }}
+        className="max-h-[calc(100vh-48px)] animate-svcfade overflow-hidden rounded-[14px] border border-[#dcdcdc] bg-white text-[#111] shadow-[0_16px_48px_rgba(0,0,0,.35)]"
+        style={{ width: `min(${width || 980}px, calc(100vw - 48px))` }}
         onClick={(e) => e.stopPropagation()}
       >
         {children}
       </div>
 
-      {/* крестик-плитка */}
-      <button type="button" className="m-close" aria-label="Закрыть" title="Закрыть" onClick={onClose}>
+      {/* крестик-плитка (внизу справа, на месте дока) */}
+      <button
+        type="button"
+        aria-label="Закрыть"
+        title="Закрыть"
+        onClick={onClose}
+        className="fixed right-6 z-[1001] grid h-[60px] w-[60px] place-items-center rounded-xl bg-[#111] text-white shadow-[0_8px_24px_rgba(0,0,0,.35)] transition-transform hover:-translate-y-px"
+        style={{ bottom: "calc(var(--dock-bottom, 21px) + (var(--dock-h, 72px) - var(--dock-left-tile, 60px)) / 2)" }}
+      >
         <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
           <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
         </svg>
       </button>
-
-      <style>{`
-        .m-root{
-          position: fixed; inset: 0; z-index: 1000;
-          display: grid; place-items: center;
-          background: rgba(0,0,0,.55);
-          animation: m-fade .12s ease-out;
-          padding: 24px;
-        }
-        .m-card{
-          width: min(var(--m-w, 980px), calc(100vw - 48px));
-          max-height: calc(100vh - 48px);
-          background: #ffffff; color: #111;
-          border: 1px solid #dcdcdc;
-          border-radius: 14px;
-          box-shadow: 0 16px 48px rgba(0,0,0,.35);
-          overflow: hidden;
-          transform: translateY(4px);
-          animation: m-pop .16s ease-out forwards;
-        }
-        @keyframes m-fade { from{opacity:.0} to{opacity:1} }
-        @keyframes m-pop  { to{ transform: none } }
-
-        .m-close{
-          position: fixed;
-          right: 24px;
-          bottom: calc(var(--dock-bottom, 21px) + (var(--dock-h, 72px) - var(--dock-left-tile, 60px)) / 2);
-          width: var(--dock-left-tile, 60px);
-          height: var(--dock-left-tile, 60px);
-          display: grid; place-items: center;
-          color: #fff; background: #111; border: 1px solid #111;
-          border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,.35);
-          cursor: pointer; transition: transform .15s ease, background .15s ease;
-          z-index: 1001;
-        }
-        .m-close:hover{ transform: translateY(-1px); background:#0a0a0a; }
-        .m-close:active{ transform: translateY(0); }
-
-        .m-btn{
-          height: 72px; padding: 0 18px; border-radius: 10px;
-          background: #000; color: #fff; font-weight: 600; font-size: 18px;
-          text-transform: none; letter-spacing: .02em;
-          border: none; cursor: pointer;
-          transition: background-color .16s ease, transform .06s ease;
-        }
-        .m-btn:hover{ background:#2f2f2f; }
-        .m-btn:active{ transform: translateY(1px) }
-
-        .m-link{ color:#111; text-decoration:none; font-weight:600; }
-        .m-muted{ color:#666 }
-        .u-underline{
-          position: relative; display: inline-block; text-decoration: none;
-          background-image: linear-gradient(currentColor,currentColor);
-          background-size: 100% 1px; background-position: 0 100%; background-repeat: no-repeat;
-        }
-      `}</style>
     </div>
   );
 }
 
-/* ---------- Регистрация ---------- */
+/* ===== Каркас формы: левая графит-панель + правая колонка ===== */
+function FormShell({ welcome, bottom, title, children }) {
+  return (
+    <div className="grid min-h-[560px] grid-cols-1 md:grid-cols-[1fr_1.35fr]">
+      <aside className="grid grid-rows-[auto_1fr_auto] gap-[18px] bg-[#ededed] p-7 text-[#111]">
+        <div className="text-[18px] font-semibold leading-tight">{welcome}</div>
+        <div className="grid place-items-center gap-[30px]">
+          <span className="text-[72px] font-black leading-none tracking-[.02em] text-[#111]">c.</span>
+          <SmileBadge />
+        </div>
+        <div className="text-sm leading-snug text-[#666]">{bottom}</div>
+      </aside>
+
+      <section className="grid grid-rows-[auto_1fr_auto] bg-white px-9 py-[34px]">
+        <h2 className="mb-[22px] text-[22px] font-semibold leading-[1.25] text-[#111]">{title}</h2>
+        {children}
+      </section>
+    </div>
+  );
+}
+
+const Label = ({ children }) => (
+  <span className="mb-1.5 text-[11px] font-light uppercase leading-none tracking-[.08em] text-[#666]">{children}</span>
+);
+
+function SocialSlab({ text }) {
+  return (
+    <div className="mt-3.5 self-end">
+      <div className="mb-1.5 mt-2 text-left text-sm font-light text-[#111]">{text}</div>
+      <button
+        type="button"
+        onClick={() => alert("Google OAuth — заглушка")}
+        className="flex h-12 w-full items-center justify-center gap-1 rounded-[10px] border border-[#e1e1e1] bg-white px-4 text-sm font-light text-[#111] hover:bg-page"
+      >
+        <span className="grid h-[26px] w-[26px] place-items-center text-[22px] font-extrabold leading-[26px]">G</span>
+        <span>Google</span>
+      </button>
+    </div>
+  );
+}
+
+/* ===== Регистрация ===== */
 function RegisterForm({ email = "" }) {
-  const [form, setForm] = React.useState({
-    user: "", email, pass: "", pass2: "", news: false, agree: false,
-  });
+  const [form, setForm] = React.useState({ user: "", email, pass: "", pass2: "", news: false, agree: false });
   const [errors, setErrors] = React.useState({});
   const [busy, setBusy] = React.useState(false);
 
@@ -237,145 +198,97 @@ function RegisterForm({ email = "" }) {
         email: form.email.trim(),
         password: form.pass,
       });
-
-      // локально помечаем логин (без remember)
       auth.set(accessToken, false);
-
-      // мгновенно обновляем шапку и закрываем модалку
       if (window.setHeaderUser) window.setHeaderUser(user, accessToken);
       if (window.closeModal) window.closeModal();
     } catch (err) {
-      if (err.status === 409) {
-        setErrors({ ...es, email: "Аккаунт с такой почтой уже зарегистрирован." });
-      } else if (err.status === 400) {
-        setErrors({ ...es, email: "Проверьте корректность введённых данных." });
-      } else {
-        window.openModal("custom", { title: "Ошибка", content: <div>{err.message}</div>, width: 560 });
-      }
+      if (err.status === 409) setErrors({ ...es, email: "Аккаунт с такой почтой уже зарегистрирован." });
+      else if (err.status === 400) setErrors({ ...es, email: "Проверьте корректность введённых данных." });
+      else window.openModal("custom", { title: "Ошибка", content: <div>{err.message}</div>, width: 560 });
     } finally {
       setBusy(false);
     }
   };
 
   return (
-    <div className="r-wrap">
-      {/* левая колонка */}
-      <aside className="r-left">
-        <div className="r-welcome">Добро пожаловать!</div>
-        <div className="r-brand">
-          <span className="r-dot">c.</span>
-          <SmileBadge />
-        </div>
-        <div className="r-bottom m-muted">
+    <FormShell
+      welcome="Добро пожаловать!"
+      title="Регистрация по почте"
+      bottom={
+        <>
           Уже являетесь участником?{" "}
-          <a className="about-hero-role u-underline" href="/login" onClick={(e)=>{ e.preventDefault(); window.openModal("login"); }}>
-            Войдите
-          </a>
+          <a className={LINK} href="/login" onClick={(e) => { e.preventDefault(); window.openModal("login"); }}>Войдите</a>
+        </>
+      }
+    >
+      <form className="grid grid-cols-2 gap-x-[18px] gap-y-[14px] self-start" onSubmit={onSubmit} noValidate>
+        <div className="col-span-2 flex flex-col">
+          <Label>ИМЯ ПОЛЬЗОВАТЕЛЯ (*)</Label>
+          <input className={inputCls(errors.user)} type="text" value={form.user}
+            onChange={(e) => { set("user", e.target.value); if (errors.user) setErrors({ ...errors, user: "" }); }}
+            placeholder="Имя пользователя" />
+          <ErrorSlot text={errors.user} />
         </div>
-      </aside>
 
-      {/* правая колонка */}
-      <section className="r-right">
-        <h2 className="r-title">Регистрация по почте</h2>
-
-        <form className="r-form" onSubmit={onSubmit} noValidate>
-          <div className="r-field r-span2">
-            <label className="r-label">ИМЯ ПОЛЬЗОВАТЕЛЯ <span className="r-req">(*)</span></label>
-            <input
-              className={`r-input r-line ${errors.user ? "is-error" : ""}`}
-              type="text"
-              value={form.user}
-              onChange={(e)=>{ set("user", e.target.value); if (errors.user) setErrors({...errors, user:""}); }}
-              placeholder="Имя пользователя"
-            />
-            <ErrorSlot text={errors.user} />
-          </div>
-
-          <div className="r-field r-span2">
-            <label className="r-label">ПОЧТА <span className="r-req">(*)</span></label>
-            <input
-              className={`r-input r-line ${errors.email ? "is-error" : ""}`}
-              type="email"
-              value={form.email}
-              onChange={(e)=>{ set("email", e.target.value); if (errors.email) setErrors({...errors, email:""}); }}
-              placeholder="имя@домен.ру"
-            />
-            <ErrorSlot text={errors.email} />
-          </div>
-
-          <div className="r-field">
-            <label className="r-label">ПАРОЛЬ <span className="r-req">(*)</span></label>
-            <input
-              className={`r-input r-line ${errors.pass ? "is-error" : ""}`}
-              type="password"
-              value={form.pass}
-              onChange={(e)=>{ set("pass", e.target.value); if (errors.pass) setErrors({...errors, pass:""}); }}
-              placeholder="Пароль"
-            />
-            <ErrorSlot text={errors.pass} />
-          </div>
-
-          <div className="r-field">
-            <label className="r-label">ПОВТОР ПАРОЛЯ <span className="r-req">(*)</span></label>
-            <input
-              className={`r-input r-line ${errors.pass2 ? "is-error" : ""}`}
-              type="password"
-              value={form.pass2}
-              onChange={(e)=>{ set("pass2", e.target.value); if (errors.pass2) setErrors({...errors, pass2:""}); }}
-              placeholder="Ещё раз"
-            />
-            <ErrorSlot text={errors.pass2} />
-          </div>
-
-          <p className="r-note m-muted r-span2">
-            Мы можем информировать вас по электронной почте о продуктах и услугах. <span className="m-link">Подробнее —</span>
-          </p>
-
-          <div className="r-check r-span2">
-            <FancyCheckbox checked={!!form.news} onChange={(v)=> set("news", v)} ariaLabel="Связываться со мной по почте" />
-            <span>Связываться со мной по почте</span>
-          </div>
-
-          <div className="r-check r-span2">
-            <FancyCheckbox
-              checked={!!form.agree}
-              onChange={(v)=>{ set("agree", v); if (errors.agree) setErrors({...errors, agree:""}); }}
-              ariaLabel="Принять условия"
-            />
-            <span>
-              Я прочитал(а) и принимаю <span className="m-link">Правовые положения</span> и{" "}
-              <span className="m-link">Политику конфиденциальности</span>.
-            </span>
-          </div>
-          <ErrorSlot text={errors.agree} />
-
-          <div className="r-actions r-span2">
-            <button className="m-btn r-submit" type="submit" disabled={busy}>Создать аккаунт</button>
-          </div>
-        </form>
-
-        <div className="r-slab">
-          <div className="r-or-left">или зарегистрируйтесь через</div>
-          <div className="r-social">
-            <button type="button" className="r-sbtn" onClick={()=>alert("Google OAuth — заглушка")}>
-              <span className="r-sico">G</span>
-              <span>Google</span>
-            </button>
-          </div>
+        <div className="col-span-2 flex flex-col">
+          <Label>ПОЧТА (*)</Label>
+          <input className={inputCls(errors.email)} type="email" value={form.email}
+            onChange={(e) => { set("email", e.target.value); if (errors.email) setErrors({ ...errors, email: "" }); }}
+            placeholder="имя@домен.ру" />
+          <ErrorSlot text={errors.email} />
         </div>
-      </section>
 
-      <SharedFormStyles />
-    </div>
+        <div className="flex flex-col">
+          <Label>ПАРОЛЬ (*)</Label>
+          <input className={inputCls(errors.pass)} type="password" value={form.pass}
+            onChange={(e) => { set("pass", e.target.value); if (errors.pass) setErrors({ ...errors, pass: "" }); }}
+            placeholder="Пароль" />
+          <ErrorSlot text={errors.pass} />
+        </div>
+
+        <div className="flex flex-col">
+          <Label>ПОВТОР ПАРОЛЯ (*)</Label>
+          <input className={inputCls(errors.pass2)} type="password" value={form.pass2}
+            onChange={(e) => { set("pass2", e.target.value); if (errors.pass2) setErrors({ ...errors, pass2: "" }); }}
+            placeholder="Ещё раз" />
+          <ErrorSlot text={errors.pass2} />
+        </div>
+
+        <p className="col-span-2 mb-0.5 mt-1.5 text-sm font-light leading-5 text-[#555]">
+          Мы можем информировать вас по электронной почте о продуктах и услугах. <span className={MUTED_LINK}>Подробнее —</span>
+        </p>
+
+        <div className="col-span-2 flex items-center gap-2.5 text-sm font-light text-[#111]">
+          <FancyCheckbox checked={!!form.news} onChange={(v) => set("news", v)} ariaLabel="Связываться со мной по почте" />
+          <span>Связываться со мной по почте</span>
+        </div>
+
+        <div className="col-span-2 flex items-center gap-2.5 text-sm font-light text-[#111]">
+          <FancyCheckbox checked={!!form.agree}
+            onChange={(v) => { set("agree", v); if (errors.agree) setErrors({ ...errors, agree: "" }); }}
+            ariaLabel="Принять условия" />
+          <span>
+            Я прочитал(а) и принимаю <span className={MUTED_LINK}>Правовые положения</span> и{" "}
+            <span className={MUTED_LINK}>Политику конфиденциальности</span>.
+          </span>
+        </div>
+        <div className="col-span-2"><ErrorSlot text={errors.agree} /></div>
+
+        <div className="col-span-2 mt-2">
+          <button className={`${BTN} w-full`} type="submit" disabled={busy}>Создать аккаунт</button>
+        </div>
+      </form>
+
+      <SocialSlab text="или зарегистрируйтесь через" />
+    </FormShell>
   );
 }
 
-/* ---------- Вход ---------- */
+/* ===== Вход ===== */
 function LoginForm() {
   const [form, setForm] = React.useState({ id: "", pass: "", keep: false });
   const [errors, setErrors] = React.useState({});
   const [busy, setBusy] = React.useState(false);
-
   const set = (k, v) => setForm((s) => ({ ...s, [k]: v }));
 
   const onSubmit = async (e) => {
@@ -390,114 +303,69 @@ function LoginForm() {
 
     try {
       setBusy(true);
-      const { user, accessToken } = await loginUser({
-        idOrEmail: form.id.trim(),
-        password: form.pass,
-        remember: !!form.keep,
-      });
-
-      // мгновенно обновляем хедер и закрываем модалку (без «Готово»)
+      const { user, accessToken } = await loginUser({ idOrEmail: form.id.trim(), password: form.pass, remember: !!form.keep });
       if (window.setHeaderUser) window.setHeaderUser(user, accessToken);
       if (window.closeModal) window.closeModal();
     } catch (err) {
-      if (err.status === 400) {
-        setErrors({ ...es, id: "Введите e-mail (сейчас вход по e-mail)." });
-      } else if (err.status === 401) {
-        setErrors({ id: "Неверный e-mail или пароль.", pass: "Проверьте пароль." });
-      } else {
-        window.openModal("custom", { title: "Ошибка", content: <div>{err.message}</div>, width: 560 });
-      }
+      if (err.status === 400) setErrors({ ...es, id: "Введите e-mail (сейчас вход по e-mail)." });
+      else if (err.status === 401) setErrors({ id: "Неверный e-mail или пароль.", pass: "Проверьте пароль." });
+      else window.openModal("custom", { title: "Ошибка", content: <div>{err.message}</div>, width: 560 });
     } finally {
       setBusy(false);
     }
   };
 
   return (
-    <div className="r-wrap">
-      {/* левая колонка */}
-      <aside className="r-left">
-        <div className="r-welcome">С возвращением!</div>
-        <div className="r-brand">
-          <span className="r-dot">c.</span>
-          <SmileBadge />
-        </div>
-        <div className="r-bottom m-muted">
+    <FormShell
+      welcome="С возвращением!"
+      title="Вход"
+      bottom={
+        <>
           Ещё не зарегистрированы?{" "}
-          <a className="about-hero-role u-underline" href="/register" onClick={(e)=>{ e.preventDefault(); window.openModal("register"); }}>
-            Зарегистрируйтесь сейчас
+          <a className={LINK} href="/register" onClick={(e) => { e.preventDefault(); window.openModal("register"); }}>Зарегистрируйтесь сейчас</a>
+        </>
+      }
+    >
+      <form className="grid grid-cols-2 gap-x-[18px] gap-y-[14px] self-start" onSubmit={onSubmit} noValidate>
+        <div className="col-span-2 flex flex-col">
+          <Label>ПОЧТА ИЛИ ИМЯ ПОЛЬЗОВАТЕЛЯ (*)</Label>
+          <input className={inputCls(errors.id)} type="text" value={form.id}
+            onChange={(e) => { set("id", e.target.value); if (errors.id) setErrors({ ...errors, id: "" }); }}
+            placeholder="имя@домен.ру или логин" />
+          <ErrorSlot text={errors.id} />
+        </div>
+
+        <div className="col-span-2 flex flex-col">
+          <Label>ПАРОЛЬ (*)</Label>
+          <input className={inputCls(errors.pass)} type="password" value={form.pass}
+            onChange={(e) => { set("pass", e.target.value); if (errors.pass) setErrors({ ...errors, pass: "" }); }}
+            placeholder="Пароль" />
+          <ErrorSlot text={errors.pass} />
+        </div>
+
+        <div className="col-span-2 flex items-center gap-2.5 text-sm font-light text-[#111]">
+          <FancyCheckbox checked={!!form.keep} onChange={(v) => set("keep", v)} ariaLabel="Не выходить из системы" />
+          <span>Не выходить из системы</span>
+        </div>
+
+        <div className="col-span-2 mt-2">
+          <button className={`${BTN} w-full`} type="submit" disabled={busy}>Войти</button>
+        </div>
+
+        <div className="col-span-2 mt-2 flex justify-end">
+          <a href="/forgot" className={`${LINK} text-[11px] leading-[11px]`}
+            onClick={(e) => { e.preventDefault(); window.openModal("forgot"); }}>
+            Забыли пароль?
           </a>
         </div>
-      </aside>
+      </form>
 
-      {/* правая колонка */}
-      <section className="r-right">
-        <h2 className="r-title">Вход</h2>
-
-        <form className="r-form" onSubmit={onSubmit} noValidate>
-          <div className="r-field r-span2">
-            <label className="r-label">
-              ПОЧТА ИЛИ ИМЯ ПОЛЬЗОВАТЕЛЯ <span className="r-req">(*)</span>
-            </label>
-            <input
-              className={`r-input r-line ${errors.id ? "is-error" : ""}`}
-              type="text"
-              value={form.id}
-              onChange={(e) => { set("id", e.target.value); if (errors.id) setErrors({ ...errors, id: "" }); }}
-              placeholder="имя@домен.ру или логин"
-            />
-            <ErrorSlot text={errors.id} />
-          </div>
-
-          <div className="r-field r-span2">
-            <label className="r-label">ПАРОЛЬ <span className="r-req">(*)</span></label>
-            <input
-              className={`r-input r-line ${errors.pass ? "is-error" : ""}`}
-              type="password"
-              value={form.pass}
-              onChange={(e) => { set("pass", e.target.value); if (errors.pass) setErrors({ ...errors, pass: "" }); }}
-              placeholder="Пароль"
-            />
-            <ErrorSlot text={errors.pass} />
-          </div>
-
-          <div className="r-check r-span2">
-            <FancyCheckbox checked={!!form.keep} onChange={(v)=> set("keep", v)} ariaLabel="Не выходить из системы" />
-            <span>Не выходить из системы</span>
-          </div>
-
-          <div className="r-actions r-span2">
-            <button className="m-btn r-submit" type="submit" disabled={busy}>Войти</button>
-          </div>
-
-          <div className="r-span2" style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
-            <a
-              href="/forgot"
-              className="about-hero-role u-underline"
-              onClick={(e) => { e.preventDefault(); window.openModal("forgot"); }}
-              style={{ fontWeight: 600, fontSize: 11, lineHeight: "11px" }}
-            >
-              Забыли пароль?
-            </a>
-          </div>
-        </form>
-
-        <div className="r-slab">
-          <div className="r-or-left">Или войдите через</div>
-          <div className="r-social">
-            <button type="button" className="r-sbtn" onClick={()=>alert("Google OAuth — заглушка")}>
-              <span className="r-sico">G</span>
-              <span>Google</span>
-            </button>
-          </div>
-        </div>
-      </section>
-
-      <SharedFormStyles />
-    </div>
+      <SocialSlab text="Или войдите через" />
+    </FormShell>
   );
 }
 
-/* ---------- Восстановление пароля ---------- */
+/* ===== Восстановление пароля ===== */
 function ForgotForm() {
   const [id, setId] = React.useState("");
   const [errors, setErrors] = React.useState({});
@@ -517,157 +385,57 @@ function ForgotForm() {
   };
 
   return (
-    <div className="r-wrap">
-      <aside className="r-left">
-        <div className="r-welcome">Поможем восстановить доступ</div>
-        <div className="r-brand">
-          <span className="r-dot">c.</span>
-          <SmileBadge />
-        </div>
-        <div className="r-bottom m-muted">
+    <FormShell
+      welcome="Поможем восстановить доступ"
+      title="Забыли пароль?"
+      bottom={
+        <>
           Ещё не зарегистрированы?{" "}
-          <a className="about-hero-role u-underline" href="/register" onClick={(e)=>{ e.preventDefault(); window.openModal("register"); }}>
-            Зарегистрируйтесь сейчас
-          </a>
+          <a className={LINK} href="/register" onClick={(e) => { e.preventDefault(); window.openModal("register"); }}>Зарегистрируйтесь сейчас</a>
+        </>
+      }
+    >
+      <form className="grid grid-cols-1 gap-y-[14px] self-start" onSubmit={onSubmit} noValidate>
+        <p className="mb-1.5 text-sm font-semibold leading-7 text-black">
+          Введите имя пользователя или адрес электронной почты, и мы вышлем вам ссылку для сброса пароля.
+        </p>
+
+        <div className="flex flex-col">
+          <Label>ЭЛЕКТРОННАЯ ПОЧТА ИЛИ ИМЯ ПОЛЬЗОВАТЕЛЯ (*)</Label>
+          <input className={inputCls(errors.id)} type="text" value={id}
+            onChange={(e) => { setId(e.target.value); if (errors.id) setErrors({}); }}
+            placeholder="имя@домен.ру или логин" />
+          <ErrorSlot text={errors.id} />
         </div>
-      </aside>
 
-      <section className="r-right">
-        <h2 className="r-title">Забыли пароль?</h2>
+        <div className="mt-2">
+          <button className={`${BTN} w-full`} type="submit">Сбросить пароль</button>
+        </div>
 
-        <form className="r-form" onSubmit={onSubmit} noValidate>
-          <p className="r-desc r-span2">
-            Введите имя пользователя или адрес электронной почты, и мы вышлем вам ссылку для сброса пароля.
-          </p>
+        <div className="mt-2.5 flex justify-center">
+          <a href="/login" className={LINK} onClick={(e) => { e.preventDefault(); window.openModal("login"); }}>Назад</a>
+        </div>
+      </form>
 
-          <div className="r-field r-span2">
-            <label className="r-label">ЭЛЕКТРОННАЯ ПОЧТА ИЛИ ИМЯ ПОЛЬЗОВАТЕЛЯ <span className="r-req">(*)</span></label>
-            <input
-              className={`r-input r-line ${errors.id ? "is-error" : ""}`}
-              type="text"
-              value={id}
-              onChange={(e) => { setId(e.target.value); if (errors.id) setErrors({}); }}
-              placeholder="имя@домен.ру или логин"
-            />
-            <ErrorSlot text={errors.id} />
-          </div>
-
-          <div className="r-actions r-span2">
-            <button className="m-btn r-submit" type="submit">Сбросить пароль</button>
-          </div>
-
-          <div className="r-span2" style={{ marginTop: 10, display: "flex", justifyContent: "center" }}>
-            <a href="/login" className="about-hero-role u-underline" onClick={(e)=>{ e.preventDefault(); window.openModal("login"); }}>
-              Назад
-            </a>
-          </div>
-        </form>
-
-        <div className="r-slab" aria-hidden="true" />
-      </section>
-
-      <SharedFormStyles />
-    </div>
+      <div className="self-end" aria-hidden="true" />
+    </FormShell>
   );
 }
 
-/* ---------- Общие стили форм ---------- */
-function SharedFormStyles() {
-  return (
-    <style>{`
-      .r-wrap{ display:grid; grid-template-columns: 1fr 1.35fr; min-height: 560px; }
-      @media (max-width:980px){ .r-wrap{ grid-template-columns: 1fr; } }
-
-      .r-left{
-        background:#ededed; color:#111;
-        padding: 28px; display:grid; grid-template-rows:auto 1fr auto; gap:18px;
-      }
-      .r-welcome{ font:600 18px/1.2 Inter,system-ui,sans-serif; }
-      .r-brand{ display:grid; place-items:center; gap:30px; }
-      .r-dot{ font:900 72px/1 "Inter Tight", Inter, system-ui, sans-serif; letter-spacing:.02em; color:#111; }
-      .r-bottom{ font:14px/1.4 Inter,system-ui,sans-serif; }
-
-      .r-right{
-        background:#ffffff; padding: 34px 36px;
-        display:grid; grid-template-rows: auto 1fr auto; row-gap: 0;
-      }
-      .r-title{
-        margin:0 0 22px;
-        font-family: "Inter Tight", Inter, system-ui, sans-serif;
-        font-size: 22px; font-weight: 600; line-height: 1.25; color:#111;
-      }
-
-      .r-form{ display:grid; grid-template-columns: 1fr 1fr; column-gap: 18px; row-gap: 14px; align-self: start; }
-      .r-span2{ grid-column: 1 / -1; }
-
-      .r-field{ display:flex; flex-direction:column; gap:0; }
-      .r-label{
-        margin: 0 0 6px 0;
-        font-family: "Inter Tight", Inter, system-ui, sans-serif;
-        font-weight: 300; font-size: 11px; line-height: 1;
-        letter-spacing: .08em; color:#666; text-transform: uppercase;
-      }
-      .r-req{ color: inherit; font-weight: inherit; }
-
-      .r-input{
-        height: 42px; padding: 0 2px;
-        background: transparent; color:#111;
-        border: none; border-bottom: 1px solid ${BORDER};
-        outline: none; font-weight: 300;
-      }
-      .r-input.is-error{ border-bottom-color: ${ERR_COLOR} !important; }
-      .r-input:focus{ border-bottom-color: ${BORDER_FC}; }
-      .r-input::placeholder{ color:#c7c7c7; opacity:.95; font-weight:300; }
-
-      .r-note{ margin: 6px 0 2px; font:300 14px/20px Inter,system-ui,sans-serif; color:#555; }
-      .r-desc{ margin: 0 0 18px; font: 600 14px/28px Inter,system-ui,sans-serif; letter-spacing: normal; color:#000; }
-
-      .r-check{ display:flex; align-items:center; gap:10px; color:#111; }
-      .r-check > span{ font:300 14px/20px Inter,system-ui,sans-serif; }
-
-      .r-actions{ margin-top: 8px; }
-      .r-submit{ width:100%; }
-
-      .r-slab{ align-self: end; margin-top: 14px; }
-      .r-or-left{ color:#111; font:300 14px/20px Inter,system-ui,sans-serif; margin:8px 0 6px; text-align:left; }
-
-      .r-social{ display:block; }
-      .r-sbtn{
-        width:100%; height:48px; padding: 0 16px;
-        border-radius:10px; border:1px solid #e1e1e1; background:#fff; color:#111; cursor:pointer;
-        display:flex; align-items:center; justify-content:center; gap:4px;
-        font-weight:300; font-size:14px; text-transform:none;
-      }
-      .r-sbtn:hover{ background:#f8f8f8; }
-      .r-sico{
-        width: 26px; height: 26px; display:inline-grid; place-items:center;
-        font-weight:800; font-size:22px; line-height:26px;
-      }
-    `}</style>
-  );
-}
-
-/* ---------- Кастомная карточка ---------- */
+/* ===== Кастомная карточка ===== */
 function CustomCard({ title = "Сообщение", content = null, width }) {
   return (
-    <div className="c-wrap" style={{ maxWidth: width ? `${width}px` : "auto" }}>
-      <h3 className="c-title">{title}</h3>
-      <div className="c-body">{content}</div>
-      <div className="c-actions">
-        <button className="m-btn" onClick={() => window.closeModal()}>Понятно</button>
+    <div className="p-7 font-tight" style={{ maxWidth: width ? `${width}px` : "auto" }}>
+      <h3 className="mb-2.5 text-[22px] font-bold leading-[1.25] text-[#111]">{title}</h3>
+      <div className="text-sm leading-[1.55] text-[#333]">{content}</div>
+      <div className="mt-[18px] flex gap-2.5">
+        <button className={BTN} onClick={() => window.closeModal()}>Понятно</button>
       </div>
-
-      <style>{`
-        .c-wrap{ padding: 28px; }
-        .c-title{ margin:0 0 10px; font:700 22px/1.25 Inter, system-ui, sans-serif; color:#111; }
-        .c-body{ color:#333; font:14px/1.55 Inter, system-ui, sans-serif; }
-        .c-actions{ margin-top:18px; display:flex; gap:10px; }
-      `}</style>
     </div>
   );
 }
 
-/* ---------- Значок "улыбка" ---------- */
+/* ===== Значок «улыбка» ===== */
 function SmileBadge() {
   return (
     <svg width="148" height="148" viewBox="0 0 148 148" aria-hidden="true">

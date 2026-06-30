@@ -160,12 +160,15 @@ export default function StickyDock() {
   const scrollToSection = React.useCallback((label) => {
     const el = getSectionEl(label);
     if (!el) return;
-    const headerOffset = getNumber(el, "data-header-offset", DEFAULT_HEADER_OFFSET);
-    const clickOffset  = getNumber(el, "data-click-offset",  DEFAULT_CLICK_OFFSET);
+    // верхний отступ секции задаёт её первый ребёнок (pt-…) — учитываем,
+    // чтобы заголовок секции (напр. «Портфолио») встал у самого верха
+    const child = el.firstElementChild;
+    let padTop = 0;
+    try { padTop = child ? (parseFloat(getComputedStyle(child).paddingTop) || 0) : 0; } catch {}
     const rect = el.getBoundingClientRect();
     const pageY = window.pageYOffset || document.documentElement.scrollTop || 0;
-    const top = pageY + rect.top - headerOffset - clickOffset;
-    window.scrollTo({ top, behavior: "smooth" });
+    const top = pageY + rect.top + padTop - 8; // 8px воздуха над заголовком
+    window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
   }, [getSectionEl]);
 
   /* =============== navigation =============== */

@@ -330,8 +330,8 @@ function ServicesPanel({ activeCat, setActiveCat, barProps, onClose, query, setQ
       {/* затемнение */}
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
 
-      {/* карточка: контейнер = как у шапки (контент совпадает), фон «поджат» к содержимому */}
-      <div className="absolute inset-x-0 top-3">
+      {/* карточка: прижата к верху вьюпорта (relative в потоке fixed-родителя — надёжнее absolute) */}
+      <div className="relative pt-3">
         <div className="mx-auto max-w-[1700px] px-6 lg:px-10">
           <div className="-mx-5 rounded-lg bg-[#ededed] px-5 shadow-2xl">
             <div className="flex gap-5">
@@ -671,9 +671,9 @@ export default function Header() {
   React.useEffect(() => {
     if (!servicesOpen) return;
     const root = document.documentElement;
-    const prev = root.style.overflow;
-    root.style.overflow = "hidden";
-    return () => { root.style.overflow = prev; };
+    // важно !important: иначе html{overflow-y:scroll !important} из index.css перебьёт и скролл не залочится
+    root.style.setProperty("overflow", "hidden", "important");
+    return () => { root.style.removeProperty("overflow"); };
   }, [servicesOpen]);
 
   const barProps = { servicesOpen, setServicesOpen, user, authReady, onLogout: handleLogout };
