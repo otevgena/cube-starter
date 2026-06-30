@@ -1895,3 +1895,13 @@ body.home [data-section="services"]{
   --bg-page: linear-gradient(to right, #f8f8f8 0%, #f8f8f8 100%);
 }
 
+/* === Открыт отзыв (модалка PDF): анимационно прячем нижний док === */
+#dock-root .dock{
+  transition: transform .35s ease, opacity .35s ease !important;
+}
+body.review-open #dock-root .dock{
+  transform: translateX(-50%) translateY(180%) !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+

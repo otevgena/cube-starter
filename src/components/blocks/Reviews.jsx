@@ -11,7 +11,7 @@ const REVIEWS = [
     bg: "/reviews/review1.png",
     pdf: "/reviews/review1.pdf",
     title: ["Опыт сотрудничества глазами", "наших заказчиков"],
-    name: "Цыганков Валентин Иванович",
+    name: "Цыганков В. И.",
     company: "Альянс Недвижимость",
     date: "04.09.2025",
     city: "Ноябрьск",
@@ -32,11 +32,19 @@ function ReviewModal({ review, onClose }) {
   React.useEffect(() => {
     const onKey = (e) => { if (e.key === "Escape") onClose(); };
     window.addEventListener("keydown", onKey);
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+
+    // блокируем скролл, НЕ пряча фон и не теряя позицию
+    const root = document.documentElement;
+    const scrollY = window.scrollY;
+    const prevOverflow = root.style.overflow;
+    root.style.overflow = "hidden";
+    document.body.classList.add("review-open"); // анимационно прячем нижний док
+
     return () => {
       window.removeEventListener("keydown", onKey);
-      document.body.style.overflow = prev;
+      root.style.overflow = prevOverflow;
+      document.body.classList.remove("review-open");
+      if (window.scrollY !== scrollY) window.scrollTo(0, scrollY);
     };
   }, [onClose]);
 
@@ -44,28 +52,21 @@ function ReviewModal({ review, onClose }) {
     <div className="fixed inset-0 z-[100] grid place-items-center p-4 font-tight">
       <div className="absolute inset-0 bg-black/55" onClick={onClose} />
 
-      <div className="relative flex h-[90vh] w-full max-w-[920px] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
-        {/* закрыть */}
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Закрыть"
-          className="absolute right-3 top-3 z-10 grid h-9 w-9 place-items-center rounded-full bg-black/60 text-white transition-colors hover:bg-black"
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-          </svg>
-        </button>
-
-        {/* PDF (листается внутри; тулбар просмотрщика скрыт) */}
-        <iframe
-          src={`${review.pdf}#toolbar=0&navpanes=0`}
-          title="Отзыв клиента"
-          className="min-h-0 w-full flex-1 border-0"
-        />
+      <div className="relative flex h-[90vh] w-full max-w-[920px] animate-svcfade flex-col overflow-hidden rounded-2xl bg-[#ededed] shadow-2xl">
+        {/* PDF как документ в паспарту: рамка нашего цвета со всех сторон.
+            Белый контейнер скруглён → скролл просмотрщика прячется внутрь документа. */}
+        <div className="min-h-0 flex-1 px-5 pt-5">
+          <div className="h-full overflow-hidden rounded-lg bg-white">
+            <iframe
+              src={`${review.pdf}#toolbar=0&navpanes=0&view=FitH`}
+              title="Отзыв клиента"
+              className="h-full w-full border-0 bg-white"
+            />
+          </div>
+        </div>
 
         {/* закреплённая плашка с данными — в стиле таблицы проектов */}
-        <div className="bg-page px-8 py-5">
+        <div className="bg-[#ededed] px-5 pb-5 pt-4">
           <div className="grid grid-cols-4 gap-6 text-sm font-light text-neutral-500">
             <span>Имя клиента</span>
             <span>Компания</span>
@@ -74,9 +75,9 @@ function ReviewModal({ review, onClose }) {
           </div>
           <div
             className="my-3 h-px w-full"
-            style={{ backgroundImage: "repeating-linear-gradient(to right, #bdbdbd 0 1px, rgba(0,0,0,0) 1px 9px)" }}
+            style={{ backgroundImage: "repeating-linear-gradient(to right, #000 0 1px, rgba(0,0,0,0) 1px 9px)" }}
           />
-          <div className="grid grid-cols-4 gap-6 text-[18px] text-dark">
+          <div className="grid grid-cols-4 gap-6 text-[16px] font-normal text-dark">
             <span className="truncate">{review.name || "—"}</span>
             <span className="truncate">{review.company || "—"}</span>
             <span>{review.date || "—"}</span>
@@ -84,6 +85,20 @@ function ReviewModal({ review, onClose }) {
           </div>
         </div>
       </div>
+
+      {/* крестик — как в модалках (внизу справа, на месте дока) */}
+      <button
+        type="button"
+        onClick={onClose}
+        aria-label="Закрыть"
+        title="Закрыть"
+        className="fixed right-6 z-[101] grid h-[60px] w-[60px] place-items-center rounded-xl bg-[#111] text-white shadow-xl transition-transform hover:-translate-y-px"
+        style={{ bottom: "calc(var(--dock-bottom, 21px) + (var(--dock-h, 72px) - var(--dock-left-tile, 60px)) / 2)" }}
+      >
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+          <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+        </svg>
+      </button>
     </div>,
     document.body
   );
