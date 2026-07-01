@@ -10,7 +10,7 @@ export default function HomeMain() {
   const dateStr = `${MONTHS[now.getMonth()]} ${now.getDate()}, ${now.getFullYear()}`;
 
   return (
-    <section className="-mt-2 bg-page text-center font-tight text-ink" aria-label="Главная">
+    <section className="-mt-12 bg-page text-center font-tight text-ink lg:-mt-2" aria-label="Главная">
       {/* Сегодня • дата • загруженность (14px/14px) */}
       <div className="flex flex-wrap items-center justify-center gap-3 px-4 text-sm font-normal leading-none">
         <span>Сегодня</span>
@@ -38,11 +38,11 @@ export default function HomeMain() {
       </div>
 
       {/* «Ромб» с главным изображением (тёмная рамка вокруг картинки) */}
-      <div className="mx-auto mt-20 aspect-[1441/1112] w-[min(1441px,96vw)] rounded-2xl bg-ink p-[clamp(20px,4.3vw,62px)]">
+      <div className="mx-auto mt-8 aspect-[1441/1112] w-[calc(100vw-32px)] rounded-[10px] bg-ink p-[clamp(20px,4.3vw,62px)] sm:w-[min(1441px,96vw)] lg:mt-20">
         <img
           src="/main/main.png"
           alt="Главное изображение"
-          className="h-full w-full rounded-xl object-cover"
+          className="h-full w-full rounded-lg object-cover"
         />
       </div>
     </section>

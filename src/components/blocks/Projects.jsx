@@ -3,6 +3,7 @@
 // таблица + центровой блок. Чистый Tailwind + точечные inline-стили для
 // попиксельной раскладки карточек.
 import React from "react";
+import FitScale from "@/components/common/FitScale.jsx";
 
 const TITLE = { fontSize: "clamp(48px, 13.5vw, 137px)" };
 
@@ -50,9 +51,9 @@ const SHIFT = 28; // сдвиг текста вправо в ячейках
 
 function Arrow() {
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" className="block shrink-0">
-      <path d="M4 12h13" stroke="#222" strokeWidth="1.4" strokeLinecap="round" />
-      <path d="M11 6l6 6-6 6" fill="none" stroke="#222" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+    <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true" className="block shrink-0">
+      <path d="M4 12h14" stroke="#222" strokeWidth="2" strokeLinecap="round" />
+      <path d="M12 6l6 6-6 6" fill="none" stroke="#222" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -121,7 +122,7 @@ function ProjectCard({ logo, shots = [], location, objectTitle, customer, servic
   };
 
   return (
-    <div className="relative h-[555px] w-[710px] overflow-hidden rounded-[14px] bg-ink text-white">
+    <div className="relative h-[555px] w-[710px] overflow-hidden rounded-[10px] bg-ink text-white">
       {/* Лого */}
       <div className="absolute left-[47px] top-[47px] grid h-[52px] w-[52px] place-items-center overflow-hidden rounded-full bg-white">
         <img src={logo} alt="Логотип" className="block h-full w-full object-contain p-1.5" />
@@ -174,7 +175,7 @@ function ProjectCard({ logo, shots = [], location, objectTitle, customer, servic
       </div>
 
       {/* Дней-бокс */}
-      <div className="absolute bottom-[112px] right-[47px] flex h-[60px] w-[60px] items-center justify-center rounded-[14px] bg-ink ring-1 ring-inset ring-[#494949]">
+      <div className="absolute bottom-[112px] right-[47px] flex h-[60px] w-[60px] items-center justify-center rounded-[10px] bg-ink ring-1 ring-inset ring-[#494949]">
         <div className="translate-y-1 text-center">
           <div className="text-[12px] font-light leading-[14px] opacity-95">Дней</div>
           <div className="text-[24px] font-semibold leading-[26px]">{days}</div>
@@ -183,6 +184,97 @@ function ProjectCard({ logo, shots = [], location, objectTitle, customer, servic
 
       {/* кол-во услуг */}
       <div className="absolute bottom-[47px] right-[47px] text-base font-light leading-6">{servicesLabel}</div>
+    </div>
+  );
+}
+
+/* Мобильная карточка проекта — вертикальная раскладка (крупная картинка во всю ширину, как у awwwards) */
+function MobileProjectCard({ logo, shots = [], location, objectTitle, customer, servicesLabel, days }) {
+  const [idx, setIdx] = React.useState(0);
+  const [prevIdx, setPrevIdx] = React.useState(0);
+  const [opacity, setOpacity] = React.useState(1);
+  const dragRef = React.useRef({ x: 0, dragging: false });
+  const total = shots.length || 1;
+
+  const go = (next) => {
+    const n = ((next % total) + total) % total;
+    setPrevIdx(idx);
+    setIdx(n);
+    setOpacity(0);
+    requestAnimationFrame(() => requestAnimationFrame(() => setOpacity(1)));
+  };
+  const onDown = (e) => { dragRef.current = { x: e.clientX ?? e.touches?.[0]?.clientX ?? 0, dragging: true }; };
+  const onUp = (e) => {
+    if (!dragRef.current.dragging) return;
+    const x2 = e.clientX ?? e.changedTouches?.[0]?.clientX ?? dragRef.current.x;
+    const dx = x2 - dragRef.current.x;
+    dragRef.current.dragging = false;
+    if (Math.abs(dx) > 40) go(idx + (dx < 0 ? 1 : -1));
+  };
+
+  return (
+    <div className="rounded-[10px] bg-ink p-5 text-white">
+      {/* Лого */}
+      <div className="grid h-10 w-10 place-items-center overflow-hidden rounded-full bg-white">
+        <img src={logo} alt="Логотип" className="block h-full w-full object-contain p-1.5" />
+      </div>
+
+      {/* Картинка (не на всю ширину блока) + точки под правым краем */}
+      <div className="mt-5 w-[88%]">
+        <div
+          className="relative aspect-[16/10] w-full touch-pan-y overflow-hidden rounded-lg"
+          onMouseDown={onDown}
+          onMouseUp={onUp}
+          onMouseLeave={onUp}
+          onTouchStart={onDown}
+          onTouchEnd={onUp}
+        >
+          {shots.length > 0 && (
+            <img
+              key={`m-prev-${prevIdx}`}
+              src={shots[prevIdx]}
+              alt=""
+              aria-hidden="true"
+              className="absolute inset-0 block h-full w-full object-cover transition-opacity duration-300"
+              style={{ opacity: 1 - opacity }}
+            />
+          )}
+          {shots.length > 0 && (
+            <img
+              key={`m-cur-${idx}`}
+              src={shots[idx]}
+              alt="Проект — превью"
+              className="absolute inset-0 block h-full w-full object-cover transition-opacity duration-300"
+              style={{ opacity }}
+              loading="lazy"
+              decoding="async"
+            />
+          )}
+        </div>
+        {total > 1 && (
+          <div className="mt-3 flex justify-end">
+            <Dots active={idx} total={total} onSelect={go} />
+          </div>
+        )}
+      </div>
+
+      {/* Локация + заголовок + бокс «Дней» */}
+      <div className="mt-6 text-[15px] font-light leading-[22px] opacity-95">{location}</div>
+      <div className="mt-2 flex items-start justify-between gap-4">
+        <h3 className="text-[32px] font-semibold leading-[38px]">{objectTitle}</h3>
+        <div className="flex h-[56px] w-[56px] shrink-0 items-center justify-center rounded-[10px] bg-ink ring-1 ring-inset ring-[#494949]">
+          <div className="translate-y-0.5 text-center">
+            <div className="text-[11px] font-light leading-[13px] opacity-95">Дней</div>
+            <div className="text-[22px] font-semibold leading-[24px]">{days}</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Заказчик + услуги */}
+      <div className="mt-8 flex items-center justify-between text-[15px] font-light leading-[22px]">
+        <span>{customer}</span>
+        <span>{servicesLabel}</span>
+      </div>
     </div>
   );
 }
@@ -201,23 +293,60 @@ function MoreButton() {
 
 export default function Projects() {
   return (
-    <section className="bg-page pt-[126px] font-tight text-ink" aria-label="Проекты">
+    <section className="bg-page pt-14 font-tight text-ink lg:pt-[126px]" aria-label="Проекты">
       {/* Шапка */}
       <div className="text-center text-sm font-light leading-7">Директория</div>
       <div className="mt-[26px] text-center">
         <h2 className="font-semibold uppercase leading-none" style={TITLE}>ПРОЕКТЫ</h2>
-        <p className="mt-4 text-[21px] font-light leading-7">География выполненных работ</p>
+        <p className="mt-3.5 text-[18px] font-light leading-7 sm:mt-4 sm:text-[21px]">География выполненных работ</p>
       </div>
 
-      {/* Две карточки */}
-      <div className="mx-[52px] mt-20 flex justify-between gap-6">
+      {/* Две карточки: на узких экранах — в столбик, карточка масштабируется под ширину (дизайн 1:1) */}
+      <div className="mt-16 grid grid-cols-1 gap-6 px-4 lg:mx-[52px] lg:mt-20 lg:grid-cols-2 lg:px-0">
         {PROJECTS.map((p) => (
-          <ProjectCard key={p.name} {...p} />
+          <div key={p.name} className="mx-auto w-full max-w-[710px]">
+            {/* Мобилка/планшет — вертикальная карточка с крупной картинкой */}
+            <div className="lg:hidden">
+              <MobileProjectCard {...p} />
+            </div>
+            {/* Десктоп — фиксированный дизайн 710×555, масштабируется под колонку */}
+            <div className="hidden lg:block">
+              <FitScale baseW={710} baseH={555}>
+                <ProjectCard {...p} />
+              </FitScale>
+            </div>
+          </div>
         ))}
       </div>
 
-      {/* Таблица */}
-      <div className="mx-[52px] mt-5 overflow-x-auto">
+      {/* Список заказчиков (mobile) — строки с точками, как в таблице / awwwards */}
+      <div className="mx-4 mt-10 lg:hidden">
+        <div className="pb-3 text-sm font-normal text-ink">Заказчик</div>
+        <DottedLine />
+        {PROJECTS.map((p) => (
+          <div key={p.name}>
+            <div className="flex h-[84px] items-center justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-2">
+                <div className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-full bg-white">
+                  <img src={p.logo} alt="" className="block h-full w-full object-contain p-1" />
+                </div>
+                <a href="#more" onClick={(e) => e.preventDefault()} className="group relative truncate pb-1 text-[18px] text-ink">
+                  {p.name}
+                  <Underline />
+                </a>
+                {p.badge && <sup className="shrink-0 text-[9px] leading-3 text-neutral-500">{p.badge}</sup>}
+              </div>
+              <div className="shrink-0">
+                <MoreButton />
+              </div>
+            </div>
+            <DottedLine />
+          </div>
+        ))}
+      </div>
+
+      {/* Таблица (desktop) */}
+      <div className="mx-[52px] mt-5 hidden overflow-x-auto lg:block">
         <div style={{ width: TABLE_W }}>
           {/* шапка таблицы */}
           <div className="flex h-[72px]">
@@ -270,7 +399,7 @@ export default function Projects() {
       </div>
 
       {/* Центровой блок */}
-      <div className="mt-[108px] px-20 pb-[120px] text-center text-base font-light">
+      <div className="mt-8 px-4 pb-0 text-center text-base font-light lg:mt-[108px] lg:px-20 lg:pb-[120px]">
         Познакомьтесь с <span className="font-semibold">26</span> проектами и реализованными объектами{" "}
         <span className="inline-flex items-center gap-1.5 align-middle">
           <Arrow />

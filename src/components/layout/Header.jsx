@@ -5,7 +5,7 @@
 // сдвигается). Вокруг — тёмный фон, сверху зазор (awwwards-стиль).
 import React from "react";
 import { createPortal } from "react-dom";
-import { ChevronDown, Search, Menu, X } from "lucide-react";
+import { ChevronDown, Search, Menu, X, UserRound } from "lucide-react";
 import { search } from "@/data/search-index";
 
 /* === API base === */
@@ -161,6 +161,10 @@ const NAV_LINKS = [
 
 const NAV_LINK_CLASS =
   "text-sm font-medium leading-[28px] text-ink transition-opacity hover:opacity-70";
+
+/* поисковая «пилюля» мобильной шапки (как у awwwards: почти белая #fdfdfd + тонкая рамка) */
+const MOBILE_SEARCH_PILL = "flex h-[42px] min-w-0 flex-1 items-center gap-2.5 rounded-lg bg-[#e9e9e9] pl-4 pr-4";
+const MOBILE_SEARCH_TEXT = "text-[14px] font-light leading-[28px]";
 
 /* SPA-переход без полной перезагрузки */
 function spaNavigate(to) {
@@ -445,6 +449,280 @@ function ServicesPanel({ activeCat, setActiveCat, barProps, onClose, query, setQ
   );
 }
 
+/* ===== Мобильная строка шапки: бургер · c. · поиск · аккаунт (компоновка как у awwwards) ===== */
+function MobileBar({ onOpenMenu, onOpenAccount, user }) {
+  return (
+    <div className="flex h-header items-center gap-3.5">
+      <button
+        type="button"
+        onClick={onOpenMenu}
+        aria-label="Меню"
+        className="-ml-0.5 shrink-0 text-ink"
+      >
+        <Menu size={22} strokeWidth={2} />
+      </button>
+      <a href="/" onClick={onServiceClick("/")} className="relative -top-0.5 shrink-0 text-[30px] font-bold leading-none text-ink">
+        c.
+      </a>
+      <button type="button" onClick={onOpenMenu} className={`${MOBILE_SEARCH_PILL} text-left`}>
+        <Search size={14} strokeWidth={2} className="shrink-0 text-[#222222]" />
+        <span className={`truncate text-[#222222] ${MOBILE_SEARCH_TEXT}`}>Поиск</span>
+      </button>
+      {user ? (
+        <button type="button" onClick={onOpenAccount} className="shrink-0" aria-label="Аккаунт">
+          <img src="/profile/profile.png" alt="" className="h-[30px] w-[30px] rounded-full object-cover" />
+        </button>
+      ) : (
+        <button type="button" onClick={onOpenAccount} aria-label="Аккаунт" className="-mr-0.5 shrink-0 text-ink" title="Аккаунт">
+          <UserRound size={20} strokeWidth={2} />
+        </button>
+      )}
+    </div>
+  );
+}
+
+/* ===== Всплывающее окно аккаунта (мобильное): тёмная панель под иконкой ===== */
+function MobileAccountMenu({ onClose, user, onLogout }) {
+  React.useEffect(() => {
+    const onKey = (e) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  const isAdmin = Boolean(user?.isAdmin || user?.role === "admin" || user?.group === "admin");
+  const grp = String(user?.group || user?.role || "").toLowerCase();
+  const go = (to) => {
+    onClose();
+    try { window.history.pushState({}, "", to); window.dispatchEvent(new PopStateEvent("popstate")); }
+    catch { window.location.href = to; }
+  };
+
+  const Item = ({ children, onClick, strong }) => (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`block w-full rounded-lg px-3 py-1.5 text-left text-[15px] ${strong ? "font-medium" : "font-normal"} text-white active:bg-white/10`}
+    >
+      {children}
+    </button>
+  );
+  const Divider = () => <div className="-mx-2 my-1.5 h-px bg-white/10" />;
+
+  return createPortal(
+    <div className="fixed inset-0 z-[95]" onClick={onClose}>
+      <div
+        className="absolute right-4 top-[60px] w-56 max-w-[calc(100vw-32px)] origin-top-right animate-svcfade overflow-hidden rounded-2xl bg-[#1c1c1c] p-2 text-white shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {user ? (
+          <>
+            <div className="px-3 pb-1 pt-2">
+              <div className="text-[11px] uppercase tracking-wide text-white/50">В аккаунте</div>
+              <div className="truncate text-[15px] font-medium">{user?.name || user?.email || "Пользователь"}</div>
+            </div>
+            <Divider />
+            <Item onClick={() => go("/account/profile")}>Профиль</Item>
+            {(isAdmin || grp === "partner") && <Item onClick={() => go("/account/partner")}>Партнёр</Item>}
+            {(isAdmin || grp === "supplier") && <Item onClick={() => go("/account/supplier")}>Поставщик</Item>}
+            <Item onClick={() => go("/account/personal")}>Настройки</Item>
+            {isAdmin && (
+              <>
+                <Divider />
+                <Item strong onClick={() => go("/account/admin")}>Администратор</Item>
+              </>
+            )}
+            <Divider />
+            <Item onClick={() => { onClose(); onLogout(); }}>Выход</Item>
+          </>
+        ) : (
+          <>
+            <div className="px-3 pb-1 pt-2 text-[11px] uppercase tracking-wide text-white/50">Аккаунт</div>
+            <Divider />
+            <Item strong onClick={() => { onClose(); window.openModal?.("login"); }}>Вход</Item>
+            <Item onClick={() => { onClose(); window.openModal?.("register", { email: "" }); }}>Регистрация</Item>
+          </>
+        )}
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+/* ===== Полноэкранное мобильное меню (услуги-аккордеон + навигация + действия) ===== */
+function MobileMenu({ open, onClose, query, setQuery, user, onLogout }) {
+  const [openIdx, setOpenIdx] = React.useState(-1);
+  const [present, setPresent] = React.useState(open);
+  const [shown, setShown] = React.useState(false);
+
+  // плавные вход/выход: держим в DOM на время анимации закрытия
+  React.useEffect(() => {
+    let raf1, raf2, t;
+    if (open) {
+      setOpenIdx(-1);
+      setPresent(true);
+      raf1 = requestAnimationFrame(() => { raf2 = requestAnimationFrame(() => setShown(true)); });
+    } else {
+      setShown(false);
+      t = setTimeout(() => setPresent(false), 280);
+    }
+    return () => { cancelAnimationFrame(raf1); cancelAnimationFrame(raf2); clearTimeout(t); };
+  }, [open]);
+
+  // Клик по разделу (О нас / Проекты / Контакты / Отзывы) из открытого меню:
+  // сначала закрываем меню (разблокируем скролл), затем плавно скроллим к секции
+  // с учётом высоты sticky-шапки. Если не на главной — уходим на главную с флагом.
+  const onMobileNav = (hash) => (e) => {
+    if (e) e.preventDefault();
+    const id = (hash || "").replace(/^#/, "");
+    const onHome = window.location.pathname === "/" || window.location.pathname === "";
+    onClose();
+    if (onHome) {
+      setTimeout(() => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        const header = 64; // высота sticky-шапки
+        const y = Math.max(0, window.scrollY + el.getBoundingClientRect().top - header - 8);
+        window.scrollTo({ top: y, behavior: "smooth" });
+      }, 90);
+    } else {
+      try { sessionStorage.setItem("cube:scrollTo", id); } catch {}
+      spaNavigate("/");
+    }
+  };
+
+  if (!present) return null;
+
+  return createPortal(
+    <div className={`fixed inset-0 z-[100] overflow-y-scroll bg-page font-tight [overflow-anchor:none] transition-opacity duration-[240ms] ease-out will-change-[opacity] ${shown ? "opacity-100" : "opacity-0"}`}>
+      {/* верхняя строка меню — та же, что в шапке: бургер (закрывает) · c. · поиск · аккаунт */}
+      <div className="sticky top-0 z-10 bg-page px-4 pt-0">
+        <div className="flex h-header items-center gap-3.5">
+          <button type="button" onClick={onClose} aria-label="Закрыть меню" className="-ml-0.5 shrink-0 text-ink">
+            <Menu size={22} strokeWidth={2} />
+          </button>
+          <a href="/" onClick={onServiceClick("/", onClose)} className="relative -top-0.5 shrink-0 text-[30px] font-bold leading-none text-ink">c.</a>
+          <label className={MOBILE_SEARCH_PILL}>
+            <Search size={14} strokeWidth={2} className="shrink-0 text-[#222222]" />
+            <input
+              autoFocus
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Поиск"
+              aria-label="Поиск"
+              className={`w-full min-w-0 bg-transparent text-[#222222] outline-none placeholder:text-[#222222] ${MOBILE_SEARCH_TEXT}`}
+            />
+          </label>
+          {user ? (
+            <a href="/account/profile" onClick={onServiceClick("/account/profile", onClose)} className="shrink-0" aria-label="Профиль">
+              <img src="/profile/profile.png" alt="" className="h-[30px] w-[30px] rounded-full object-cover" />
+            </a>
+          ) : (
+            <button type="button" onClick={() => { window.openModal?.("login"); onClose(); }} aria-label="Аккаунт" className="-mr-0.5 shrink-0 text-ink">
+              <UserRound size={20} strokeWidth={2} />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {query.trim() ? (
+        <div className="px-4 pb-10">
+          <SearchResults query={query} onClose={onClose} />
+        </div>
+      ) : (
+        <div className="flex min-h-[calc(100dvh-64px)] flex-col pb-6">
+          {/* Услуги — заголовок-плашка (тёмная #ececec) */}
+          <div className="mt-1 flex min-h-[54px] items-center border-b border-[#d4d4d4] bg-[#ececec] px-4 text-[14px] font-semibold text-ink">Услуги</div>
+
+          {/* Строки-направления — белые, как пункты внутри них */}
+          <ul className="flex flex-col border-b border-[#d4d4d4] bg-white">
+            {SERVICE_CATEGORIES.map((c, i) => {
+              const open = openIdx === i;
+              return (
+                <li key={c.key} className="border-b border-[#d4d4d4] last:border-b-0">
+                  <button
+                    type="button"
+                    onClick={() => setOpenIdx(open ? -1 : i)}
+                    aria-expanded={open}
+                    className="flex min-h-[54px] w-full items-center justify-between gap-3 px-4 text-left text-[14px] font-medium text-ink active:bg-[#f2f2f2]"
+                  >
+                    <span className="flex items-center gap-3">
+                      <img src={c.icon} alt="" className="h-5 w-5 shrink-0 object-contain" />
+                      {c.label}
+                    </span>
+                    <ChevronDown size={18} className={`shrink-0 text-neutral-400 transition-transform ${open ? "rotate-180" : ""}`} />
+                  </button>
+                  {open && (
+                    <ul className="bg-white py-1">
+                      {c.items.map((it) => (
+                        <li key={it.label}>
+                          <a href={it.href || c.href} onClick={onServiceClick(it.href || c.href, onClose)} className="flex items-center gap-3 py-2.5 pl-[52px] pr-5 text-[14px] text-ink">
+                            <span className="min-w-0 flex-1">{it.label}</span>
+                            <span className="shrink-0 text-neutral-400">{it.tag}</span>
+                          </a>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </li>
+              );
+            })}
+
+            {/* Прочие разделы — серые (#ececec), цвет как в услугах */}
+            {NAV_LINKS.map((l) => (
+              <li key={l.href} className="border-b border-[#d4d4d4] last:border-b-0">
+                <a
+                  href={l.href}
+                  onClick={onMobileNav(l.href)}
+                  className="flex min-h-[54px] items-center justify-between gap-2 bg-[#ececec] px-4 text-[14px] font-medium text-ink active:bg-[#e2e2e2]"
+                >
+                  <span>{l.label}</span>
+                  {l.badge && <span className="rounded bg-dark px-1.5 py-0.5 text-[10px] font-medium leading-none text-white">{l.badge}</span>}
+                </a>
+              </li>
+            ))}
+          </ul>
+
+          {/* Оставить заявку / Ищу работу — точно такие же строки, как Отзывы/Контакты, просто чуть отделены */}
+          <ul className="mt-2.5 flex flex-col border-y border-[#d4d4d4] bg-[#ececec]">
+            <li className="border-b border-[#d4d4d4]">
+              <a
+                href="/contact"
+                onClick={onServiceClick("/contact", onClose)}
+                className="flex min-h-[54px] items-center justify-between gap-2 bg-carrot px-4 text-[14px] font-semibold text-black transition-colors active:bg-[#e8541f]"
+              >
+                <span>Оставить заявку</span>
+              </a>
+            </li>
+            <li>
+              <a
+                href="/pro"
+                onClick={onServiceClick("/pro", onClose)}
+                className="flex min-h-[54px] items-center justify-between gap-2 px-4 text-[14px] font-medium text-ink active:bg-[#e2e2e2]"
+              >
+                <span>Ищу работу</span>
+              </a>
+            </li>
+          </ul>
+
+          {/* Контакты внизу — как в подвале главной */}
+          <div className="mt-auto flex flex-col gap-1.5 px-4 pt-8 text-[14px]">
+            <div>
+              <span className="font-semibold">Почта:</span>{" "}
+              <a href="mailto:info@cube-tech.ru" className="font-normal hover:underline">info@cube-tech.ru</a>
+            </div>
+            <div>
+              <span className="font-semibold">Телефон:</span>{" "}
+              <a href="tel:+79129112000" className="font-normal hover:underline">+7 (912) 911-20-00</a>
+            </div>
+          </div>
+
+        </div>
+      )}
+    </div>,
+    document.body
+  );
+}
+
 /* ===== Аватар + меню ===== */
 function AvatarMenu({ user, onLogout }) {
   const [open, setOpen] = React.useState(false);
@@ -559,11 +837,21 @@ function AvatarMenu({ user, onLogout }) {
 
 export default function Header() {
   const [servicesOpen, setServicesOpen] = React.useState(false);
+  const [mobileOpen, setMobileOpen] = React.useState(false);
+  const [acctOpen, setAcctOpen] = React.useState(false);
   const [activeCat, setActiveCat] = React.useState(0);
   const [query, setQuery] = React.useState("");
 
-  // при закрытии панели сбрасываем поисковый запрос
-  React.useEffect(() => { if (!servicesOpen) setQuery(""); }, [servicesOpen]);
+  // при закрытии обеих панелей сбрасываем поисковый запрос
+  React.useEffect(() => { if (!servicesOpen && !mobileOpen) setQuery(""); }, [servicesOpen, mobileOpen]);
+
+  // лочим скролл body, когда открыто мобильное меню
+  React.useEffect(() => {
+    if (!mobileOpen) return;
+    const root = document.documentElement;
+    root.style.setProperty("overflow", "hidden", "important");
+    return () => { root.style.removeProperty("overflow"); };
+  }, [mobileOpen]);
 
   // === auth state (без мигания) ===
   const initialUser = (typeof window !== "undefined") ? readCachedUser() : null;
@@ -675,7 +963,7 @@ export default function Header() {
     const onKey = (e) => {
       const key = (e.key || "").toLowerCase();
       if (e.altKey && key === "s") { e.preventDefault(); setServicesOpen((v) => !v); }
-      if (key === "escape") setServicesOpen(false);
+      if (key === "escape") { setServicesOpen(false); setMobileOpen(false); }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -714,13 +1002,18 @@ export default function Header() {
   const barProps = { servicesOpen, setServicesOpen, user, authReady, onLogout: handleLogout };
 
   return (
-    <header className="relative z-40 pt-3 font-tight">
-      {/* Реальная шапка (всегда на месте; при открытой панели её ровно накрывает карточка) */}
-      <div className="mx-auto max-w-[1700px] px-6 lg:px-10">
-        <HeaderBar {...barProps} />
+    <header className="sticky top-0 z-40 bg-page pt-0 font-tight lg:relative lg:bg-transparent lg:pt-3">
+      {/* Реальная шапка. Desktop — полная строка; мобильная (< lg) — компактная строка */}
+      <div className="mx-auto max-w-[1700px] px-4 lg:px-10">
+        <div className="hidden lg:block">
+          <HeaderBar {...barProps} />
+        </div>
+        <div className="lg:hidden">
+          <MobileBar onOpenMenu={() => setMobileOpen(true)} onOpenAccount={() => setAcctOpen(true)} user={user} />
+        </div>
       </div>
 
-      {/* Панель «Услуги» — портал в body, поверх всего, карточка ложится ровно над шапкой */}
+      {/* Панель «Услуги» (desktop) — портал в body, карточка ложится ровно над шапкой */}
       {servicesOpen && (
         <ServicesPanel
           activeCat={activeCat}
@@ -729,6 +1022,25 @@ export default function Header() {
           onClose={() => setServicesOpen(false)}
           query={query}
           setQuery={setQuery}
+        />
+      )}
+
+      {/* Полноэкранное мобильное меню */}
+      <MobileMenu
+        open={mobileOpen}
+        onClose={() => setMobileOpen(false)}
+        query={query}
+        setQuery={setQuery}
+        user={user}
+        onLogout={handleLogout}
+      />
+
+      {/* Всплывающее окно аккаунта (мобильное) */}
+      {acctOpen && (
+        <MobileAccountMenu
+          onClose={() => setAcctOpen(false)}
+          user={user}
+          onLogout={handleLogout}
         />
       )}
     </header>

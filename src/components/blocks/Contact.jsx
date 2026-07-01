@@ -52,7 +52,7 @@ function FancyCheckbox({ checked, onChange }) {
       tabIndex={0}
       onClick={() => onChange(!checked)}
       onKeyDown={(e) => { if (e.key === " " || e.key === "Enter") { e.preventDefault(); onChange(!checked); } }}
-      className="inline-grid h-[18px] w-[18px] cursor-pointer select-none place-items-center rounded border border-[#d9d9d9]"
+      className="mt-[3px] inline-grid h-[18px] w-[18px] shrink-0 cursor-pointer select-none place-items-center rounded border border-[#d9d9d9]"
       aria-label="Принять условия"
       title="Принять условия"
     >
@@ -65,7 +65,7 @@ function FancyCheckbox({ checked, onChange }) {
   );
 }
 
-export default function Contact({ topClass = "pt-10" }) {
+export default function Contact({ topClass = "pt-14" }) {
   const [open, setOpen] = React.useState(false);
   const [modal, setModal] = React.useState(false);
   const [sending, setSending] = React.useState(false);
@@ -166,8 +166,8 @@ export default function Contact({ topClass = "pt-10" }) {
         <h2 className="font-semibold uppercase leading-none" style={TITLE}>КОНТАКТЫ</h2>
       </div>
 
-      {/* Колонки: слева текст, справа форма */}
-      <div className="mx-[52px] mt-20 grid grid-cols-[1fr_auto] items-start gap-10">
+      {/* Колонки: слева текст, справа форма (на узких экранах — в одну колонку) */}
+      <div className="mx-4 mt-12 grid grid-cols-1 items-start gap-10 lg:mx-[52px] lg:mt-20 lg:grid-cols-[1fr_auto]">
         {/* Левый текст */}
         <div className="max-w-[760px] text-left">
           <p className="text-[21px] font-semibold leading-7">Мы — КУБ, и мы рядом, чтобы помочь!</p>
@@ -254,7 +254,7 @@ export default function Contact({ topClass = "pt-10" }) {
           </div>
 
           {/* Согласие */}
-          <div className="mt-[18px] flex items-center gap-2.5 text-sm font-normal leading-5 text-ink">
+          <div className="mt-[18px] flex items-start gap-2.5 text-sm font-normal leading-5 text-ink">
             <FancyCheckbox checked={agree} onChange={(v) => { setAgree(v); clearErr("agree"); }} />
             <span>
               Я прочитал(а) и принимаю{" "}
@@ -284,7 +284,7 @@ export default function Contact({ topClass = "pt-10" }) {
         </form>
       </div>
 
-      <div className="h-[58px]" />
+      <div className="h-0 lg:h-[58px]" />
 
       {/* Тост успеха */}
       {modal && (

@@ -575,6 +575,8 @@ export default function StickyDock() {
       <style>{`
         #dock-root{ position: relative; z-index: 2147483647; }
         body.has-modal #dock-root{ display: none; }
+        /* на мобиле/планшете (где работает мобильная шапка) док скрыт — не мешает чтению */
+        @media (max-width: 1023px){ #dock-root{ display: none !important; } }
 
         .dock-up{
           position: fixed;

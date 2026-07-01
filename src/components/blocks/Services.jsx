@@ -12,7 +12,7 @@ const SERVICES = [
     features: [
       { icon: "/services/icon/thumbs_up.svg", top: "Долговечный", bottom: "результат", offset: 0.3 },
       { icon: "/services/icon/calendar.svg", top: "Планирование", bottom: "этапов", offset: 1.8 },
-      { icon: "/services/icon/graduation_hat.svg", top: "Профессиональная", bottom: "команда", offset: 0.3 },
+      { icon: "/services/icon/graduation_hat.svg", top: "Опытная", bottom: "команда", offset: 0.3 },
     ],
   },
   {
@@ -135,7 +135,7 @@ function FeatureIcon({ icon, top, bottom, offset = 0, speed = 1.5, size = 22 }) 
   React.useEffect(() => () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); }, []);
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex min-w-0 flex-1 items-center gap-1.5 sm:gap-2">
       <object
         ref={objRef}
         data={icon}
@@ -148,67 +148,59 @@ function FeatureIcon({ icon, top, bottom, offset = 0, speed = 1.5, size = 22 }) 
       >
         <img src={icon} alt="" width={size} height={size} className="block" />
       </object>
-      <div className="text-[13px] font-light leading-[16px] text-dark">
-        <div>{top}</div>
-        <div>{bottom}</div>
+      <div className="min-w-0 overflow-hidden text-[11px] font-light leading-[14px] text-dark sm:text-[13px] sm:leading-[16px]">
+        <div className="truncate">{top}</div>
+        <div className="truncate">{bottom}</div>
       </div>
     </div>
   );
 }
 
-/* стрелка → */
+/* стрелка → (чёткая) */
 function Arrow() {
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" className="block shrink-0">
-      <path d="M4 12h13" stroke="#222" strokeWidth="1.4" strokeLinecap="round" />
-      <path d="M11 6l6 6-6 6" fill="none" stroke="#222" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+    <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true" className="block shrink-0">
+      <path d="M4 12h14" stroke="#222" strokeWidth="2" strokeLinecap="round" />
+      <path d="M12 6l6 6-6 6" fill="none" stroke="#222" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
 
 /* позиция гифки на букве «И» */
-const GIF_POS = {
-  position: "absolute",
-  left: "50%",
-  top: "50%",
-  transform: "translate(calc(-50% + 39px), calc(-50% - 34px))",
-  width: "120px",
-  height: "auto",
-  maxWidth: "none",
-  pointerEvents: "none",
-  userSelect: "none",
-  zIndex: 2,
-  display: "block",
-};
 
 export default function Services() {
   return (
-    <section className="mt-[255px] bg-page pb-24 font-tight text-ink">
+    <section className="mt-14 bg-page pb-0 font-tight text-ink sm:mt-40 sm:pb-24 lg:mt-[255px]">
       {/* Заголовок УСЛУГИ + гифка на «И» */}
       <div className="text-center">
+        <div className="text-sm font-light leading-7">Направления</div>
         <h2
-          className="relative inline-block font-semibold uppercase leading-none"
+          className="relative mt-[26px] inline-block font-semibold uppercase leading-none"
           style={{ fontSize: "clamp(48px, 13.5vw, 137px)" }}
         >
           УСЛУГ
           <span className="relative inline-block">
             И
-            <img src="/services/hammer_chisel_logo.gif" alt="" style={GIF_POS} />
+            <img
+              src="/services/hammer_chisel_logo.gif"
+              alt=""
+              className="pointer-events-none absolute left-1/2 top-1/2 z-[2] block w-[54px] max-w-none translate-x-[calc(-50%+18px)] translate-y-[calc(-50%-15px)] select-none sm:w-[120px] sm:translate-x-[calc(-50%+39px)] sm:translate-y-[calc(-50%-34px)]"
+            />
           </span>
         </h2>
       </div>
 
       {/* Вводный блок слева */}
-      <div className="mt-8 pl-[52px] text-left">
-        <div className="text-sm font-light leading-7">Технологии под задачу</div>
-        <h3 className="mt-3.5 text-[43px] font-semibold leading-[1.2]">Делегируйте всё</h3>
-        <h3 className="text-[43px] font-semibold leading-[1.2]">— оставьте себе контроль.</h3>
+      <div className="mt-3.5 px-4 text-center sm:mt-8 sm:pl-[52px] sm:pr-0 sm:text-left">
+        <div className="text-[18px] font-light leading-7 sm:text-sm">Технологии под задачу</div>
+        <h3 className="mt-3.5 hidden text-[28px] font-semibold leading-[1.2] sm:block sm:text-[36px] lg:text-[43px]">Делегируйте всё</h3>
+        <h3 className="hidden text-[28px] font-semibold leading-[1.2] sm:block sm:text-[36px] lg:text-[43px]">— оставьте себе контроль.</h3>
       </div>
 
-      {/* Карточки услуг (сетка: вторая строка прижата влево) */}
-      <div className="mt-20 grid grid-cols-[repeat(3,467px)] justify-center gap-5 px-6">
+      {/* Карточки услуг: адаптивная сетка (моб 1 / планшет 2 / десктоп 3) */}
+      <div className="mx-auto mt-12 grid max-w-[1461px] grid-cols-1 justify-center gap-5 px-4 sm:grid-cols-2 sm:mt-16 lg:grid-cols-3 lg:mt-20">
         {SERVICES.map((s) => (
-          <article key={s.key} className="flex flex-col overflow-hidden rounded-2xl bg-white">
+          <article key={s.key} className="flex flex-col overflow-hidden rounded-[10px] bg-white">
             {/* картинка (клик → страница услуги, затемнение/зум на ховере) */}
             <a href={s.href} aria-label={s.title} className="group relative block h-[263px] overflow-hidden">
               <img
@@ -220,7 +212,7 @@ export default function Services() {
             </a>
 
             {/* заголовок */}
-            <div className="flex h-[129px] items-center px-5">
+            <div className="flex h-[88px] items-center px-5 sm:h-[129px]">
               <h4 className="text-[28px] font-semibold leading-tight text-dark">{s.title}</h4>
             </div>
 
@@ -238,7 +230,7 @@ export default function Services() {
             </a>
 
             {/* фичи (иконки слева направо) */}
-            <div className="flex h-[85px] items-center gap-5 px-5">
+            <div className="flex h-[85px] items-center gap-1.5 px-4 sm:gap-5 sm:px-5">
               {s.features.map((f) => (
                 <FeatureIcon key={f.top} icon={f.icon} top={f.top} bottom={f.bottom} offset={f.offset} />
               ))}
@@ -248,7 +240,7 @@ export default function Services() {
       </div>
 
       {/* Каждая деталь имеет → Значение */}
-      <div className="mt-[108px] px-6 text-center text-base font-light text-ink">
+      <div className="mt-8 px-4 text-center text-base font-light text-ink lg:mt-[108px]">
         Каждая деталь имеет{" "}
         <span className="inline-flex items-center gap-1.5 align-middle">
           <Arrow />
