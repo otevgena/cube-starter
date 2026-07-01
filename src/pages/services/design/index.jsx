@@ -3,14 +3,14 @@ import React from "react";
 import { ServiceCategoryPage } from "../services-shell.jsx";
 
 const LINES = [
-  { key: "power", title: "Проектирование электроснабжения (ЭОМ)", dir: "Электроснабжение (ЭОМ)", href: "/services/design#power" },
-  { key: "hvac", title: "Проектирование отопления, вентиляции и водоснабжения (ОВ, ВК)", dir: "ОВ / ВК", href: "/services/design#hvac" },
-  { key: "lowcurrent", title: "Проектирование слаботочных систем (СКС, ОПС, СКУД, видеонаблюдение и др.)", dir: "Слаботочные", href: "/services/design#lowcurrent" },
-  { key: "automation", title: "Проектирование систем автоматики и АСУ ТП", dir: "Автоматика / АСУ ТП", href: "/services/design#automation" },
-  { key: "lightning", title: "Молниезащита и системы заземления", dir: "Молниезащита", href: "/services/design#lightning" },
-  { key: "estimate", title: "Разработка сметной документации", dir: "Сметы", href: "/services/design#estimate" },
-  { key: "supervision", title: "Авторский надзор за проектом", dir: "Авторский надзор", href: "/services/design#supervision" },
-  { key: "approvals", title: "Согласования в ресурсоснабжающих и сетевых организациях", dir: "Согласования", href: "/services/design#approvals" },
+  { key: "power", title: "Проект электроснабжения (ЭОМ)", dir: "Электроснабжение (ЭОМ)", href: "/services/design/power-eom" },
+  { key: "hvac", title: "Проект ОВ и ВК", dir: "ОВ / ВК", href: "/services/design/hvac-vk" },
+  { key: "lowcurrent", title: "Проект СС (слаботочные системы)", dir: "Слаботочные", href: "/services/design/lowcurrent-ss" },
+  { key: "automation", title: "АСУ ТП и разделы автоматики", dir: "Автоматика / АСУ ТП", href: "/services/design/automation-asutp" },
+  { key: "lightning", title: "Молниезащита и заземление", dir: "Молниезащита", href: "/services/design/lightning-earthing" },
+  { key: "estimate", title: "Сметная документация", dir: "Сметы", href: "/services/design/estimate-documentation" },
+  { key: "supervision", title: "Авторский надзор", dir: "Авторский надзор", href: "/services/design/author-supervision" },
+  { key: "approvals", title: "Согласования в сетевых организациях", dir: "Согласования", href: "/services/design/network-approvals" },
 ];
 
 const METRICS = [

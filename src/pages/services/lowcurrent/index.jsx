@@ -3,14 +3,14 @@ import React from "react";
 import { ServiceCategoryPage } from "../services-shell.jsx";
 
 const LINES = [
-  { key: "sks", title: "Структурированные кабельные системы", dir: "СКС", href: "/services/lowcurrent#sks" },
-  { key: "cctv", title: "Системы видеонаблюдения", dir: "CCTV", href: "/services/lowcurrent#cctv" },
-  { key: "ops", title: "Системы охранно-пожарной сигнализации", dir: "ОПС", href: "/services/lowcurrent#ops" },
-  { key: "skud", title: "Системы контроля и управления доступом", dir: "СКУД", href: "/services/lowcurrent#skud" },
-  { key: "intercom", title: "Домофонные системы и интерком", dir: "Домофония", href: "/services/lowcurrent#intercom" },
-  { key: "server", title: "Организация серверных и кроссовых узлов", dir: "Серверные", href: "/services/lowcurrent#server" },
-  { key: "lan", title: "Локально-вычислительные сети и сетевое оборудование", dir: "ЛВС/Сеть", href: "/services/lowcurrent#lan" },
-  { key: "pa", title: "Системы оповещения и звукового вещания", dir: "Оповещение", href: "/services/lowcurrent#pa" },
+  { key: "sks", title: "Структурированные кабельные системы", dir: "СКС", href: "/services/lowcurrent/sks" },
+  { key: "cctv", title: "Системы видеонаблюдения", dir: "CCTV", href: "/services/lowcurrent/cctv" },
+  { key: "ops", title: "Системы охранно-пожарной сигнализации", dir: "ОПС", href: "/services/lowcurrent/ops" },
+  { key: "skud", title: "Системы контроля и управления доступом", dir: "СКУД", href: "/services/lowcurrent/skud" },
+  { key: "intercom", title: "Домофонные системы и интерком", dir: "Домофония", href: "/services/lowcurrent/intercom" },
+  { key: "server", title: "Организация серверных и кроссовых узлов", dir: "Серверные", href: "/services/lowcurrent/server-cross" },
+  { key: "lan", title: "Локально-вычислительные сети и сетевое оборудование", dir: "ЛВС/Сеть", href: "/services/lowcurrent/lan-network" },
+  { key: "pa", title: "Системы оповещения и звукового вещания", dir: "Оповещение", href: "/services/lowcurrent/public-address" },
 ];
 
 const METRICS = [

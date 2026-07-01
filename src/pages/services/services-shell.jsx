@@ -4,6 +4,7 @@
 // Различаются только данными → страницы стали тонкими конфигами.
 import React from "react";
 import SpaLink from "@/components/common/SpaLink.jsx";
+import { Capsule } from "@/components/services/detailBlocks.jsx";
 
 const GUTTER = 80;
 const TEXT_SHIFT = 28;
@@ -29,16 +30,9 @@ function DottedLine() {
   );
 }
 
-/* кнопка «Подробнее» — эффект как у «Оставить заявку» в шапке (контур → тёмная заливка) */
+/* кнопка «Подробнее» — та же капсула, что «Оставить заявку»: контур → чёрная заливка на hover */
 function CellButtonLink({ to }) {
-  return (
-    <SpaLink
-      to={to}
-      className="inline-flex h-10 items-center rounded-xl border border-neutral-300 px-[14px] text-sm font-normal leading-7 text-ink no-underline transition-colors hover:border-dark hover:bg-dark hover:text-white"
-    >
-      Подробнее
-    </SpaLink>
-  );
+  return <Capsule to={to}>Подробнее</Capsule>;
 }
 
 /* таблица услуг */

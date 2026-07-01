@@ -3,14 +3,14 @@ import React from "react";
 import { ServiceCategoryPage } from "../services-shell.jsx";
 
 const LINES = [
-  { key: "vent-install", title: "Монтаж вентиляции", dir: "Вентиляция", href: "/services/ventilation#vent-install" },
-  { key: "vrf", title: "Системы кондиционирования (VRF/VRV, чиллер-фанкойл)", dir: "Кондиционирование", href: "/services/ventilation#vrf" },
-  { key: "heating", title: "Отопление и тепловые пункты", dir: "Отопление", href: "/services/ventilation#heating" },
-  { key: "bms", title: "Автоматика и диспетчеризация инженерных систем", dir: "Автоматика", href: "/services/ventilation#bms" },
-  { key: "smoke", title: "Дымоудаление и противодымная вентиляция", dir: "Безопасность", href: "/services/ventilation#smoke" },
-  { key: "passport", title: "Паспортизация и балансировка систем", dir: "Сертификация", href: "/services/ventilation#passport" },
-  { key: "ducts", title: "Монтаж воздуховодов и шумоглушителей", dir: "Воздуховоды", href: "/services/ventilation#ducts" },
-  { key: "service", title: "Сервис и регламентное обслуживание", dir: "Сервис", href: "/services/ventilation#service" },
+  { key: "vent-install", title: "Проектирование и монтаж вентиляции", dir: "Вентиляция", href: "/services/ventilation/ventilation-design-install" },
+  { key: "vrf", title: "Системы кондиционирования (VRF/VRV)", dir: "Кондиционирование", href: "/services/ventilation/conditioning-vrf-vrv" },
+  { key: "chiller", title: "Чиллер-фанкойл системы", dir: "Холодоснабжение", href: "/services/ventilation/chiller-fancoil" },
+  { key: "heating", title: "Системы отопления и теплоснабжения", dir: "Отопление", href: "/services/ventilation/heating-heat-supply" },
+  { key: "automation", title: "Автоматика ОВиК", dir: "Автоматика", href: "/services/ventilation/hvac-automation" },
+  { key: "passport", title: "Паспортизация и балансировка систем", dir: "Наладка", href: "/services/ventilation/passport-balancing" },
+  { key: "ducts", title: "Воздуховоды, шумоглушение, КИПиА", dir: "Воздуховоды", href: "/services/ventilation/ducts-silencers-kipia" },
+  { key: "service", title: "Сервис и регламентное обслуживание", dir: "Сервис", href: "/services/ventilation/service-maintenance" },
 ];
 
 const METRICS = [

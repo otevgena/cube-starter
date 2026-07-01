@@ -3,12 +3,14 @@ import React from "react";
 import { ServiceCategoryPage } from "../services-shell.jsx";
 
 const LINES = [
-  { key: "general", title: "Общестроительные и отделочные работы", dir: "Общестрой / Отделка", href: "/services/construction#general" },
-  { key: "monolith", title: "Монолитные и железобетонные работы", dir: "Монолит / ЖБ", href: "/services/construction#monolith" },
-  { key: "foundation", title: "Фундаменты и земляные работы", dir: "Фундаменты / Земляные", href: "/services/construction#foundation" },
-  { key: "roof", title: "Кровельные и фасадные работы", dir: "Кровля / Фасады", href: "/services/construction#roof" },
-  { key: "partitions", title: "Внутренние перегородки и проёмы", dir: "Перегородки / Проёмы", href: "/services/construction#partitions" },
-  { key: "strengthening", title: "Усиление строительных конструкций", dir: "Усиление конструкций", href: "/services/construction#strengthening" },
+  { key: "general", title: "Общестроительные и отделочные работы", dir: "Общестрой / Отделка", href: "/services/construction/general-finishing" },
+  { key: "monolith", title: "Монолитные и бетонные работы", dir: "Монолит / ЖБ", href: "/services/construction/monolith-concrete" },
+  { key: "foundation", title: "Фундамент и земляные работы", dir: "Фундаменты / Земляные", href: "/services/construction/foundation-earthworks" },
+  { key: "roof", title: "Кровля и фасад", dir: "Кровля / Фасады", href: "/services/construction/roof-facade" },
+  { key: "partitions", title: "Внутренние перегородки и проёмы", dir: "Перегородки / Проёмы", href: "/services/construction/partitions-openings" },
+  { key: "strengthening", title: "Усиление конструкций", dir: "Усиление конструкций", href: "/services/construction/structural-strengthening" },
+  { key: "contracting", title: "Генподряд и технадзор", dir: "Генподряд / Технадзор", href: "/services/construction/general-contracting-supervision" },
+  { key: "commissioning", title: "Пуско-наладка инженерных систем", dir: "ПНР", href: "/services/construction/commissioning" },
 ];
 
 const METRICS = [

@@ -6,11 +6,11 @@ const LINES = [
   { key: "grid-connect", title: "Подключение объектов к электросетям", dir: "Внешние сети", href: "/services/electrical/power-connection" },
   { key: "power-upgrade", title: "Увеличение мощности и модернизация сетей", dir: "Распред. сети", href: "/services/electrical/power-upgrade" },
   { key: "indoor", title: "Внутренние электромонтажные работы", dir: "Внутренние сети", href: "/services/electrical/indoor" },
-  { key: "outdoor", title: "Наружные электросети и уличное освещение", dir: "Наружные сети", href: "/services/electrical#outdoor" },
-  { key: "switchgear", title: "Монтаж электрощитов и ВРУ", dir: "Щитовое", href: "/services/electrical#switchgear" },
-  { key: "earthing", title: "Системы заземления и молниезащиты", dir: "Безопасность", href: "/services/electrical#earthing" },
-  { key: "automation", title: "Автоматизация и учёт электроэнергии", dir: "Автоматизация", href: "/services/electrical#automation" },
-  { key: "backup", title: "Резервное электроснабжение", dir: "Надёжность", href: "/services/electrical#backup" },
+  { key: "outdoor", title: "Наружные электросети и уличное освещение", dir: "Наружные сети", href: "/services/electrical/outdoor-networks" },
+  { key: "switchgear", title: "Монтаж электрощитов и ВРУ", dir: "Щитовое", href: "/services/electrical/switchgear-vru" },
+  { key: "earthing", title: "Системы заземления и молниезащиты", dir: "Безопасность", href: "/services/electrical/earthing-lightning" },
+  { key: "automation", title: "Автоматизация и учёт электроэнергии", dir: "Автоматизация", href: "/services/electrical/energy-metering-automation" },
+  { key: "backup", title: "Резервное электроснабжение", dir: "Надёжность", href: "/services/electrical/backup-power" },
 ];
 
 const METRICS = [

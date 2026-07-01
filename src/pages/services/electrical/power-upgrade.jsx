@@ -1,372 +1,93 @@
 // src/pages/services/electrical/power-upgrade.jsx
 import React from "react";
-import SpaLink from "@/components/common/SpaLink.jsx";
+import { ServiceDetailLayout } from "./_shell.jsx";
+import {
+  DetailStatGrid, SectionHead, MatrixTable, BeforeAfterGrid, ZoneGrid, ServiceCTA,
+} from "@/components/services/detailBlocks.jsx";
 
-/* ====== TOKENS ====== */
-const UI = "'Inter Tight','Inter',system-ui";
-const GUTTER = 80;
-const BLACK = "#000";
-const TEXT = "#111";
-const MUTED = "#A7A7A7";
-const BG = "#f8f8f8";
+const STATS = [
+  { label: "Мощность", value: "кВт" },
+  { label: "Аудит", value: "сеть" },
+  { label: "Узкие места", value: "поиск" },
+  { label: "Решение", value: "схема" },
+];
 
-/* ====== UTILS ====== */
-function formatRuDate(d = new Date()) {
-  const months = ["Янв","Фев","Мар","Апр","Май","Июн","Июл","Авг","Сен","Окт","Ноя","Дек"];
-  const dd = String(d.getDate()).padStart(2, "0");
-  const mm = months[d.getMonth()];
-  const yy = d.getFullYear();
-  return `${mm} ${dd}, ${yy}`;
-}
+const SYMPTOMS = [
+  ["Выбивает автоматы", "Группы, номиналы защиты, распределение нагрузки", "Переразводка групп, корректная защита, разделение линий"],
+  ["Греется щит или кабель", "Контакты, сечения, токи, баланс фаз", "Ревизия щита, замена линии, перераспределение нагрузки"],
+  ["Не хватает мощности под оборудование", "Договор, ТУ, фактическую нагрузку, резерв", "Увеличение мощности, новая линия, модернизация ВРУ"],
+  ["Нет резерва в щитах", "Свободные модули, ввод, отходящие линии", "Пересборка щита, добавление резервных групп"],
+  ["Объект меняет назначение", "Новые нагрузки, категории потребителей, режим работы", "Новая схема распределения и модернизация сети"],
+];
 
-/* ====== UI PRIMITIVES ====== */
-function DottedLine({ width = "100%" }) {
-  return (
-    <div
-      style={{
-        width,
-        height: 1,
-        backgroundImage:
-          "repeating-linear-gradient(to right, #000 0 1px, rgba(0,0,0,0) 1px 9px)",
-      }}
-    />
-  );
-}
+const BEFORE = {
+  items: ["Сеть росла хаотично", "Линии не подписаны", "Нет резерва в щите", "Нагрузка на случайных группах", "Сложно понять причину отключений"],
+};
+const AFTER = {
+  items: ["Есть понятная схема", "Линии подписаны", "Нагрузка разделена по группам", "Есть резерв под развитие", "Слабые места зафиксированы"],
+};
 
-function CapsuleButton({ children, onClick, as = "button", href }) {
-  const R = 12;
-  const baseStyle = {
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    height: 40,
-    padding: "0 14px",
-    border: "none",
-    background: "transparent",
-    boxShadow: "inset 0 0 0 0.5px #494949",
-    borderRadius: R,
-    color: BLACK,
-    fontFamily: UI,
-    fontSize: 14,
-    fontWeight: 400,
-    cursor: "pointer",
-    transition: "all 160ms ease",
-    textDecoration: "none",
-    userSelect: "none",
-  };
-  const onEnter = (e) => {
-    e.currentTarget.style.background = BLACK;
-    e.currentTarget.style.color = "#fff";
-    e.currentTarget.style.textDecoration = "none";
-  };
-  const onLeave = (e) => {
-    e.currentTarget.style.background = "transparent";
-    e.currentTarget.style.color = BLACK;
-    e.currentTarget.style.textDecoration = "none";
-  };
+const CHECKS = [
+  { title: "Ввод и договорная мощность", text: "Сверяем фактический лимит с договором и ТУ." },
+  { title: "ВРУ и распределительные щиты", text: "Состояние, схема, свободные модули." },
+  { title: "Кабельные линии", text: "Сечения, нагрев, состояние изоляции." },
+  { title: "Баланс фаз", text: "Равномерность нагрузки по фазам." },
+  { title: "Группы потребителей", text: "Распределение и приоритеты нагрузок." },
+  { title: "Резерв под оборудование", text: "Запас мощности и место в щите." },
+];
 
-  if (as === "a") {
-    return (
-      <a href={href} onClick={onClick} style={baseStyle} onMouseEnter={onEnter} onMouseLeave={onLeave}>
-        {children}
-      </a>
-    );
-  }
-  return (
-    <button type="button" onClick={onClick} style={baseStyle} onMouseEnter={onEnter} onMouseLeave={onLeave}>
-      {children}
-    </button>
-  );
-}
+const RISKS = [
+  ["Заменить автомат без расчёта", "Считаем нагрузки и токи КЗ, подбираем номинал и характеристику"],
+  ["Увеличить нагрузку без проверки кабеля", "Проверяем сечение и нагрев, при необходимости — замена линии"],
+  ["Не учесть пусковые токи", "Закладываем пусковые режимы двигателей и оборудования"],
+  ["Оставить старую маркировку", "Полная ревизия и подписи линий по факту"],
+  ["Не оставить резерв под развитие", "Резервные группы и запас по мощности в проекте"],
+];
 
-function StatBox({ title, value }) {
-  return (
-    <div
-      style={{
-        border: "1px solid #000",    // чёрный контур
-        borderRadius: 10,
-        background: BG,              // заливка цветом фона
-        padding: 14,
-        minHeight: 90,
-      }}
-    >
-      <div style={{ color: "#6b7280", fontSize: 12, letterSpacing: ".06em", textTransform: "uppercase", fontWeight: 300 }}>
-        {title}
-      </div>
-      <div style={{ marginTop: 6, fontSize: 20, lineHeight: "28px", fontWeight: 600, color: "#111" }}>
-        {value}
-      </div>
-    </div>
-  );
-}
-
-/* ====== QUIZ ====== */
-function PillOption({ active, label, onClick }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      style={{
-        border: active ? "1px solid #111" : "1px solid #cfcfcf",
-        background: active ? "#fff" : "transparent",
-        color: active ? "#111" : "#333",
-        borderRadius: 999,
-        height: 36,
-        padding: "0 14px",
-        fontFamily: UI,
-        fontSize: 14,
-        fontWeight: 300,
-        cursor: "pointer",
-        transition: "border-color .14s ease, color .14s ease, background-color .14s ease",
-      }}
-      onMouseEnter={(e) => { if (!active) e.currentTarget.style.borderColor = "#111"; }}
-      onMouseLeave={(e) => { if (!active) e.currentTarget.style.borderColor = "#cfcfcf"; }}
-    >
-      {label}
-    </button>
-  );
-}
-
-function QuizQuestion({ index, title, value, onChange }) {
-  return (
-    <div style={{ padding: "10px 0" }}>
-      <div style={{ fontSize: 14, fontWeight: 600, color: TEXT, marginBottom: 10 }}>
-        {index}. {title}
-      </div>
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-        <PillOption active={value === 2} label="Да" onClick={() => onChange(2)} />
-        <PillOption active={value === 1} label="Иногда / планируется" onClick={() => onChange(1)} />
-        <PillOption active={value === 0} label="Нет / не знаю" onClick={() => onChange(0)} />
-      </div>
-    </div>
-  );
-}
-
-/* ====== PAGE ====== */
 export default function PowerUpgradePage() {
-  const today = formatRuDate();
-
-  // quiz state: 6 вопросов, по 0/1/2 балла
-  const [q, setQ] = React.useState([0,0,0,0,0,0]);
-  const setAns = (i, val) => setQ((old) => old.map((v, idx) => idx === i ? val : v));
-  const score = q.reduce((s, v) => s + v, 0);
-
-  let verdict = { title: "Нужен аудит", text: "Рекомендуем обследование и расчёты. Вероятна частичная модернизация.", color: "#111" };
-  if (score >= 7) verdict = { title: "Модернизация необходима", text: "Нагрузка растёт или защита не селективна. Нужны расчёты, замена линий/муфт и перенастройка защит.", color: "#111" };
-  if (score <= 3) verdict = { title: "Пока можно не трогать", text: "Критичных симптомов нет. Проведём быстрый аудит лимита и защит для спокойствия.", color: "#111" };
-
-  const [ctaShown, setCtaShown] = React.useState(false);
-
   return (
-    <main style={{ fontFamily: UI, color: BLACK, background: BG }}>
-      <style>{`
-        .electro-tabs{ text-align:center; margin-top:30px; }
-        .electro-tabs a{
-          color:${MUTED};
-          text-decoration:none;
-          transition:color .16s ease;
-          letter-spacing:normal;
-          font-size:14px;
-          line-height:28px;
-          font-weight:300;
-          text-transform:uppercase;
-          padding:0 10px;
-          display:inline-block;
-          margin:0 4px 8px 4px;
-          cursor:pointer;
-        }
-        .electro-tabs a:hover{ color:${BLACK}; }
-        .electro-tabs a.is-active{ color:${BLACK}; }
-        .electro-title{ margin:0; text-transform:uppercase; font-weight:600; text-align:center; }
-        .electro-sub{ margin:0; text-align:center; font-size:21px; line-height:28px; font-weight:600; color:#222222; }
-        .electro-tabs-wrap{ display:inline-flex; flex-wrap:wrap; max-width:1080px; justify-content:center; }
-      `}</style>
+    <ServiceDetailLayout
+      active="/services/electrical/power-upgrade"
+      title={<>УВЕЛИЧЕНИЕ МОЩНОСТИ<br />И МОДЕРНИЗАЦИЯ СЕТЕЙ</>}
+      slogan={<>Найдём узкие места в сети и подготовим безопасный путь к новой мощности.<br />Без перегруженных линий и хаоса в щитах.</>}
+    >
+      {/* показатели */}
+      <DetailStatGrid items={STATS} />
 
-      {/* ВЕРХНЯЯ ЗОНА (как на других страницах) */}
-      <div style={{ transform: "translateY(-61px)", willChange: "transform" }}>
-        <div className="electro-tabs">
-          <div className="electro-tabs-wrap">
-            <SpaLink to="/services/electrical#grid-connect">
-              Подключение объектов к электросетям
-            </SpaLink>
-            <SpaLink to="/services/electrical#power-upgrade" className="is-active">
-              Увеличение мощности и модернизация сетей
-            </SpaLink>
-            <SpaLink to="/services/electrical#indoor">
-              Внутренние электромонтажные работы
-            </SpaLink>
-            <SpaLink to="/services/electrical#outdoor">
-              Наружные электросети и уличное освещение
-            </SpaLink>
-            <SpaLink to="/services/electrical#switchgear">
-              Монтаж электрощитов и ВРУ
-            </SpaLink>
-            <SpaLink to="/services/electrical#earthing">
-              Системы заземления и молниезащиты
-            </SpaLink>
-            <SpaLink to="/services/electrical#automation">
-              Автоматизация и учёт электроэнергии
-            </SpaLink>
-            <SpaLink to="/services/electrical#backup">
-              Резервное электроснабжение
-            </SpaLink>
-          </div>
-        </div>
+      {/* ГЛАВНЫЙ БЛОК — матрица симптомов */}
+      <section>
+        <SectionHead label="Диагностика" title="Симптомы перегрузки" />
+        <MatrixTable
+          columns={["Что происходит", "Что проверяем", "Какое решение возможно"]}
+          rows={SYMPTOMS}
+          highlightLast
+        />
+      </section>
 
-        {/* Заголовок */}
-        <div style={{ textAlign: "center", position: "relative", marginTop: 2 }}>
-          <h2 className="electro-title about-hero-title">
-            <span style={{ display: "block" }}>УВЕЛИЧЕНИЕ МОЩНОСТИ</span>
-            <span style={{ display: "block" }}>И МОДЕРНИЗАЦИЯ СЕТЕЙ</span>
-          </h2>
-        </div>
+      {/* до / после */}
+      <section>
+        <SectionHead label="Результат" title="До и после модернизации" />
+        <BeforeAfterGrid before={BEFORE} after={AFTER} />
+      </section>
 
-        {/* Лид */}
-        <div style={{ background: BG, marginTop: 12, marginBottom: 0, padding: 0 }}>
-          <p className="electro-sub">
-            Поднимем лимит мощности и обновим распределение так, чтобы хватало «с&nbsp;запасом»,<br/>
-            а сеть была безопасной.
-          </p>
-        </div>
-      </div>
+      {/* что проверяем — сетка 3×2 */}
+      <section>
+        <SectionHead label="Аудит" title="Что проверяем на объекте" />
+        <ZoneGrid zones={CHECKS} cols={3} />
+      </section>
 
-      {/* Метка обновления */}
-      <div style={{ marginTop: -61, marginLeft: GUTTER, marginRight: GUTTER, display: "flex", justifyContent: "flex-end" }}>
-        <div style={{ fontSize: 14, fontWeight: 300, color: "#3b3b3b" }}>Обновление: {today}</div>
-      </div>
+      {/* риски */}
+      <section>
+        <SectionHead label="Внимание" title="Риски и как закрываем" />
+        <MatrixTable columns={["Риск", "Как закрываем"]} rows={RISKS} />
+      </section>
 
-      {/* НИЖЕ — ОТСТУП НА 119px */}
-      <div style={{ marginTop: 119 }}>
-        {/* Блок: Что делаем / Результат */}
-        <section style={{ marginTop: 64, marginLeft: GUTTER, marginRight: GUTTER }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18 }}>
-            {/* Что делаем */}
-            <div style={{ border: "1px solid #000", borderRadius: 10, background: BG, padding: 20 }}>
-              <div style={{ fontSize: 18, fontWeight: 600, color: TEXT, marginBottom: 8 }}>Что делаем</div>
-              <DottedLine />
-              <ul style={{ margin: "12px 0 0 16px", padding: 0, listStyle: "disc" }}>
-                <li style={liStyle}>расчёты нагрузок/ТКЗ, заявка на увеличение;</li>
-                <li style={liStyle}>модернизация КЛ/ВЛ, замена кабелей и муфт;</li>
-                <li style={liStyle}>перенастройка защит, селективность;</li>
-                <li style={liStyle}>переразделение групп.</li>
-              </ul>
-            </div>
-
-            {/* Результат и документы */}
-            <div style={{ border: "1px solid #000", borderRadius: 10, background: BG, padding: 20 }}>
-              <div style={{ fontSize: 18, fontWeight: 600, color: TEXT, marginBottom: 8 }}>Результат и документы</div>
-              <DottedLine />
-              <ul style={{ margin: "12px 0 0 16px", padding: 0, listStyle: "disc" }}>
-                <li style={liStyle}>новый лимит мощности;</li>
-                <li style={liStyle}>акты испытаний;</li>
-                <li style={liStyle}>селективность подтверждена.</li>
-              </ul>
-            </div>
-          </div>
-        </section>
-
-        {/* Интерактив: квиз */}
-        <section style={{ marginTop: 64, marginLeft: GUTTER, marginRight: GUTTER }}>
-          <div style={{ border: "1px solid #000", borderRadius: 10, background: BG, padding: 20 }}>
-            <div style={{ fontSize: 18, fontWeight: 600, color: TEXT, marginBottom: 8 }}>
-              Нужна ли вам модернизация?
-            </div>
-            <DottedLine />
-
-            <div style={{ marginTop: 14 }}>
-              <QuizQuestion
-                index={1}
-                title="Часто срабатывает вводной автомат или наблюдаются просадки напряжения?"
-                value={q[0]}
-                onChange={(v) => setAns(0, v)}
-              />
-              <QuizQuestion
-                index={2}
-                title="Планируется рост подключаемой нагрузки &gt; 20%?"
-                value={q[1]}
-                onChange={(v) => setAns(1, v)}
-              />
-              <QuizQuestion
-                index={3}
-                title="Кабельные линии/муфты старше 15 лет или есть перегрев/повреждения?"
-                value={q[2]}
-                onChange={(v) => setAns(2, v)}
-              />
-              <QuizQuestion
-                index={4}
-                title="Были неселективные отключения (вырубает «выше», чем должно)?"
-                value={q[3]}
-                onChange={(v) => setAns(3, v)}
-              />
-              <QuizQuestion
-                index={5}
-                title="Добавились новые группы/оборудование (станки, серверные, зарядки ЭВ)?"
-                value={q[4]}
-                onChange={(v) => setAns(4, v)}
-              />
-              <QuizQuestion
-                index={6}
-                title="Токи КЗ/уставки защит не подтверждены актуальными расчётами?"
-                value={q[5]}
-                onChange={(v) => setAns(5, v)}
-              />
-            </div>
-
-            {/* Резюме по ответам */}
-            <div style={{ marginTop: 18, border: "1px solid #000", borderRadius: 10, background: BG, padding: 14 }}>
-              <div style={{ fontSize: 14, fontWeight: 600, color: TEXT }}>
-                Итог: {verdict.title}
-              </div>
-              <div style={{ marginTop: 6, fontSize: 14, fontWeight: 300, color: TEXT }}>
-                {verdict.text}
-              </div>
-              <div style={{ marginTop: 10 }}>
-                <CapsuleButton onClick={() => setCtaShown(true)}>
-                  Проверить ваш лимит и узкие места
-                </CapsuleButton>
-                {ctaShown && (
-                  <p style={{ marginTop: 8, color: "#6b7280", fontSize: 14, fontWeight: 300 }}>
-                    Оставьте вводные (лимит, основные группы, вводной автомат) — подготовим чек-лист модернизации и сроки.
-                  </p>
-                )}
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Сроки и статусы */}
-        <section style={{ marginTop: 32, marginLeft: GUTTER, marginRight: GUTTER }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 18 }}>
-            <StatBox title="Типовой срок" value="2–8 недель" />
-            <StatBox title="Направление" value="Распред. сети" />
-            <StatBox title="Следующее действие" value="Проверить лимит и узкие места" />
-          </div>
-        </section>
-
-        {/* Низ — навигация/возврат */}
-        <section
-          style={{
-            marginTop: 48,
-            marginLeft: GUTTER,
-            marginRight: GUTTER,
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center"
-          }}
-        >
-          <div style={{ color: "#3b3b3b", fontSize: 14, fontWeight: 300 }}>
-            Страница услуги в составе раздела «Электромонтаж».
-          </div>
-          <CapsuleButton as="a" href="/services/electrical">
-            ← Все услуги электромонтажа
-          </CapsuleButton>
-        </section>
-      </div>
-
-      <div style={{ height: 120 }} />
-    </main>
+      {/* CTA */}
+      <ServiceCTA
+        title="Нужно увеличить мощность без переделок вслепую?"
+        text="Опишите объект, оборудование и текущую проблему — мы подскажем, что нужно проверить первым."
+        button="Проверить возможность модернизации"
+      />
+    </ServiceDetailLayout>
   );
 }
-
-/* ====== minor ====== */
-const liStyle = { fontSize: 16, lineHeight: "26px", fontWeight: 300, color: BLACK, marginBottom: 8 };
