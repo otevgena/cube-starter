@@ -199,6 +199,19 @@ function onServiceClick(to, close) {
     if (close) close();
   };
 }
+/* клик по логотипу «c.»: на главной — плавно вверх; иначе — на главную */
+function onLogoClick(close) {
+  return (e) => {
+    if (e) e.preventDefault();
+    const onHome = window.location.pathname === "/" || window.location.pathname === "";
+    if (close) close();
+    if (onHome) {
+      setTimeout(() => window.scrollTo({ top: 0, behavior: "smooth" }), close ? 90 : 0);
+    } else {
+      spaNavigate("/");
+    }
+  };
+}
 
 /* ===== Переиспользуемые куски ===== */
 function SearchField({ className = "", white = false, value, onChange, onFocus, autoFocus = false, readOnly = false }) {
@@ -252,8 +265,8 @@ function SearchResults({ query, onClose }) {
         <li key={`${r.title}-${r.href}`}>
           <a
             href={r.href}
-            onClick={onClose}
-            className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm leading-[28px] text-ink transition-colors hover:bg-white"
+            onClick={(e) => { e.preventDefault(); spaNavigate(r.href); if (onClose) onClose(); }}
+            className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm leading-[28px] text-ink transition-colors hover:bg-white active:bg-[#ececec]"
           >
             <Search size={16} className="shrink-0 text-neutral-400" />
             <span className="truncate"><Highlight text={r.title} query={query} /></span>
@@ -450,7 +463,7 @@ function ServicesPanel({ activeCat, setActiveCat, barProps, onClose, query, setQ
 }
 
 /* ===== Мобильная строка шапки: бургер · c. · поиск · аккаунт (компоновка как у awwwards) ===== */
-function MobileBar({ onOpenMenu, onOpenAccount, user }) {
+function MobileBar({ onOpenMenu, onOpenSearch, onOpenAccount, user }) {
   return (
     <div className="flex h-header items-center gap-3.5">
       <button
@@ -461,10 +474,10 @@ function MobileBar({ onOpenMenu, onOpenAccount, user }) {
       >
         <Menu size={22} strokeWidth={2} />
       </button>
-      <a href="/" onClick={onServiceClick("/")} className="relative -top-0.5 shrink-0 text-[30px] font-bold leading-none text-ink">
+      <a href="/" onClick={onLogoClick()} className="relative -top-0.5 shrink-0 text-[30px] font-bold leading-none text-ink">
         c.
       </a>
-      <button type="button" onClick={onOpenMenu} className={`${MOBILE_SEARCH_PILL} text-left`}>
+      <button type="button" onClick={onOpenSearch} className={`${MOBILE_SEARCH_PILL} text-left`}>
         <Search size={14} strokeWidth={2} className="shrink-0 text-[#222222]" />
         <span className={`truncate text-[#222222] ${MOBILE_SEARCH_TEXT}`}>Поиск</span>
       </button>
@@ -549,10 +562,11 @@ function MobileAccountMenu({ onClose, user, onLogout }) {
 }
 
 /* ===== Полноэкранное мобильное меню (услуги-аккордеон + навигация + действия) ===== */
-function MobileMenu({ open, onClose, query, setQuery, user, onLogout }) {
+function MobileMenu({ open, onClose, query, setQuery, user, onLogout, mode = "menu" }) {
   const [openIdx, setOpenIdx] = React.useState(-1);
   const [present, setPresent] = React.useState(open);
   const [shown, setShown] = React.useState(false);
+  const searchMode = mode === "search";
 
   // плавные вход/выход: держим в DOM на время анимации закрытия
   React.useEffect(() => {
@@ -600,11 +614,11 @@ function MobileMenu({ open, onClose, query, setQuery, user, onLogout }) {
           <button type="button" onClick={onClose} aria-label="Закрыть меню" className="-ml-0.5 shrink-0 text-ink">
             <Menu size={22} strokeWidth={2} />
           </button>
-          <a href="/" onClick={onServiceClick("/", onClose)} className="relative -top-0.5 shrink-0 text-[30px] font-bold leading-none text-ink">c.</a>
+          <a href="/" onClick={onLogoClick(onClose)} className="relative -top-0.5 shrink-0 text-[30px] font-bold leading-none text-ink">c.</a>
           <label className={MOBILE_SEARCH_PILL}>
             <Search size={14} strokeWidth={2} className="shrink-0 text-[#222222]" />
             <input
-              autoFocus
+              autoFocus={searchMode}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Поиск"
@@ -627,6 +641,10 @@ function MobileMenu({ open, onClose, query, setQuery, user, onLogout }) {
       {query.trim() ? (
         <div className="px-4 pb-10">
           <SearchResults query={query} onClose={onClose} />
+        </div>
+      ) : searchMode ? (
+        <div className="px-4 pb-10 pt-5 text-[14px] leading-6 text-neutral-500">
+          Начните вводить запрос — услуги, направления, страницы…
         </div>
       ) : (
         <div className="flex min-h-[calc(100dvh-64px)] flex-col pb-6">
@@ -837,21 +855,21 @@ function AvatarMenu({ user, onLogout }) {
 
 export default function Header() {
   const [servicesOpen, setServicesOpen] = React.useState(false);
-  const [mobileOpen, setMobileOpen] = React.useState(false);
+  const [mobileView, setMobileView] = React.useState(null); // null | 'menu' | 'search'
   const [acctOpen, setAcctOpen] = React.useState(false);
   const [activeCat, setActiveCat] = React.useState(0);
   const [query, setQuery] = React.useState("");
 
-  // при закрытии обеих панелей сбрасываем поисковый запрос
-  React.useEffect(() => { if (!servicesOpen && !mobileOpen) setQuery(""); }, [servicesOpen, mobileOpen]);
+  // при закрытии панелей сбрасываем поисковый запрос
+  React.useEffect(() => { if (!servicesOpen && !mobileView) setQuery(""); }, [servicesOpen, mobileView]);
 
-  // лочим скролл body, когда открыто мобильное меню
+  // лочим скролл body, когда открыто мобильное меню/поиск
   React.useEffect(() => {
-    if (!mobileOpen) return;
+    if (!mobileView) return;
     const root = document.documentElement;
     root.style.setProperty("overflow", "hidden", "important");
     return () => { root.style.removeProperty("overflow"); };
-  }, [mobileOpen]);
+  }, [mobileView]);
 
   // === auth state (без мигания) ===
   const initialUser = (typeof window !== "undefined") ? readCachedUser() : null;
@@ -963,7 +981,7 @@ export default function Header() {
     const onKey = (e) => {
       const key = (e.key || "").toLowerCase();
       if (e.altKey && key === "s") { e.preventDefault(); setServicesOpen((v) => !v); }
-      if (key === "escape") { setServicesOpen(false); setMobileOpen(false); }
+      if (key === "escape") { setServicesOpen(false); setMobileView(null); }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -1009,7 +1027,7 @@ export default function Header() {
           <HeaderBar {...barProps} />
         </div>
         <div className="lg:hidden">
-          <MobileBar onOpenMenu={() => setMobileOpen(true)} onOpenAccount={() => setAcctOpen(true)} user={user} />
+          <MobileBar onOpenMenu={() => setMobileView("menu")} onOpenSearch={() => setMobileView("search")} onOpenAccount={() => setAcctOpen(true)} user={user} />
         </div>
       </div>
 
@@ -1025,10 +1043,11 @@ export default function Header() {
         />
       )}
 
-      {/* Полноэкранное мобильное меню */}
+      {/* Полноэкранное мобильное меню / поиск */}
       <MobileMenu
-        open={mobileOpen}
-        onClose={() => setMobileOpen(false)}
+        open={!!mobileView}
+        mode={mobileView || "menu"}
+        onClose={() => setMobileView(null)}
         query={query}
         setQuery={setQuery}
         user={user}
