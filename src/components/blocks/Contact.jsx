@@ -88,13 +88,18 @@ export default function Contact({ topClass = "pt-10" }) {
     return () => window.removeEventListener("mousedown", onDown);
   }, [open]);
 
-  // предвыбор услуги, если пришли из дока со страницы услуги
+  // предвыбор услуги + тема комментария, если пришли со страницы услуги
   React.useEffect(() => {
     try {
       const pre = sessionStorage.getItem("cube:help");
       if (pre && OPTIONS.includes(pre)) {
         setOpt(pre);
         sessionStorage.removeItem("cube:help");
+      }
+      const subj = sessionStorage.getItem("cube:subject");
+      if (subj) {
+        setComment((c) => (c ? c : `${subj}: `));
+        sessionStorage.removeItem("cube:subject");
       }
     } catch {}
   }, []);

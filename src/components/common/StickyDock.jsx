@@ -35,6 +35,8 @@ export default function StickyDock() {
   const getIsConstruction = () => { try { return /^\/services\/construction(\/|$)/.test(window.location.pathname || "/"); } catch { return false; } };
   const getIsContact      = () => { try { return /^\/contact(\/|$)/.test(window.location.pathname || "/"); } catch { return false; } };
   const getIsAccount      = () => { try { return /^\/account(\/|$)/.test(window.location.pathname || "/"); } catch { return false; } };
+  // детальная страница услуги: /services/<направление>/<услуга> — в доке «c.» становится стрелкой «назад»
+  const getIsServiceDetail = () => { try { return /^\/services\/[^/]+\/[^/]+/.test(window.location.pathname || "/"); } catch { return false; } };
 
   /* =============== state =============== */
   const [routeKey, setRouteKey] = React.useState(getPath());
@@ -47,6 +49,7 @@ export default function StickyDock() {
   );
   const [isContact, setIsContact] = React.useState(getIsContact());
   const [isAccount, setIsAccount] = React.useState(getIsAccount());
+  const [isServiceDetail, setIsServiceDetail] = React.useState(getIsServiceDetail());
 
   // имя профиля для дока (из кэша Header), обновляется на auth:changed
   const readUserName = () => {
@@ -105,8 +108,12 @@ export default function StickyDock() {
         const nextLegal = isLegalPath(nextPath);
         const prevAcc = /^\/account(\/|$)/.test(prevPath || "");
         const nextAcc = /^\/account(\/|$)/.test(nextPath || "");
-        // не анимируем док при переходах внутри legal или внутри аккаунта
-        allowAnimateRef.current = !((prevLegal && nextLegal) || (prevAcc && nextAcc));
+        // компактные сервисные страницы (форма дока одинаковая) — электро/слаботочка/вентиляция/проект/общестрой
+        const svcRe = /^\/services\/(electrical|lowcurrent|ventilation|design|construction)(\/|$)/;
+        const prevSvc = svcRe.test(prevPath || "");
+        const nextSvc = svcRe.test(nextPath || "");
+        // не анимируем док при переходах внутри legal / аккаунта / внутри сервисов (вкладки услуг)
+        allowAnimateRef.current = !((prevLegal && nextLegal) || (prevAcc && nextAcc) || (prevSvc && nextSvc));
       }
 
       prevPathRef.current = nextPath;
@@ -118,6 +125,7 @@ export default function StickyDock() {
       setIsElectro(compactService);
       setIsContact(getIsContact());
       setIsAccount(getIsAccount());
+      setIsServiceDetail(getIsServiceDetail());
 
       if (legal) {
         const p = window.location.pathname || "";
@@ -181,6 +189,12 @@ export default function StickyDock() {
     }
   }, []);
   const goHome = React.useCallback(() => { go("/"); }, [go]);
+  // на детальной странице услуги стрелка «назад» уводит на уровень выше (к странице направления)
+  const goParent = React.useCallback(() => {
+    const p = window.location.pathname || "/";
+    const parent = p.replace(/\/[^/]+$/, "") || "/";
+    go(parent);
+  }, [go]);
 
   React.useEffect(() => {
     if (isLegal || isElectro) return;
@@ -253,6 +267,9 @@ export default function StickyDock() {
       const p = window.location.pathname || "/";
       const key = Object.keys(SERVICE_HELP).find((k) => p.startsWith(k));
       if (key) sessionStorage.setItem("cube:help", SERVICE_HELP[key]);
+      // тема комментария = заголовок страницы услуги (напр. «Серверные, кроссовые и шкафы»)
+      const subj = (document.title || "").replace(/\s*—\s*CUBE\s*$/i, "").trim();
+      if (subj) sessionStorage.setItem("cube:subject", subj);
     } catch {}
     go("/contact");
   };
@@ -462,15 +479,15 @@ export default function StickyDock() {
       {/* панель */}
       <div id="dock-panel" ref={panelRef} className={dockClass} style={dockVars}>
         <div className="dock__inner">
-          {/* левый ромб / бренд */}
-          {isLegal ? (
+          {/* левый ромб / бренд. На legal и на детальной странице услуги — стрелка «назад» */}
+          {(isLegal || isServiceDetail) ? (
             <button
               type="button"
               className="dock__brand"
-              aria-label="На главную"
-              onClick={(e) => { e.preventDefault(); goHome(); }}
-              title="На главную"
-              style={{ display: "grid", placeItems: "center", transform: "translateX(4px)" }}
+              aria-label="Назад"
+              onClick={(e) => { e.preventDefault(); isServiceDetail ? goParent() : goHome(); }}
+              title="Назад"
+              style={{ display: "grid", placeItems: "center", ...(isLegal ? { transform: "translateX(4px)" } : null) }}
             >
               <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
                 <g transform="rotate(-90 12 12)">

@@ -5,3 +5,9 @@ server/ycf-send/function.zip
 .env
 .env.local
 
+# build output
+dist/
+
+# agent / local tooling
+.claude/
+

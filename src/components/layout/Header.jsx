@@ -75,14 +75,14 @@ const SERVICE_CATEGORIES = [
     href: "/services/electrical",
     icon: "/electricity.png",
     items: [
-      { label: "Подключение объектов к электросетям", tag: "ТУ" },
-      { label: "Увеличение мощности и модернизация сетей", tag: "кВт" },
-      { label: "Внутренние электромонтажные работы", tag: "0,4 кВ" },
-      { label: "Наружные электросети и уличное освещение", tag: "10 кВ" },
-      { label: "Монтаж электрощитов и ВРУ", tag: "ВРУ" },
-      { label: "Системы заземления и молниезащиты", tag: "Rз" },
-      { label: "Автоматизация и учёт электроэнергии", tag: "АСКУЭ" },
-      { label: "Резервное электроснабжение", tag: "ДГУ" },
+      { label: "Подключение объектов к электросетям", tag: "ТУ", href: "/services/electrical/power-connection" },
+      { label: "Увеличение мощности и модернизация сетей", tag: "кВт", href: "/services/electrical/power-upgrade" },
+      { label: "Внутренние электромонтажные работы", tag: "0,4 кВ", href: "/services/electrical/indoor" },
+      { label: "Наружные электросети и уличное освещение", tag: "10 кВ", href: "/services/electrical/outdoor-networks" },
+      { label: "Монтаж электрощитов и ВРУ", tag: "ВРУ", href: "/services/electrical/switchgear-vru" },
+      { label: "Системы заземления и молниезащиты", tag: "Rз", href: "/services/electrical/earthing-lightning" },
+      { label: "Автоматизация и учёт электроэнергии", tag: "АСКУЭ", href: "/services/electrical/energy-metering-automation" },
+      { label: "Резервное электроснабжение", tag: "ДГУ", href: "/services/electrical/backup-power" },
     ],
   },
   {
@@ -91,14 +91,14 @@ const SERVICE_CATEGORIES = [
     href: "/services/lowcurrent",
     icon: "/lowcurrent.png",
     items: [
-      { label: "СКС и структурированные кабельные сети", tag: "СКС" },
-      { label: "Видеонаблюдение (CCTV)", tag: "CCTV" },
-      { label: "Охранно-пожарная сигнализация", tag: "ОПС" },
-      { label: "Системы контроля и управления доступом", tag: "СКУД" },
-      { label: "Домофония и интерком", tag: "IP" },
-      { label: "Серверные, кроссовые и шкафы", tag: "19\"" },
-      { label: "ЛВС и активное сетевое оборудование", tag: "LAN" },
-      { label: "Системы оповещения и звука", tag: "СОУЭ" },
+      { label: "СКС и структурированные кабельные сети", tag: "СКС", href: "/services/lowcurrent/sks" },
+      { label: "Видеонаблюдение (CCTV)", tag: "CCTV", href: "/services/lowcurrent/cctv" },
+      { label: "Охранно-пожарная сигнализация", tag: "ОПС", href: "/services/lowcurrent/ops" },
+      { label: "Системы контроля и управления доступом", tag: "СКУД", href: "/services/lowcurrent/skud" },
+      { label: "Домофония и интерком", tag: "IP", href: "/services/lowcurrent/intercom" },
+      { label: "Серверные, кроссовые и шкафы", tag: "19\"", href: "/services/lowcurrent/server-cross" },
+      { label: "ЛВС и активное сетевое оборудование", tag: "LAN", href: "/services/lowcurrent/lan-network" },
+      { label: "Системы оповещения и звука", tag: "СОУЭ", href: "/services/lowcurrent/public-address" },
     ],
   },
   {
@@ -107,14 +107,14 @@ const SERVICE_CATEGORIES = [
     href: "/services/ventilation",
     icon: "/climat.png",
     items: [
-      { label: "Проектирование и монтаж вентиляции", tag: "ОВ" },
-      { label: "Системы кондиционирования (VRF/VRV)", tag: "VRF" },
-      { label: "Чиллер-фанкойл системы", tag: "FCU" },
-      { label: "Системы отопления и теплоснабжения", tag: "ИТП" },
-      { label: "Автоматика ОВиК", tag: "BMS" },
-      { label: "Паспортизация и балансировка систем", tag: "ПНР" },
-      { label: "Воздуховоды, шумоглушение, КИПиА", tag: "КИП" },
-      { label: "Сервис и регламентное обслуживание", tag: "ТО" },
+      { label: "Проектирование и монтаж вентиляции", tag: "ОВ", href: "/services/ventilation/ventilation-design-install" },
+      { label: "Системы кондиционирования (VRF/VRV)", tag: "VRF", href: "/services/ventilation/conditioning-vrf-vrv" },
+      { label: "Чиллер-фанкойл системы", tag: "FCU", href: "/services/ventilation/chiller-fancoil" },
+      { label: "Системы отопления и теплоснабжения", tag: "ИТП", href: "/services/ventilation/heating-heat-supply" },
+      { label: "Автоматика ОВиК", tag: "BMS", href: "/services/ventilation/hvac-automation" },
+      { label: "Паспортизация и балансировка систем", tag: "ПНР", href: "/services/ventilation/passport-balancing" },
+      { label: "Воздуховоды, шумоглушение, КИПиА", tag: "КИП", href: "/services/ventilation/ducts-silencers-kipia" },
+      { label: "Сервис и регламентное обслуживание", tag: "ТО", href: "/services/ventilation/service-maintenance" },
     ],
   },
   {
@@ -123,14 +123,14 @@ const SERVICE_CATEGORIES = [
     href: "/services/design",
     icon: "/design.png",
     items: [
-      { label: "Проект электроснабжения (ЭОМ)", tag: "ЭОМ" },
-      { label: "Проект ОВ и ВК", tag: "ОВ/ВК" },
-      { label: "Проект СС (слаботочные системы)", tag: "СС" },
-      { label: "АСУ ТП и разделы автоматики", tag: "АСУ" },
-      { label: "Молниезащита и заземление", tag: "МЗ" },
-      { label: "Сметная документация", tag: "СД" },
-      { label: "Авторский надзор", tag: "АН" },
-      { label: "Согласования в сетевых организациях", tag: "СО" },
+      { label: "Проект электроснабжения (ЭОМ)", tag: "ЭОМ", href: "/services/design/power-eom" },
+      { label: "Проект ОВ и ВК", tag: "ОВ/ВК", href: "/services/design/hvac-vk" },
+      { label: "Проект СС (слаботочные системы)", tag: "СС", href: "/services/design/lowcurrent-ss" },
+      { label: "АСУ ТП и разделы автоматики", tag: "АСУ", href: "/services/design/automation-asutp" },
+      { label: "Молниезащита и заземление", tag: "МЗ", href: "/services/design/lightning-earthing" },
+      { label: "Сметная документация", tag: "СД", href: "/services/design/estimate-documentation" },
+      { label: "Авторский надзор", tag: "АН", href: "/services/design/author-supervision" },
+      { label: "Согласования в сетевых организациях", tag: "СО", href: "/services/design/network-approvals" },
     ],
   },
   {
@@ -139,14 +139,14 @@ const SERVICE_CATEGORIES = [
     href: "/services/construction",
     icon: "/construction.png",
     items: [
-      { label: "Общестроительные и отделочные работы", tag: "СМР" },
-      { label: "Монолитные и бетонные работы", tag: "ЖБ" },
-      { label: "Фундамент и земляные работы", tag: "ЗР" },
-      { label: "Кровля и фасад", tag: "КФ" },
-      { label: "Внутренние перегородки и проёмы", tag: "ГКЛ" },
-      { label: "Усиление конструкций", tag: "УК" },
-      { label: "Генподряд и технадзор", tag: "ГП" },
-      { label: "Пуско-наладка инженерных систем", tag: "ПНР" },
+      { label: "Общестроительные и отделочные работы", tag: "СМР", href: "/services/construction/general-finishing" },
+      { label: "Монолитные и бетонные работы", tag: "ЖБ", href: "/services/construction/monolith-concrete" },
+      { label: "Фундамент и земляные работы", tag: "ЗР", href: "/services/construction/foundation-earthworks" },
+      { label: "Кровля и фасад", tag: "КФ", href: "/services/construction/roof-facade" },
+      { label: "Внутренние перегородки и проёмы", tag: "ГКЛ", href: "/services/construction/partitions-openings" },
+      { label: "Усиление конструкций", tag: "УК", href: "/services/construction/structural-strengthening" },
+      { label: "Генподряд и технадзор", tag: "ГП", href: "/services/construction/general-contracting-supervision" },
+      { label: "Пуско-наладка инженерных систем", tag: "ПНР", href: "/services/construction/commissioning" },
     ],
   },
 ];
@@ -161,6 +161,40 @@ const NAV_LINKS = [
 
 const NAV_LINK_CLASS =
   "text-sm font-medium leading-[28px] text-ink transition-opacity hover:opacity-70";
+
+/* SPA-переход без полной перезагрузки */
+function spaNavigate(to) {
+  try {
+    window.history.pushState({}, "", to);
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  } catch {
+    window.location.href = to;
+  }
+}
+/* клик по «О нас / Проекты / …»: на главной — скроллим сразу; не на главной —
+   передаём цель через флаг и уходим на главную (App сам доскроллит после монтажа) */
+function onNavClick(hash) {
+  return (e) => {
+    if (e) e.preventDefault();
+    const id = (hash || "").replace(/^#/, "");
+    const onHome = window.location.pathname === "/" || window.location.pathname === "";
+    if (onHome) {
+      const el = document.getElementById(id);
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    } else {
+      try { sessionStorage.setItem("cube:scrollTo", id); } catch {}
+      spaNavigate("/");
+    }
+  };
+}
+/* клик по ссылке услуги/направления → SPA-переход + закрыть панель */
+function onServiceClick(to, close) {
+  return (e) => {
+    if (e) e.preventDefault();
+    spaNavigate(to);
+    if (close) close();
+  };
+}
 
 /* ===== Переиспользуемые куски ===== */
 function SearchField({ className = "", white = false, value, onChange, onFocus, autoFocus = false, readOnly = false }) {
@@ -285,7 +319,7 @@ function HeaderBar({ servicesOpen, setServicesOpen, user, authReady, onLogout, i
         </button>
         {!inPanel &&
           NAV_LINKS.map((l) => (
-            <a key={l.href} href={l.href} className={`flex items-center gap-2 ${NAV_LINK_CLASS}`}>
+            <a key={l.href} href={l.href} onClick={onNavClick(l.href)} className={`flex items-center gap-2 ${NAV_LINK_CLASS}`}>
               {l.label}
               {l.badge && (
                 <span className="rounded bg-dark px-1.5 py-0.5 text-[10px] font-medium leading-none text-white">
@@ -364,6 +398,7 @@ function ServicesPanel({ activeCat, setActiveCat, barProps, onClose, query, setQ
                       <li key={c.key}>
                         <a
                           href={c.href}
+                          onClick={onServiceClick(c.href, onClose)}
                           onMouseEnter={() => setActiveCat(i)}
                           onFocus={() => setActiveCat(i)}
                           className={`flex items-center gap-3 rounded-lg px-3 py-1.5 text-sm leading-[28px] transition-colors ${
@@ -382,8 +417,8 @@ function ServicesPanel({ activeCat, setActiveCat, barProps, onClose, query, setQ
                     {cat.items.map((it) => (
                       <li key={it.label}>
                         <a
-                          href={cat.href}
-                          onClick={onClose}
+                          href={it.href || cat.href}
+                          onClick={onServiceClick(it.href || cat.href, onClose)}
                           className="flex items-center gap-4 rounded-lg px-3 py-1.5 text-sm leading-[28px] text-ink transition-colors hover:bg-white"
                         >
                           <span className="truncate">{it.label}</span>

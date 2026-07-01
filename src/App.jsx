@@ -40,6 +40,51 @@ import AccountProfilePage from '@/pages/account/profile.jsx'
 import PowerConnectionPage from '@/pages/services/electrical/power-connection.jsx'
 import PowerUpgradePage from '@/pages/services/electrical/power-upgrade.jsx' // NEW
 import IndoorWorksPage from '@/pages/services/electrical/indoor.jsx';
+import OutdoorNetworksPage from '@/pages/services/electrical/outdoor-networks.jsx'
+import SwitchgearVruPage from '@/pages/services/electrical/switchgear-vru.jsx'
+import EarthingLightningPage from '@/pages/services/electrical/earthing-lightning.jsx'
+import EnergyMeteringAutomationPage from '@/pages/services/electrical/energy-metering-automation.jsx'
+import BackupPowerPage from '@/pages/services/electrical/backup-power.jsx'
+
+// ⬇️ Детальные страницы услуг (Слаботочные системы)
+import SksPage from '@/pages/services/lowcurrent/sks.jsx'
+import CctvPage from '@/pages/services/lowcurrent/cctv.jsx'
+import OpsPage from '@/pages/services/lowcurrent/ops.jsx'
+import SkudPage from '@/pages/services/lowcurrent/skud.jsx'
+import IntercomPage from '@/pages/services/lowcurrent/intercom.jsx'
+import ServerCrossPage from '@/pages/services/lowcurrent/server-cross.jsx'
+import LanNetworkPage from '@/pages/services/lowcurrent/lan-network.jsx'
+import PublicAddressPage from '@/pages/services/lowcurrent/public-address.jsx'
+
+// ⬇️ Детальные страницы услуг (Климат-системы)
+import VentilationDesignInstallPage from '@/pages/services/ventilation/ventilation-design-install.jsx'
+import ConditioningVrfVrvPage from '@/pages/services/ventilation/conditioning-vrf-vrv.jsx'
+import ChillerFancoilPage from '@/pages/services/ventilation/chiller-fancoil.jsx'
+import HeatingHeatSupplyPage from '@/pages/services/ventilation/heating-heat-supply.jsx'
+import HvacAutomationPage from '@/pages/services/ventilation/hvac-automation.jsx'
+import PassportBalancingPage from '@/pages/services/ventilation/passport-balancing.jsx'
+import DuctsSilencersKipiaPage from '@/pages/services/ventilation/ducts-silencers-kipia.jsx'
+import ServiceMaintenancePage from '@/pages/services/ventilation/service-maintenance.jsx'
+
+// ⬇️ Детальные страницы услуг (Проектирование)
+import PowerEomPage from '@/pages/services/design/power-eom.jsx'
+import HvacVkPage from '@/pages/services/design/hvac-vk.jsx'
+import LowcurrentSsPage from '@/pages/services/design/lowcurrent-ss.jsx'
+import AutomationAsutpPage from '@/pages/services/design/automation-asutp.jsx'
+import LightningEarthingDesignPage from '@/pages/services/design/lightning-earthing.jsx'
+import EstimateDocumentationPage from '@/pages/services/design/estimate-documentation.jsx'
+import AuthorSupervisionPage from '@/pages/services/design/author-supervision.jsx'
+import NetworkApprovalsPage from '@/pages/services/design/network-approvals.jsx'
+
+// ⬇️ Детальные страницы услуг (Общестрой)
+import GeneralFinishingPage from '@/pages/services/construction/general-finishing.jsx'
+import MonolithConcretePage from '@/pages/services/construction/monolith-concrete.jsx'
+import FoundationEarthworksPage from '@/pages/services/construction/foundation-earthworks.jsx'
+import RoofFacadePage from '@/pages/services/construction/roof-facade.jsx'
+import PartitionsOpeningsPage from '@/pages/services/construction/partitions-openings.jsx'
+import StructuralStrengtheningPage from '@/pages/services/construction/structural-strengthening.jsx'
+import GeneralContractingSupervisionPage from '@/pages/services/construction/general-contracting-supervision.jsx'
+import CommissioningPage from '@/pages/services/construction/commissioning.jsx'
 
 export default function App(){
   const [loading, setLoading] = useState(true)
@@ -70,6 +115,8 @@ export default function App(){
   }, [path])
 
   useEffect(() => {
+    // управляем прокруткой сами (иначе браузер может восстанавливать позицию и мешать доскроллу к секции)
+    try { if ('scrollRestoration' in window.history) window.history.scrollRestoration = 'manual' } catch {}
     const onPop = () => setPath(window.location.pathname.replace(/^\/+/, ''))
     window.addEventListener('popstate', onPop)
     window.addEventListener('locationchange', onPop) // на случай патча history
@@ -104,19 +151,57 @@ export default function App(){
     return () => window.removeEventListener('auth:changed', onAuth)
   }, [])
 
-  // ——— ПРОКРУТКА НАВЕРХ + ТИТУЛ ———
+  // ——— ПРОКРУТКА (наверх или к секции по флагу) + ТИТУЛ ———
   useEffect(() => {
+    let scrollTimer = null
+    const corrTimers = []
     try {
-      requestAnimationFrame(() => {
-        window.scrollTo(0, 0)
-        requestAnimationFrame(() => window.scrollTo(0, 0))
-      })
+      const onHome = path === '' || path === '/'
+      let target = null
+      try { target = sessionStorage.getItem('cube:scrollTo') } catch {}
+      if (onHome && target) {
+        // пришли на главную с «О нас / Проекты…» — доскроллим к секции (не наверх).
+        // Скролл может быть заблокирован прелоадером (no-scroll) — ждём снятия и
+        // самокорректируемся, пока секция не встанет к верху (устойчиво к сдвигам лейаута).
+        try { sessionStorage.removeItem('cube:scrollTo') } catch {}
+        const blocked = () => {
+          try { const c = document.documentElement.classList; return c.contains('no-scroll') || c.contains('preloader-active') }
+          catch { return false }
+        }
+        // ориентир как в стик-доке: верх секции + верхний паддинг её первого ребёнка − 8px «воздуха»
+        const destFor = (el) => {
+          const child = el.firstElementChild
+          let padTop = 0
+          try { padTop = child ? (parseFloat(getComputedStyle(child).paddingTop) || 0) : 0 } catch {}
+          return Math.max(0, Math.round(window.scrollY + el.getBoundingClientRect().top + padTop - 8))
+        }
+        const scrollToSec = (smooth) => {
+          const el = document.getElementById(target)
+          if (el) window.scrollTo({ top: destFor(el), behavior: smooth ? 'smooth' : 'auto' })
+        }
+        // ждём появления секции и снятия блокировки (прелоадер), затем плавный скролл + поправки на сдвиг лейаута
+        let ticks = 0
+        scrollTimer = setInterval(() => {
+          ticks++
+          const el = document.getElementById(target)
+          if (!el || blocked()) { if (ticks > 80) { clearInterval(scrollTimer); scrollTimer = null } return }
+          clearInterval(scrollTimer); scrollTimer = null
+          scrollToSec(true)
+          corrTimers.push(setTimeout(() => scrollToSec(false), 420))
+          corrTimers.push(setTimeout(() => scrollToSec(false), 900))
+        }, 90)
+      } else {
+        requestAnimationFrame(() => {
+          window.scrollTo(0, 0)
+          requestAnimationFrame(() => window.scrollTo(0, 0))
+        })
+      }
       document.body.classList.remove('hero-zone')
     } catch {}
 
     const titles = {
-      '': 'Главная — CUBE',
-      '/': 'Главная — CUBE',
+      '': 'КУБ — Комплексные услуги бизнесу',
+      '/': 'КУБ — Комплексные услуги бизнесу',
       'pages/projects': 'Проекты — CUBE',
       'legal/terms': 'Правовые положения — CUBE',
       'legal/cookies': 'Политика cookie — CUBE',
@@ -130,6 +215,43 @@ export default function App(){
       'services/electrical/power-connection': 'Подключение объектов к электросетям — CUBE',
       'services/electrical/power-upgrade': 'Увеличение мощности и модернизация сетей — CUBE', // NEW
       'services/electrical/indoor': 'Внутренние электромонтажные работы — CUBE',
+      'services/electrical/outdoor-networks': 'Наружные электросети и уличное освещение — CUBE',
+      'services/electrical/switchgear-vru': 'Монтаж электрощитов и ВРУ — CUBE',
+      'services/electrical/earthing-lightning': 'Системы заземления и молниезащиты — CUBE',
+      'services/electrical/energy-metering-automation': 'Автоматизация и учёт электроэнергии — CUBE',
+      'services/electrical/backup-power': 'Резервное электроснабжение — CUBE',
+      'services/lowcurrent/sks': 'СКС и структурированные кабельные сети — CUBE',
+      'services/lowcurrent/cctv': 'Видеонаблюдение CCTV — CUBE',
+      'services/lowcurrent/ops': 'Охранно-пожарная сигнализация — CUBE',
+      'services/lowcurrent/skud': 'Системы контроля и управления доступом — CUBE',
+      'services/lowcurrent/intercom': 'Домофония и интерком — CUBE',
+      'services/lowcurrent/server-cross': 'Серверные, кроссовые и шкафы — CUBE',
+      'services/lowcurrent/lan-network': 'ЛВС и активное сетевое оборудование — CUBE',
+      'services/lowcurrent/public-address': 'Системы оповещения и звука — CUBE',
+      'services/ventilation/ventilation-design-install': 'Проектирование и монтаж вентиляции — CUBE',
+      'services/ventilation/conditioning-vrf-vrv': 'Системы кондиционирования VRF/VRV — CUBE',
+      'services/ventilation/chiller-fancoil': 'Чиллер-фанкойл системы — CUBE',
+      'services/ventilation/heating-heat-supply': 'Системы отопления и теплоснабжения — CUBE',
+      'services/ventilation/hvac-automation': 'Автоматика ОВиК — CUBE',
+      'services/ventilation/passport-balancing': 'Паспортизация и балансировка систем — CUBE',
+      'services/ventilation/ducts-silencers-kipia': 'Воздуховоды, шумоглушение, КИПиА — CUBE',
+      'services/ventilation/service-maintenance': 'Сервис и регламентное обслуживание — CUBE',
+      'services/design/power-eom': 'Проект электроснабжения ЭОМ — CUBE',
+      'services/design/hvac-vk': 'Проект ОВ и ВК — CUBE',
+      'services/design/lowcurrent-ss': 'Проект СС слаботочные системы — CUBE',
+      'services/design/automation-asutp': 'АСУ ТП и разделы автоматики — CUBE',
+      'services/design/lightning-earthing': 'Молниезащита и заземление — CUBE',
+      'services/design/estimate-documentation': 'Сметная документация — CUBE',
+      'services/design/author-supervision': 'Авторский надзор — CUBE',
+      'services/design/network-approvals': 'Согласования в сетевых организациях — CUBE',
+      'services/construction/general-finishing': 'Общестроительные и отделочные работы — CUBE',
+      'services/construction/monolith-concrete': 'Монолитные и бетонные работы — CUBE',
+      'services/construction/foundation-earthworks': 'Фундамент и земляные работы — CUBE',
+      'services/construction/roof-facade': 'Кровля и фасад — CUBE',
+      'services/construction/partitions-openings': 'Внутренние перегородки и проёмы — CUBE',
+      'services/construction/structural-strengthening': 'Усиление конструкций — CUBE',
+      'services/construction/general-contracting-supervision': 'Генподряд и технадзор — CUBE',
+      'services/construction/commissioning': 'Пуско-наладка инженерных систем — CUBE',
       'contact': 'Контакты — CUBE',
       'pro': 'Вакансии — CUBE',
       'account': 'Профиль — CUBE',
@@ -142,7 +264,13 @@ export default function App(){
     document.title = titles[path] || 'CUBE'
 
     const m = document.querySelector('main')
-    if (m && typeof m.focus === 'function') m.focus()
+    // preventScroll — иначе фокус на <main> сам прокручивает страницу наверх и ломает доскролл к секции
+    if (m && typeof m.focus === 'function') { try { m.focus({ preventScroll: true }) } catch { m.focus() } }
+
+    return () => {
+      if (scrollTimer) { clearInterval(scrollTimer); scrollTimer = null }
+      corrTimers.forEach(clearTimeout)
+    }
   }, [path])
 
   // === HERO-GUARD ===
@@ -217,6 +345,51 @@ export default function App(){
     if (path === 'services/electrical/power-connection') return <PowerConnectionPage />
     if (path === 'services/electrical/power-upgrade')    return <PowerUpgradePage /> // NEW
     if (path === 'services/electrical/indoor') return <IndoorWorksPage />;
+    if (path === 'services/electrical/outdoor-networks') return <OutdoorNetworksPage />
+    if (path === 'services/electrical/switchgear-vru')   return <SwitchgearVruPage />
+    if (path === 'services/electrical/earthing-lightning') return <EarthingLightningPage />
+    if (path === 'services/electrical/energy-metering-automation') return <EnergyMeteringAutomationPage />
+    if (path === 'services/electrical/backup-power')     return <BackupPowerPage />
+
+    // Детальные страницы услуг «Слаботочные системы»
+    if (path === 'services/lowcurrent/sks')           return <SksPage />
+    if (path === 'services/lowcurrent/cctv')          return <CctvPage />
+    if (path === 'services/lowcurrent/ops')           return <OpsPage />
+    if (path === 'services/lowcurrent/skud')          return <SkudPage />
+    if (path === 'services/lowcurrent/intercom')      return <IntercomPage />
+    if (path === 'services/lowcurrent/server-cross')  return <ServerCrossPage />
+    if (path === 'services/lowcurrent/lan-network')   return <LanNetworkPage />
+    if (path === 'services/lowcurrent/public-address') return <PublicAddressPage />
+
+    // Детальные страницы услуг «Климат-системы»
+    if (path === 'services/ventilation/ventilation-design-install') return <VentilationDesignInstallPage />
+    if (path === 'services/ventilation/conditioning-vrf-vrv') return <ConditioningVrfVrvPage />
+    if (path === 'services/ventilation/chiller-fancoil') return <ChillerFancoilPage />
+    if (path === 'services/ventilation/heating-heat-supply') return <HeatingHeatSupplyPage />
+    if (path === 'services/ventilation/hvac-automation') return <HvacAutomationPage />
+    if (path === 'services/ventilation/passport-balancing') return <PassportBalancingPage />
+    if (path === 'services/ventilation/ducts-silencers-kipia') return <DuctsSilencersKipiaPage />
+    if (path === 'services/ventilation/service-maintenance') return <ServiceMaintenancePage />
+
+    // Детальные страницы услуг «Проектирование»
+    if (path === 'services/design/power-eom') return <PowerEomPage />
+    if (path === 'services/design/hvac-vk') return <HvacVkPage />
+    if (path === 'services/design/lowcurrent-ss') return <LowcurrentSsPage />
+    if (path === 'services/design/automation-asutp') return <AutomationAsutpPage />
+    if (path === 'services/design/lightning-earthing') return <LightningEarthingDesignPage />
+    if (path === 'services/design/estimate-documentation') return <EstimateDocumentationPage />
+    if (path === 'services/design/author-supervision') return <AuthorSupervisionPage />
+    if (path === 'services/design/network-approvals') return <NetworkApprovalsPage />
+
+    // Детальные страницы услуг «Общестрой»
+    if (path === 'services/construction/general-finishing') return <GeneralFinishingPage />
+    if (path === 'services/construction/monolith-concrete') return <MonolithConcretePage />
+    if (path === 'services/construction/foundation-earthworks') return <FoundationEarthworksPage />
+    if (path === 'services/construction/roof-facade') return <RoofFacadePage />
+    if (path === 'services/construction/partitions-openings') return <PartitionsOpeningsPage />
+    if (path === 'services/construction/structural-strengthening') return <StructuralStrengtheningPage />
+    if (path === 'services/construction/general-contracting-supervision') return <GeneralContractingSupervisionPage />
+    if (path === 'services/construction/commissioning') return <CommissioningPage />
 
     if (path === 'contact')               return <ContactPage />
     if (path === 'pro')                   return <ProJobsPage />
