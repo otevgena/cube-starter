@@ -148,23 +148,50 @@ export function MatrixTable({ columns = [], rows = [], highlightLast = false }) 
     highlightLast && ci === n - 1 ? { fontWeight: 600, color: INK } : ci === 0 ? { fontWeight: 600, color: INK } : undefined;
   return (
     <div style={{ position: "relative" }}>
-      {/* сплошная подсветка последней колонки (пунктир строк проходит поверх) */}
-      {highlightLast && (
-        <div aria-hidden="true" style={{ position: "absolute", top: 0, bottom: 0, right: -10, width: `calc((100% - ${(n - 1) * 18}px) / ${n} + 20px)`, background: "#ededed", borderRadius: 8 }} />
-      )}
-      <div style={{ position: "relative" }}>
-        <div style={{ display: "grid", gridTemplateColumns: cols, columnGap: 18, fontSize: 12, letterSpacing: ".04em", textTransform: "uppercase", color: MUTED, fontWeight: 400, paddingBottom: 10 }}>
-          {columns.map((c, i) => <span key={i} style={highlightLast && i === n - 1 ? { textAlign: "left" } : undefined}>{c}</span>)}
-        </div>
+      {/* ===== мобилка: строки-карточки (заголовок + пары «подпись/значение»); у highlightLast значение — серая подсветка ===== */}
+      <div className="md:hidden">
         <DottedDivider />
         {rows.map((r, ri) => (
           <React.Fragment key={ri}>
-            <div style={{ display: "grid", gridTemplateColumns: cols, columnGap: 18, alignItems: "start", padding: "14px 0", fontSize: 14, lineHeight: "22px", fontWeight: 300, color: "#222" }}>
-              {r.map((c, ci) => <span key={ci} style={cellStyle(ci)}>{c}</span>)}
+            <div style={{ padding: "16px 0" }}>
+              <div style={{ fontSize: 16, fontWeight: 600, color: INK, marginBottom: 12 }}>{r[0]}</div>
+              <div style={{ display: "grid", rowGap: 10 }}>
+                {columns.slice(1).map((col, idx) => {
+                  const ci = idx + 1;
+                  const gray = highlightLast && ci === n - 1;
+                  return (
+                    <div key={ci} style={gray ? { background: "#ededed", borderRadius: 8, padding: "10px 12px" } : undefined}>
+                      <div style={{ fontSize: 11, letterSpacing: ".06em", textTransform: "uppercase", color: MUTED, fontWeight: 400 }}>{col}</div>
+                      <div style={{ marginTop: 3, fontSize: 14, lineHeight: "20px", fontWeight: gray ? 600 : 300, color: gray ? INK : "#222" }}>{r[ci]}</div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
             {ri < rows.length - 1 && <DottedDivider />}
           </React.Fragment>
         ))}
+      </div>
+
+      {/* ===== десктоп: таблица-грид ===== */}
+      <div className="relative hidden md:block">
+        {highlightLast && (
+          <div aria-hidden="true" style={{ position: "absolute", top: 0, bottom: 0, right: -10, width: `calc((100% - ${(n - 1) * 18}px) / ${n} + 20px)`, background: "#ededed", borderRadius: 8 }} />
+        )}
+        <div style={{ position: "relative" }}>
+          <div style={{ display: "grid", gridTemplateColumns: cols, columnGap: 18, fontSize: 12, letterSpacing: ".04em", textTransform: "uppercase", color: MUTED, fontWeight: 400, paddingBottom: 10 }}>
+            {columns.map((c, i) => <span key={i} style={highlightLast && i === n - 1 ? { textAlign: "left" } : undefined}>{c}</span>)}
+          </div>
+          <DottedDivider />
+          {rows.map((r, ri) => (
+            <React.Fragment key={ri}>
+              <div style={{ display: "grid", gridTemplateColumns: cols, columnGap: 18, alignItems: "start", padding: "14px 0", fontSize: 14, lineHeight: "22px", fontWeight: 300, color: "#222" }}>
+                {r.map((c, ci) => <span key={ci} style={cellStyle(ci)}>{c}</span>)}
+              </div>
+              {ri < rows.length - 1 && <DottedDivider />}
+            </React.Fragment>
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -325,7 +352,20 @@ export function ServiceCTA({ title, text, button = "Оставить заявк�
       <div style={{ fontSize: 20, fontWeight: 600, color: INK }}>{title}</div>
       {text && <div style={{ marginTop: 6, fontSize: 14, fontWeight: 300, color: MUTED, maxWidth: 720 }}>{text}</div>}
       <div style={{ marginTop: 16, display: "flex", alignItems: "center", gap: 18, flexWrap: "wrap" }}>
-        <Capsule as="button" onClick={() => goToContactWithService(to)}>{button}</Capsule>
+        <button
+          type="button"
+          onClick={() => goToContactWithService(to)}
+          onMouseEnter={(e) => { e.currentTarget.style.background = "#e8541f"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = "#FA5D29"; }}
+          style={{
+            display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8,
+            height: 46, padding: "0 20px", borderRadius: 10, border: "none",
+            background: "#FA5D29", color: "#000", fontFamily: UI, fontSize: 15, fontWeight: 600,
+            cursor: "pointer", whiteSpace: "nowrap", transition: "background-color .16s ease",
+          }}
+        >
+          {button}
+        </button>
         <SpaLink to={backTo} style={{ fontSize: 14, fontWeight: 600, color: INK, textDecoration: "underline", textUnderlineOffset: 2 }}>
           {backLabel}
         </SpaLink>

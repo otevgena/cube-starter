@@ -302,7 +302,7 @@ export function NetworkCoreMap({ nodes = [], endpoints = [] }) {
     <div>
       {nodes.map((n, i) => (
         <React.Fragment key={i}>
-          <div style={{ display: "grid", gridTemplateColumns: "minmax(120px, 210px) 1fr", gap: 16, ...cardCss }}>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-[minmax(120px,210px)_1fr]" style={cardCss}>
             <div>
               <div style={lblCss}>Узел {String(i + 1).padStart(2, "0")}</div>
               <div style={{ marginTop: 4, fontSize: 17, fontWeight: 600, color: INK }}>{n.title}</div>

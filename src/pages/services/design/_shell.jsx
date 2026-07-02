@@ -29,8 +29,17 @@ export function ServiceDetailLayout({ active, title, slogan, children }) {
   return (
     <main style={{ background: BG, minHeight: "100dvh", fontFamily: UI, color: INK }}>
       {/* ВЕРХ: вкладки + заголовок + слоган, приподнят на высоту шапки */}
-      <div style={{ transform: "translateY(-61px)", willChange: "transform", textAlign: "center" }}>
-        <div style={{ marginTop: 30 }}>
+      <div className="-mt-12 text-center will-change-transform lg:mt-0 lg:-translate-y-[61px]">
+        {/* назад к разделу — мобилка */}
+        <div className="px-4 pt-2 text-left lg:hidden">
+          <SpaLink to="/services/design" style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 14, fontWeight: 300, textTransform: "uppercase", color: "#a7a7a7", textDecoration: "none" }}>
+            <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" style={{ display: "block", flexShrink: 0 }}>
+              <path d="M19 12H5M11 6l-6 6 6 6" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            Проектирование
+          </SpaLink>
+        </div>
+        <div className="mt-[30px] hidden lg:block">
           <div style={{ display: "inline-flex", flexWrap: "wrap", maxWidth: 1080, justifyContent: "center" }}>
             {TABS.map((t) => (
               <SpaLink
@@ -48,30 +57,30 @@ export function ServiceDetailLayout({ active, title, slogan, children }) {
           </div>
         </div>
 
-        <h1 style={{ margin: "2px 0 0", fontWeight: 600, textTransform: "uppercase", lineHeight: 1, fontSize: "clamp(48px, 13.5vw, 137px)", color: "#222" }}>
+        <h1 className="mt-2 text-[clamp(22px,8vw,32px)] sm:text-[clamp(48px,13.5vw,137px)] lg:mt-0.5" style={{ fontWeight: 600, textTransform: "uppercase", lineHeight: 1, color: "#222" }}>
           {title}
         </h1>
 
-        <p style={{ margin: "12px 0 0", fontSize: 21, lineHeight: "28px", fontWeight: 600, color: "#222" }}>{slogan}</p>
+        <p className="mx-4 mt-3 text-[18px] leading-6 lg:mx-0 lg:text-[21px] lg:leading-7" style={{ fontWeight: 600, color: "#222" }}>{slogan}</p>
       </div>
 
       {/* «Обновление» справа */}
-      <div style={{ marginTop: -61, marginLeft: PAD, marginRight: PAD, display: "flex", justifyContent: "flex-end" }}>
+      <div className="mt-2 flex justify-end lg:-mt-[61px]" style={{ marginLeft: PAD, marginRight: PAD }}>
         <div style={{ fontSize: 14, fontWeight: 300, color: "#3b3b3b" }}>Обновление: {formatRuDate()}</div>
       </div>
 
       {/* ТЕЛО — страница сама решает порядок блоков; крупный вертикальный ритм */}
-      <div style={{ marginTop: 80, marginLeft: PAD, marginRight: PAD, display: "grid", rowGap: 72 }}>
+      <div className="mt-10 grid gap-y-12 lg:mt-20 lg:gap-y-[72px]" style={{ marginLeft: PAD, marginRight: PAD }}>
         {children}
 
         {/* низ — возврат к категории */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 24, flexWrap: "wrap", gap: 16 }}>
+        <div className="flex flex-wrap items-center justify-between gap-4" style={{ marginTop: 24 }}>
           <div style={{ color: "#3b3b3b", fontSize: 14, fontWeight: 300 }}>Страница услуги в составе раздела «Проектирование».</div>
           <Capsule to="/services/design">← Всё проектирование</Capsule>
         </div>
       </div>
 
-      <div style={{ height: 120 }} />
+      <div className="h-0 lg:h-[120px]" />
     </main>
   );
 }
