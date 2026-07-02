@@ -45,7 +45,7 @@ function Square({ checked }) {
   const size = 18, inner = 10;
   return (
     <span aria-hidden="true" style={{
-      width: size, height: size, display: "inline-grid", placeItems: "center",
+      width: size, height: size, flexShrink: 0, display: "inline-grid", placeItems: "center",
       border: `1px solid ${BORDER_DARK}`, borderRadius: 4, background: "transparent",
     }}>
       <span style={{
@@ -66,13 +66,13 @@ function Chip({ label, selected, onToggle }) {
       onClick={onToggle}
       style={{
         display: "inline-flex", alignItems: "center", gap: 10,
-        height: 40, padding: "0 14px",
+        minHeight: 38, padding: "7px 12px",
         borderRadius: 10, border: "none",
         background: selected ? "#fff" : base,
         cursor: "pointer", userSelect: "none",
         transition: "background-color .12s ease, box-shadow .15s ease",
-        fontFamily: UI, fontSize: 14, fontWeight: 300, color: TEXT,
-        whiteSpace: "nowrap"
+        fontFamily: UI, fontSize: 13, fontWeight: 300, color: TEXT,
+        maxWidth: "100%", textAlign: "left", lineHeight: "18px",
       }}
       onMouseEnter={(e)=>{ if(!selected) e.currentTarget.style.background=hover; }}
       onMouseLeave={(e)=>{ if(!selected) e.currentTarget.style.background=base; }}
@@ -807,8 +807,8 @@ export default function ProJobsPage() {
       <style>{`.with-ph::placeholder{color:${PH};opacity:1;}`}</style>
 
       {/* Хиро */}
-      <div className="px-4 pb-[22px] pt-[54px] text-center font-tight">
-        <div className="-translate-y-[80px]">
+      <div className="-mt-16 px-4 pb-[22px] pt-8 text-center font-tight lg:mt-0 lg:pt-[54px]">
+        <div className="lg:-translate-y-[80px]">
           <div className="text-sm font-light leading-7 text-[#6b7280]">Вакансии</div>
           <h1 className="m-0 font-semibold uppercase leading-none text-[#222]" style={{ fontSize: "clamp(48px, 13.5vw, 137px)" }}>
             РАБОТА В КУБ
@@ -818,7 +818,7 @@ export default function ProJobsPage() {
             <br />Проекты по всей России. Приглашаем монтажников, инженеров и студентов — на временную и постоянную работу.
           </div>
         </div>
-        <div className="h-20" />
+        <div className="h-8 lg:h-20" />
         <div>
           <div className="mt-[22px] text-[21px] font-semibold leading-7 text-[#222]">
             Архитектура карьеры строится из реальных задач.
@@ -830,12 +830,11 @@ export default function ProJobsPage() {
       </div>
 
       {/* сетка */}
-      <div style={{
-        display: "grid", gridTemplateColumns: "240px minmax(640px, 1fr) 280px", gap: 20,
-        width: `calc(100% - ${EDGE * 2}px)`, margin: "0 auto", paddingBottom: 60, alignItems: "start",
+      <div className="grid grid-cols-1 gap-5 px-4 pb-0 lg:grid-cols-[240px_minmax(640px,1fr)_280px] lg:gap-5 lg:px-0 lg:pb-[60px] lg:max-w-[calc(100%-160px)]" style={{
+        width: "100%", margin: "0 auto", alignItems: "start",
       }}>
         {/* Этапы */}
-        <aside style={{ background: CARD, border: "none", borderRadius: 14, padding: 16, position: "sticky", top: 24 }}>
+        <aside className="hidden lg:block" style={{ background: CARD, border: "none", borderRadius: 14, padding: 16, position: "sticky", top: 24 }}>
           <div style={{ fontSize: 12, letterSpacing: ".06em", textTransform: "uppercase", color: TEXT, fontWeight: 300, marginBottom: 10 }}>Этапы</div>
           {sections.map((s) => {
             const active = activeId === s.id;
@@ -863,7 +862,7 @@ export default function ProJobsPage() {
           {/* Контакты */}
           <div id="contacts" style={{ scrollMarginTop: 90, padding: 10, border: `1px solid ${BORDER}`, borderRadius: 12 }}>
             <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 10 }}>Контактные данные</div>
-            <div className="grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+            <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
               <div data-err-key="fio">
                 <Field label="Как к вам обращаться?" required error={errors.fio}>
                   <Input
@@ -964,7 +963,7 @@ export default function ProJobsPage() {
 
             <div data-err-key="skillset" style={{ marginTop: 8 }}>
               <Field label="Основные направления работ" required error={errors.skillset}>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   {skills.map(s => (
                     <Chip
                       key={s}
@@ -979,7 +978,7 @@ export default function ProJobsPage() {
 
             <div style={{ marginTop: 8 }}>
               <Field label="Удостоверения / допуски">
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   {permits.map(s => (
                     <Chip
                       key={s}
@@ -1007,7 +1006,7 @@ export default function ProJobsPage() {
           <div id="availability" style={{ scrollMarginTop: 90, marginTop: 16, padding: 10, border: `1px solid ${BORDER}`, borderRadius: 12 }}>
             <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 10 }}>Готовность к работе</div>
 
-            <div className="grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+            <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
               <div data-err-key="start">
                 <Field label="Когда готовы приступить" required error={errors.start}>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
@@ -1039,7 +1038,7 @@ export default function ProJobsPage() {
               </Field>
             </div>
 
-            <div className="grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginTop: 8 }}>
+            <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2" style={{ marginTop: 8 }}>
               <div data-err-key="payType">
                 <Field label="Формат оплаты" required error={errors.payType}>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
@@ -1082,7 +1081,7 @@ export default function ProJobsPage() {
           <div id="portfolio" style={{ scrollMarginTop: 90, marginTop: 16, padding: 10, border: `1px solid ${BORDER}`, borderRadius: 12 }}>
             <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 10 }}>Портфолио</div>
 
-            <div className="grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+            <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
               <div>
                 <Field label="Ссылка на портфолио / резюме">
                   <Input value={link} onChange={setLink} placeholder="https://…" />
@@ -1109,7 +1108,7 @@ export default function ProJobsPage() {
 
           {/* Согласие и связь */}
           <div style={{ marginTop: 16, padding: 10, border: `1px solid ${BORDER}`, borderRadius: 12 }}>
-            <div className="grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+            <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
               <div data-err-key="agree">
                 <div style={{ display: "flex", alignItems: "center", gap: 10, paddingTop: 4 }}>
                   <button
@@ -1183,7 +1182,7 @@ export default function ProJobsPage() {
         </section>
 
         {/* Правая заметка */}
-        <aside style={{ background: CARD, border: "none", borderRadius: 14, padding: 16, position: "sticky", top: 24 }}>
+        <aside className="lg:sticky lg:top-6" style={{ background: CARD, border: "none", borderRadius: 14, padding: 16 }}>
           <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Подсказка</div>
           <div style={{ fontSize: 14, fontWeight: 300, color: "#222" }}>
             Заполняйте только актуальные поля — чем точнее анкета, тем быстрее обратная связь.

@@ -30,9 +30,14 @@ export default {
           "0%": { opacity: "0", transform: "translateY(4px)" },
           "100%": { opacity: "1", transform: "translateY(0)" },
         },
+        pagein: {
+          "0%": { opacity: "0" },
+          "100%": { opacity: "1" },
+        },
       },
       animation: {
         svcfade: "svcfade 0.18s ease-out",
+        pagein: "pagein 0.3s ease-out both",
       },
     },
   },

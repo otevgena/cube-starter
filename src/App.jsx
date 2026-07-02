@@ -308,6 +308,28 @@ export default function App(){
     }
   }, [path])
 
+  // Появление секций/блоков при скролле (прогрессивно; уважает prefers-reduced-motion)
+  React.useLayoutEffect(() => {
+    let reduce = false
+    try { reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches } catch {}
+    if (reduce) return
+    const els = Array.from(document.querySelectorAll('[data-reveal]'))
+    if (!els.length) return
+    els.forEach((el) => el.classList.add('reveal-on'))
+    let io = null
+    try {
+      io = new IntersectionObserver((entries) => {
+        entries.forEach((e) => {
+          if (e.isIntersecting) { e.target.classList.add('is-visible'); io.unobserve(e.target) }
+        })
+      }, { threshold: 0.08, rootMargin: '0px 0px -8% 0px' })
+      els.forEach((el) => io.observe(el))
+    } catch {
+      els.forEach((el) => el.classList.add('is-visible'))
+    }
+    return () => { if (io) io.disconnect() }
+  }, [path])
+
   // Базовые стили дока
   useEffect(() => {
     const dock = document.getElementById('dock-root')
@@ -426,6 +448,7 @@ export default function App(){
 
         <section
           id="about"
+          data-reveal
           data-section="about"
           aria-label="about"
           data-header-offset="-150"
@@ -437,6 +460,7 @@ export default function App(){
 
         <section
           id="projects"
+          data-reveal
           data-section="projects"
           aria-label="projects"
           data-header-offset="80"
@@ -448,6 +472,7 @@ export default function App(){
 
         <section
           id="contact"
+          data-reveal
           data-section="contact"
           aria-label="contact"
           data-header-offset="-60"
@@ -459,6 +484,7 @@ export default function App(){
 
         <section
           id="reviews"
+          data-reveal
           data-section="reviews"
           aria-label="reviews"
           data-header-offset="80"
@@ -475,7 +501,9 @@ export default function App(){
     <div className="min-h-dvh">
       <Header />
       <main tabIndex="-1" style={{ outline: 'none' }}>
-        {renderRoute()}
+        <div key={path.startsWith('account') ? 'account' : path} className="animate-pagein">
+          {renderRoute()}
+        </div>
       </main>
       <Footer />
       <StickyDock />

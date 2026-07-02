@@ -743,6 +743,12 @@ function TabsBar({ active, isAdmin, onNavigate, lineWidth }) {
   const wrapRef = React.useRef(null);
   const tabRefs = React.useRef(new Map());
   const [underline, setUnderline] = React.useState({ left: 0, width: 56 });
+  // Анимацию включаем только после первичной раскладки, иначе при заходе
+  // из поповера полоска «проезжает» через соседние вкладки.
+  const [animate, setAnimate] = React.useState(false);
+  // Полоску не показываем, пока не измерили её реальную позицию —
+  // иначе виден кадр под «Профиль» (left:0), что выглядит как рывок.
+  const [measured, setMeasured] = React.useState(false);
 
   const TABS_DEF = React.useMemo(() => {
     return [
@@ -764,14 +770,49 @@ function TabsBar({ active, isAdmin, onNavigate, lineWidth }) {
       left: Math.max(0, rTab.left - rWrap.left),
       width: Math.max(24, rTab.width),
     });
+    setMeasured(true);
   }, [active]);
 
   React.useEffect(() => {
+    // Прокрутить активную вкладку в зону видимости (важно при переходе из поповера)
+    try {
+      const el = tabRefs.current.get(active);
+      el?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
+    } catch {}
+
+    // Многократный замер: layout/шрифты могут «доехать» уже после mount,
+    // из-за чего подчёркивание вставало криво при SPA-переходе.
     measure();
+    const raf = requestAnimationFrame(() => {
+      measure();
+      requestAnimationFrame(measure);
+    });
+    const t = setTimeout(measure, 260);
+
+    let cancelled = false;
+    if (typeof document !== "undefined" && document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(() => { if (!cancelled) measure(); }).catch(() => {});
+    }
+
     const onResize = () => measure();
+    const wrap = wrapRef.current;
     window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, [measure]);
+    wrap?.addEventListener("scroll", measure, { passive: true });
+
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(raf);
+      clearTimeout(t);
+      window.removeEventListener("resize", onResize);
+      wrap?.removeEventListener("scroll", measure);
+    };
+  }, [measure, active]);
+
+  // Включаем плавность лишь после того, как первичная раскладка устаканилась.
+  React.useEffect(() => {
+    const t = setTimeout(() => setAnimate(true), 340);
+    return () => clearTimeout(t);
+  }, []);
 
   const toPath = (code) => {
     switch (code) {
@@ -794,10 +835,11 @@ function TabsBar({ active, isAdmin, onNavigate, lineWidth }) {
   };
 
   return (
-    <div style={{ position: "relative", marginTop: -35, paddingBottom: 18 }}>
+    <div className="relative mt-[46px] pb-[18px] lg:-mt-[35px]">
       <div
         ref={wrapRef}
-        style={{ display: "flex", alignItems: "center", gap: 24, fontSize: 14 }}
+        className="[scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        style={{ display: "flex", alignItems: "center", gap: 24, fontSize: 14, overflowX: "auto" }}
       >
         {TABS_DEF.map((t) => {
           const isActive = t.code === active;
@@ -814,6 +856,8 @@ function TabsBar({ active, isAdmin, onNavigate, lineWidth }) {
                 display: "inline-flex",
                 alignItems: "center",
                 gap: 6,
+                flexShrink: 0,
+                whiteSpace: "nowrap",
                 textDecoration: "none",
                 color,
                 fontWeight: weight,
@@ -835,6 +879,7 @@ function TabsBar({ active, isAdmin, onNavigate, lineWidth }) {
           marginTop: 10,
           position: "relative",
           width: typeof lineWidth === "number" ? `${lineWidth}px` : "100%",
+          maxWidth: "100%",
           height: 1,
           backgroundImage:
             "repeating-linear-gradient(to right, #000 0 1px, rgba(0,0,0,0) 1px 9px)",
@@ -848,7 +893,8 @@ function TabsBar({ active, isAdmin, onNavigate, lineWidth }) {
             width: underline.width,
             height: 2,
             background: "#000",
-            transition: "left .18s ease, width .18s ease",
+            opacity: measured ? 1 : 0,
+            transition: animate ? "left .18s ease, width .18s ease" : "none",
           }}
         />
       </div>
@@ -927,6 +973,7 @@ function AdminPanelCore({ token, filterGroup }) {
     <div
       style={{
         width: `${dottedWidth}px`,
+        maxWidth: "100%",
         height: 1,
         backgroundImage:
           "repeating-linear-gradient(to right, #000 0 1px, rgba(0,0,0,0) 1px 9px)",
@@ -1042,7 +1089,7 @@ function AdminPanelCore({ token, filterGroup }) {
     );
 
     if (!ghost) return (
-      <div style={{ width: `${dottedWidth}px` }}>
+      <div style={{ width: `${dottedWidth}px`, maxWidth: "100%" }}>
         {row}
         <DottedLine />
       </div>
@@ -1050,7 +1097,7 @@ function AdminPanelCore({ token, filterGroup }) {
 
     // Ghost-ряд с оверлеем «…»
     return (
-      <div style={{ width: `${dottedWidth}px`, position: "relative" }}>
+      <div style={{ width: `${dottedWidth}px`, maxWidth: "100%", position: "relative" }}>
         {row}
         {/* Убрали серый тонкий разделитель под капсулой */}
         {/* Кнопка «…» по центру */}
@@ -1095,7 +1142,7 @@ function AdminPanelCore({ token, filterGroup }) {
   return (
     <div style={{ marginTop: 0 }}>
       {/* Заголовок + счётчик */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, width: `${dottedWidth}px` }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, width: `${dottedWidth}px`, maxWidth: "100%" }}>
         <div style={{ fontSize: 22, fontWeight: 600 }}>
           {filterGroup ? `Участники группы: ${labelByCode(filterGroup)}` : "Зарегистрированные учётные записи"}
         </div>
@@ -1105,7 +1152,7 @@ function AdminPanelCore({ token, filterGroup }) {
       </div>
 
       {/* Поиск + кнопка */}
-      <div style={{ marginBottom: 16, display: "grid", gridTemplateColumns: "1fr 140px", gap: 12, width: `${dottedWidth}px` }}>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_140px]" style={{ marginBottom: 16, width: `${dottedWidth}px`, maxWidth: "100%" }}>
         <Input value={q} onChange={setQ} placeholder="Поиск по имени, e-mail или телефону…" />
         <button
           type="button"
@@ -1119,8 +1166,9 @@ function AdminPanelCore({ token, filterGroup }) {
         </button>
       </div>
 
+      <div className="-mx-4 overflow-x-auto px-4 lg:mx-0 lg:overflow-visible lg:px-0">
       {/* Шапка таблицы */}
-      <div style={{ width: `${dottedWidth}px` }}>
+      <div style={{ width: `${dottedWidth}px`, maxWidth: "100%" }}>
         <div
           style={{
             display: "grid",
@@ -1159,6 +1207,7 @@ function AdminPanelCore({ token, filterGroup }) {
           ) : null}
         </>
       )}
+      </div>
 
       <div style={{ height: 58 }} />
     </div>
@@ -1170,7 +1219,11 @@ function AdminPanelCore({ token, filterGroup }) {
 export default function AccountProfilePage() {
   const [token, setToken] = React.useState(null);
   const [userEmail, setUserEmail] = React.useState("");
-  const [isAdmin, setIsAdmin] = React.useState(false);
+  // Кэшируем флаг админа, чтобы вкладка «Администратор» не «доезжала»
+  // после ответа apiMe (иначе виден рывок таб-бара при заходе из поповера).
+  const [isAdmin, setIsAdmin] = React.useState(() => {
+    try { return sessionStorage.getItem("auth:isAdmin") === "1"; } catch { return false; }
+  });
 
   /* поля */
   const [username, setUsername] = React.useState("");
@@ -1216,7 +1269,9 @@ export default function AccountProfilePage() {
 
       setPhone(String(u.phone || ""));
       setGroupCode(toCode(u.group || u.role || "user"));
-      setIsAdmin(Boolean(u.isAdmin || u.role === "admin" || u.group === "admin"));
+      const admin = Boolean(u.isAdmin || u.role === "admin" || u.group === "admin");
+      setIsAdmin(admin);
+      try { sessionStorage.setItem("auth:isAdmin", admin ? "1" : "0"); } catch {}
       setCity(String(u.city || ""));
       setAbout(String(u.about || ""));
       setEmailOptIn(Boolean(u.emailOptIn));
@@ -1238,6 +1293,14 @@ export default function AccountProfilePage() {
   const leftStartRef = React.useRef(null);
   const [asideShift, setAsideShift] = React.useState(0);
   const [leftShift, setLeftShift] = React.useState(0);
+  const [isDesktop, setIsDesktop] = React.useState(() => { try { return window.matchMedia("(min-width: 1024px)").matches; } catch { return true; } });
+  React.useEffect(() => {
+    let mql; try { mql = window.matchMedia("(min-width: 1024px)"); } catch { return; }
+    const on = () => setIsDesktop(mql.matches);
+    on();
+    try { mql.addEventListener("change", on); } catch { mql.addListener(on); }
+    return () => { try { mql.removeEventListener("change", on); } catch { mql.removeListener(on); } };
+  }, []);
 
   React.useEffect(() => {
     const calc = () => {
@@ -1316,13 +1379,12 @@ export default function AccountProfilePage() {
   }[tab] || "Профиль";
 
   return (
-    <main style={{ fontFamily: UI, color: TEXT, background: "#f8f8f8", minHeight: "100dvh" }}>
-      <div style={{ paddingTop: 72, paddingLeft: PAGE_PAD, paddingRight: PAGE_PAD }}>
+    <main className="lg:min-h-[100dvh]" style={{ fontFamily: UI, color: TEXT, background: "#f8f8f8" }}>
+      <div className="-mt-10 px-4 pt-4 lg:mt-0 lg:px-[52px] lg:pt-[72px]">
         <div
           ref={gridRef}
+          className="grid grid-cols-1 lg:grid-cols-[360px_714px_78px_277px]"
           style={{
-            display: "grid",
-            gridTemplateColumns: `${LEFT_COL}px ${MID_COL}px ${GAP_COL}px ${RIGHT_COL}px`,
             columnGap: 0,
             alignItems: "start",
             position: "relative",
@@ -1330,8 +1392,8 @@ export default function AccountProfilePage() {
         >
           {/* ЛЕВО — крошка + описание */}
           <aside>
-            <div style={{ marginTop: -35 }}>
-              <div style={{ fontSize: 22, fontWeight: 600, marginBottom: 7 }}>Профиль</div>
+            <div style={{ marginTop: isDesktop ? -35 : 0 }}>
+              <div style={{ fontSize: 22, fontWeight: 600, lineHeight: "1.35", marginBottom: 7 }}>Профиль</div>
               <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#333" }}>
                 <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true" style={{ color: "#111" }}>
                   <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="1.8" />
@@ -1345,7 +1407,7 @@ export default function AccountProfilePage() {
 
             <div ref={leftStartRef} />
 
-            <div style={{ marginTop: leftShift }}>
+            <div className="hidden lg:block" style={{ marginTop: isDesktop ? leftShift : 0 }}>
               <div style={{ fontSize: 22, fontWeight: 600, lineHeight: "1.35" }}>
                 {tab === "admin"
                   ? "Роли и группы"
@@ -1388,6 +1450,34 @@ export default function AccountProfilePage() {
               lineWidth={tabsLineWidth}
             />
 
+            {/* Save — мобилка: под табами (как awwwards) */}
+            {!(tab === "admin" || (isAdmin && (tab === "partner" || tab === "supplier"))) && (
+              <div className="mb-7 mt-2 lg:hidden">
+                <button
+                  type="button"
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="w-full"
+                  style={{ height: 48, borderRadius: 10, background: "#000", color: "#fff", border: "none", fontFamily: UI, fontSize: 14, fontWeight: 400, cursor: saving ? "not-allowed" : "pointer", opacity: saving ? 0.92 : 1 }}
+                >
+                  {saving ? "Сохранение…" : "Сохранить изменения"}
+                </button>
+                <div style={{ marginTop: 12, fontSize: 14, fontWeight: 300, color: "#222" }}>
+                  Если вы внесли какие-либо изменения, не забудьте сохранить их, прежде чем покинуть эту страницу.
+                </div>
+              </div>
+            )}
+
+            {/* Заголовок раздела — мобилка (под табами, как awwwards; fade при переключении) */}
+            <div key={tab} className="mb-5 animate-svcfade lg:hidden">
+              <div style={{ fontSize: 22, fontWeight: 600, lineHeight: "1.35" }}>
+                {tab === "admin" ? "Роли и группы" : tab === "personal" ? "Настройки" : tab === "partner" ? "Раздел: Партнёр" : tab === "supplier" ? "Раздел: Поставщик" : "Ваш профиль"}
+              </div>
+              <div style={{ marginTop: 6, fontSize: 14, fontWeight: 300, color: "#222" }}>
+                {tab === "admin" ? "Управляйте ролями (доступ) и группами (кто вы?) прямо тут." : tab === "personal" ? "Заполните информацию о себе." : "Добавьте здесь дополнительную информацию о себе."}
+              </div>
+            </div>
+
             {tab === "admin" && isAdmin ? (
               <AdminPanel token={token} />
             ) : tab === "partner" && isAdmin ? (
@@ -1399,7 +1489,7 @@ export default function AccountProfilePage() {
                 {tab === "personal" ? (
                   <div style={{ marginTop: 44 }}>
                     <form onSubmit={(e) => e.preventDefault()}>
-                      <div style={{ display: "grid", gridTemplateColumns: "347px 347px", gap: 20 }}>
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-5">
                         <div>
                           <CitySelect
                             value={city}
@@ -1420,13 +1510,13 @@ export default function AccountProfilePage() {
                         </div>
                       </div>
 
-                      <div style={{ marginTop: 37 }}>
+                      <div style={{ marginTop: 12 }}>
                         <Field label="Коротко о себе">
                           <Textarea value={about} onChange={setAbout} placeholder="Пара предложений о себе…" />
                         </Field>
                       </div>
 
-                      <div style={{ marginTop: 37 }}>
+                      <div style={{ marginTop: 12 }}>
                         <Field label="Аватар">
                           <AvatarPicker fileName={avatar?.name} onPick={(f) => setAvatar(f)} error={errors.avatar} />
                         </Field>
@@ -1455,35 +1545,58 @@ export default function AccountProfilePage() {
                       </div>
                     </form>
 
-                    <div style={{ height: 200 }} />
+                    <div className="h-0 lg:h-[200px]" />
                   </div>
                 ) : (
                   <div style={{ marginTop: 44 }}>
                     <div ref={formTopAnchorRef} />
                     <form onSubmit={(e) => e.preventDefault()}>
-                      <div style={{ display: "grid", gridTemplateColumns: "347px 347px", gap: 20 }}>
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-5">
                         <div>
                           <Field label="Имя пользователя" required error={errors.username}>
-                            <div style={{ display: "grid", gridTemplateColumns: "161px 1fr", gap: 0 }}>
-                              <div
-                                tabIndex={-1}
+                            <div
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                height: FIELD_H,
+                                background: "#fff",
+                                boxShadow: errors.username
+                                  ? `inset 0 -1px 0 0 ${ERR}`
+                                  : `inset 0 -1px 0 0 ${UNDERLINE}`,
+                              }}
+                            >
+                              <span
                                 style={{
-                                  ...baseFieldStyle(false),
                                   color: PH,
-                                  background: "#fff",
-                                  pointerEvents: "none",
+                                  fontFamily: UI,
+                                  fontSize: 14,
+                                  fontWeight: 300,
+                                  whiteSpace: "nowrap",
+                                  paddingLeft: 12,
                                   userSelect: "text",
-                                  display: "flex",
-                                  alignItems: "center",
                                 }}
                               >
-                                https://cube-tech.ru/
-                              </div>
-                              <Input
+                                cube-tech.ru/
+                              </span>
+                              <input
+                                type="text"
                                 value={username}
-                                onChange={(v) => { setUsername(v); if (errors.username) setErrors({ ...errors, username: "" }); }}
+                                onChange={(e) => { setUsername(e.target.value); if (errors.username) setErrors({ ...errors, username: "" }); }}
                                 placeholder={(userEmail || "").split("@")[0] || "yourname"}
-                                error={errors.username}
+                                className="with-ph"
+                                style={{
+                                  flex: 1,
+                                  minWidth: 0,
+                                  height: "100%",
+                                  border: "none",
+                                  outline: "none",
+                                  background: "transparent",
+                                  color: TEXT,
+                                  fontFamily: UI,
+                                  fontSize: 14,
+                                  fontWeight: 300,
+                                  padding: "0 12px 0 2px",
+                                }}
                               />
                             </div>
                           </Field>
@@ -1501,7 +1614,7 @@ export default function AccountProfilePage() {
                         </div>
                       </div>
 
-                      <div style={{ marginTop: 58, display: "grid", gridTemplateColumns: "347px 347px", gap: 20 }}>
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-5" style={{ marginTop: 12 }}>
                         <div>
                           <Field label="Телефон" error={errors.phone}>
                             <Input
@@ -1524,7 +1637,7 @@ export default function AccountProfilePage() {
                         </div>
                       </div>
 
-                      <div style={{ marginTop: 58 }}>
+                      <div style={{ marginTop: 12 }}>
                         <CitySelect
                           value={city}
                           onChange={(v) => { setCity(v); if (errors.city) setErrors({ ...errors, city: "" }); }}
@@ -1533,13 +1646,13 @@ export default function AccountProfilePage() {
                         />
                       </div>
 
-                      <div style={{ marginTop: 37 }}>
+                      <div style={{ marginTop: 12 }}>
                         <Field label="Коротко о себе">
                           <Textarea value={about} onChange={setAbout} placeholder="Пара предложений о себе…" />
                         </Field>
                       </div>
 
-                      <div style={{ marginTop: 37 }}>
+                      <div style={{ marginTop: 12 }}>
                         <Field label="Аватар">
                           <AvatarPicker fileName={avatar?.name} onPick={(f) => setAvatar(f)} error={errors.avatar} />
                         </Field>
@@ -1568,7 +1681,7 @@ export default function AccountProfilePage() {
                       </div>
                     </form>
 
-                    <div style={{ height: 200 }} />
+                    <div className="h-0 lg:h-[200px]" />
                   </div>
                 )}
               </>
@@ -1582,13 +1695,13 @@ export default function AccountProfilePage() {
           {tab === "admin" || (isAdmin && (tab === "partner" || tab === "supplier")) ? (
             <div />
           ) : (
-            <aside style={{ position: "sticky", top: 24, marginTop: Math.max(0, asideShift) }}>
+            <aside className="hidden lg:block lg:sticky lg:top-6" style={{ marginTop: isDesktop ? Math.max(0, asideShift) : 0 }}>
               <button
                 type="button"
                 onClick={handleSave}
                 disabled={saving}
+                className="w-full lg:w-[277px]"
                 style={{
-                  width: RIGHT_COL,
                   height: 72,
                   borderRadius: 10,
                   background: "#000",
@@ -1606,7 +1719,7 @@ export default function AccountProfilePage() {
               >
                 {saving ? "Сохранение…" : "Сохранить изменения"}
               </button>
-              <div style={{ marginTop: 14, fontSize: 14, fontWeight: 300, color: "#222", maxWidth: RIGHT_COL }}>
+              <div className="lg:max-w-[277px]" style={{ marginTop: 14, fontSize: 14, fontWeight: 300, color: "#222" }}>
                 Если вы внесли какие-либо изменения, не забудьте сохранить их, прежде чем покинуть эту страницу.
               </div>
             </aside>

@@ -204,3 +204,7 @@ body.review-open #dock-root .dock{
   pointer-events: none !important;
 }
 
+/* Появление блоков при скролле (класс reveal-on вешает JS только без reduced-motion) */
+.reveal-on { opacity: 0; transform: translateY(14px); }
+.reveal-on.is-visible { opacity: 1; transform: none; transition: opacity .6s ease, transform .6s ease; }
+

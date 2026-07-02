@@ -229,15 +229,15 @@ function TabsBar({ isAdmin }) {
     { key: "info",     label: "Личная информация", href: "/account/personal" },
   ];
   return (
-    <div style={{ position: "relative", marginTop: -35, paddingBottom: 18 }}>
+    <div className="relative mt-3 pb-[18px] lg:-mt-[35px]">
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 24 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 24, fontSize: 14 }}>
+        <div className="min-w-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" style={{ display: "flex", alignItems: "center", gap: 24, fontSize: 14, overflowX: "auto" }}>
           {left.map((t) => (
             <a
               key={t.key}
               href={t.href}
               onClick={(e) => { e.preventDefault(); try { window.history.pushState({}, "", t.href); window.dispatchEvent(new PopStateEvent("popstate")); } catch {} }}
-              style={{ textDecoration: "none", fontWeight: 300, color: "#777" }}
+              style={{ textDecoration: "none", fontWeight: 300, color: "#777", flexShrink: 0, whiteSpace: "nowrap" }}
             >
               {t.label}
             </a>
@@ -318,6 +318,7 @@ function UsersTable({ token }) {
           alignItems: "baseline",
           justifyContent: "space-between",
           width: `${dottedWidth}px`,
+          maxWidth: "100%",
           marginTop: 14,
           marginBottom: 8,
         }}
@@ -326,7 +327,7 @@ function UsersTable({ token }) {
         <div style={{ fontSize: 14, fontWeight: 300, color: "#222" }}>Всего: {total}</div>
       </div>
 
-      <div style={{ marginBottom: 16, display: "grid", gridTemplateColumns: "1fr 220px 140px", gap: 12 }}>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_220px_140px]" style={{ marginBottom: 16 }}>
         <Input value={q} onChange={setQ} placeholder="Поиск по имени, e-mail или телефону…" />
         <select
           value={groupFilter}
@@ -348,7 +349,8 @@ function UsersTable({ token }) {
         </button>
       </div>
 
-      <div style={{ border: `1px solid ${UNDERLINE}`, borderRadius: 10, background: "#fff" }}>
+      {/* Десктоп-таблица */}
+      <div className="hidden md:block" style={{ border: `1px solid ${UNDERLINE}`, borderRadius: 10, background: "#fff" }}>
         <div
           style={{
             display: "grid",
@@ -443,6 +445,91 @@ function UsersTable({ token }) {
         )}
       </div>
 
+      {/* Мобильная версия — карточки */}
+      <div className="md:hidden" style={{ border: `1px solid ${UNDERLINE}`, borderRadius: 10, background: "#fff", overflow: "hidden" }}>
+        {loading ? (
+          <div style={{ padding: 16, fontSize: 14, fontWeight: 300 }}>Загрузка…</div>
+        ) : list.length === 0 ? (
+          <div style={{ padding: 16, fontSize: 14, fontWeight: 300, color: "#666" }}>Нет данных</div>
+        ) : (
+          list.map((u, idx) => {
+            const key = String(u.id || idx);
+            const changed = isChanged(u);
+            return (
+              <div
+                key={key}
+                style={{
+                  padding: "14px 14px",
+                  borderTop: idx === 0 ? "none" : `1px solid ${UNDERLINE}`,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 10,
+                }}
+              >
+                <div style={{ fontSize: 16, fontWeight: 600, color: TEXT }}>{u.name || "—"}</div>
+
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 12, fontSize: 13 }}>
+                  <span style={{ fontWeight: 300, color: "#666", textTransform: "uppercase", letterSpacing: ".06em", fontSize: 11 }}>E-mail</span>
+                  <span style={{ fontWeight: 300, color: "#333", textAlign: "right", wordBreak: "break-all" }}>{u.email || "—"}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 12, fontSize: 13 }}>
+                  <span style={{ fontWeight: 300, color: "#666", textTransform: "uppercase", letterSpacing: ".06em", fontSize: 11 }}>Телефон</span>
+                  <span style={{ fontWeight: 300, color: "#333", textAlign: "right" }}>{u.phone || "—"}</span>
+                </div>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                  <span style={{ fontWeight: 300, color: "#666", textTransform: "uppercase", letterSpacing: ".06em", fontSize: 11 }}>Группа</span>
+                  <GroupSelect
+                    value={currentGroup(u)}
+                    onChange={(code) => setDraft(u.id, { group: code })}
+                  />
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                  <span style={{ fontWeight: 300, color: "#666", textTransform: "uppercase", letterSpacing: ".06em", fontSize: 11 }}>Роль</span>
+                  <AccessRoleSelect
+                    value={currentRole(u)}
+                    onChange={(code) => setDraft(u.id, { role: code })}
+                  />
+                </div>
+
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginTop: 2 }}>
+                  <button
+                    type="button"
+                    disabled={!changed}
+                    onClick={() => saveRow(u)}
+                    style={{
+                      height: 36, padding: "0 12px", borderRadius: 8, border: "none",
+                      background: changed ? "#000" : "#999", color: "#fff",
+                      fontFamily: UI, fontSize: 13, fontWeight: 300, cursor: changed ? "pointer" : "not-allowed",
+                      opacity: changed ? 1 : 0.8
+                    }}
+                  >
+                    Сохранить
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!drafts[u.id]}
+                    onClick={() => clearDraft(u.id)}
+                    style={{
+                      height: 36, padding: "0 12px", borderRadius: 8,
+                      border: `1px solid ${UNDERLINE}`, background: "#fff",
+                      color: drafts[u.id] ? "#111" : "#999",
+                      fontFamily: UI, fontSize: 13, fontWeight: 300,
+                      cursor: drafts[u.id] ? "pointer" : "not-allowed"
+                    }}
+                  >
+                    Отменить
+                  </button>
+                  {changed ? (
+                    <span style={{ fontSize: 12, fontWeight: 300, color: "#444" }}>• не сохранено</span>
+                  ) : null}
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+
       <div style={{ height: 58 }} />
     </div>
   );
@@ -478,9 +565,9 @@ export default function AdminPage() {
 
   if (token && !isAdmin) {
     return (
-      <main style={{ fontFamily: UI, color: TEXT, background: "#f8f8f8", minHeight: "100dvh" }}>
-        <div style={{ paddingTop: 72, paddingLeft: PAGE_PAD, paddingRight: PAGE_PAD }}>
-          <div style={{ maxWidth: 820, margin: "0 auto" }}>
+      <main className="lg:min-h-[100dvh]" style={{ fontFamily: UI, color: TEXT, background: "#f8f8f8" }}>
+        <div className="-mt-10 px-4 pt-4 lg:mt-0 lg:px-[52px] lg:pt-[72px]">
+          <div className="px-4 lg:px-0" style={{ maxWidth: 820, margin: "0 auto" }}>
             <div style={{
               background: CARD,
               border: `1px solid ${BORDER}`,
@@ -518,12 +605,11 @@ export default function AdminPage() {
   const dottedWidth = MID_COL + GAP_COL + RIGHT_COL - LINE_RIGHT_INSET;
 
   return (
-    <main style={{ fontFamily: UI, color: TEXT, background: "#f8f8f8", minHeight: "100dvh" }}>
-      <div style={{ paddingTop: 72, paddingLeft: PAGE_PAD, paddingRight: PAGE_PAD }}>
+    <main className="lg:min-h-[100dvh]" style={{ fontFamily: UI, color: TEXT, background: "#f8f8f8" }}>
+      <div className="-mt-10 px-4 pt-4 lg:mt-0 lg:px-[52px] lg:pt-[72px]">
         <div
+          className="grid grid-cols-1 lg:grid-cols-[360px_714px_78px_277px]"
           style={{
-            display: "grid",
-            gridTemplateColumns: `${LEFT_COL}px ${MID_COL}px ${GAP_COL}px ${RIGHT_COL}px`,
             columnGap: 0,
             alignItems: "start",
             position: "relative",
@@ -555,6 +641,7 @@ export default function AdminPage() {
                 marginTop: 6,
                 position: "relative",
                 width: `${dottedWidth}px`,
+                maxWidth: "100%",
                 height: 1,
                 backgroundImage:
                   "repeating-linear-gradient(to right, #000 0 1px, rgba(0,0,0,0) 1px 9px)",
@@ -570,6 +657,7 @@ export default function AdminPage() {
                 alignItems: "baseline",
                 justifyContent: "space-between",
                 width: `${dottedWidth}px`,
+                maxWidth: "100%",
                 marginTop: 14,
                 marginBottom: 10,
               }}
@@ -627,7 +715,7 @@ export default function AdminPage() {
           <div />
 
           {/* ПРАВО — инфоблок */}
-          <aside style={{ position: "sticky", top: 24 }}>
+          <aside className="w-full lg:sticky lg:top-6">
             <div style={{
               background: CARD,
               border: `1px solid ${BORDER}`,

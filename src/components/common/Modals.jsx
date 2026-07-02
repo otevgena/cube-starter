@@ -98,24 +98,37 @@ function ModalShell({ children, onClose, width }) {
     <div
       aria-modal="true"
       role="dialog"
-      className="fixed inset-0 z-[1000] grid animate-svcfade place-items-center bg-black/55 p-6 font-tight"
+      className="fixed inset-0 z-[1000] animate-svcfade bg-black/55 font-tight md:grid md:place-items-center md:p-6"
       onClick={onClose}
     >
       <div
-        className="max-h-[calc(100vh-48px)] animate-svcfade overflow-hidden rounded-[14px] border border-[#dcdcdc] bg-white text-[#111] shadow-[0_16px_48px_rgba(0,0,0,.35)]"
-        style={{ width: `min(${width || 980}px, calc(100vw - 48px))` }}
+        className="relative h-full w-full overflow-y-auto overflow-x-hidden bg-white text-[#111] md:h-auto md:max-h-[calc(100vh-48px)] md:w-[var(--mw)] md:overflow-hidden md:rounded-[14px] md:border md:border-[#dcdcdc] md:shadow-[0_16px_48px_rgba(0,0,0,.35)]"
+        style={{ ["--mw"]: `min(${width || 980}px, calc(100vw - 48px))` }}
         onClick={(e) => e.stopPropagation()}
       >
         {children}
       </div>
 
-      {/* крестик-плитка (внизу справа, на месте дока) */}
+      {/* крестик — мобилка: тёмный квадрат в правом верхнем углу (как awwwards) */}
       <button
         type="button"
         aria-label="Закрыть"
         title="Закрыть"
         onClick={onClose}
-        className="fixed right-6 z-[1001] grid h-[60px] w-[60px] place-items-center rounded-xl bg-[#111] text-white shadow-[0_8px_24px_rgba(0,0,0,.35)] transition-transform hover:-translate-y-px"
+        className="fixed right-0 top-0 z-[1001] grid h-14 w-14 place-items-center bg-[#111] text-white md:hidden"
+      >
+        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+          <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+        </svg>
+      </button>
+
+      {/* крестик — десктоп: плитка внизу справа (на месте дока) */}
+      <button
+        type="button"
+        aria-label="Закрыть"
+        title="Закрыть"
+        onClick={onClose}
+        className="fixed right-6 z-[1001] hidden h-[60px] w-[60px] place-items-center rounded-xl bg-[#111] text-white shadow-[0_8px_24px_rgba(0,0,0,.35)] transition-transform hover:-translate-y-px md:grid"
         style={{ bottom: "calc(var(--dock-bottom, 21px) + (var(--dock-h, 72px) - var(--dock-left-tile, 60px)) / 2)" }}
       >
         <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
@@ -139,7 +152,7 @@ function FormShell({ welcome, bottom, title, children }) {
         <div className="text-sm leading-snug text-[#666]">{bottom}</div>
       </aside>
 
-      <section className="grid grid-rows-[auto_1fr_auto] bg-white px-9 py-[34px]">
+      <section className="grid grid-rows-[auto_1fr_auto] bg-white px-6 py-8 md:px-9 md:py-[34px]">
         <h2 className="mb-[22px] text-[22px] font-semibold leading-[1.25] text-[#111]">{title}</h2>
         {children}
       </section>
@@ -221,7 +234,7 @@ function RegisterForm({ email = "" }) {
         </>
       }
     >
-      <form className="grid grid-cols-2 gap-x-[18px] gap-y-[14px] self-start" onSubmit={onSubmit} noValidate>
+      <form className="flex flex-col gap-[14px] self-start sm:grid sm:grid-cols-2 sm:gap-x-[18px] sm:gap-y-[14px]" onSubmit={onSubmit} noValidate>
         <div className="col-span-2 flex flex-col">
           <Label>ИМЯ ПОЛЬЗОВАТЕЛЯ (*)</Label>
           <input className={inputCls(errors.user)} type="text" value={form.user}
