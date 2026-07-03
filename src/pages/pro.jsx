@@ -810,7 +810,7 @@ export default function ProJobsPage() {
       <div className="-mt-16 px-4 pb-[22px] pt-8 text-center font-tight lg:mt-0 lg:pt-[54px]">
         <div className="lg:-translate-y-[80px]">
           <div className="text-sm font-light leading-7 text-[#6b7280]">Вакансии</div>
-          <h1 className="m-0 font-semibold uppercase leading-none text-[#222]" style={{ fontSize: "clamp(48px, 13.5vw, 137px)" }}>
+          <h1 className="m-0 font-semibold uppercase leading-none text-[#222] h-hero">
             РАБОТА В КУБ
           </h1>
           <div className="mt-3 text-base font-light leading-6 text-[#222]">
@@ -830,7 +830,7 @@ export default function ProJobsPage() {
       </div>
 
       {/* сетка */}
-      <div className="grid grid-cols-1 gap-5 px-4 pb-0 lg:grid-cols-[240px_minmax(640px,1fr)_280px] lg:gap-5 lg:px-0 lg:pb-[60px] lg:max-w-[calc(100%-160px)]" style={{
+      <div className="grid grid-cols-1 gap-5 px-4 pb-0 md:max-w-[820px] lg:grid-cols-[240px_minmax(640px,1fr)_280px] lg:max-w-[calc(100%-160px)] lg:gap-5 lg:px-0 lg:pb-[60px]" style={{
         width: "100%", margin: "0 auto", alignItems: "start",
       }}>
         {/* Этапы */}
