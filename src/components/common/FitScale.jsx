@@ -4,7 +4,7 @@
 // На широких экранах scale ограничен 1 — оригинальный размер.
 import React from "react";
 
-export default function FitScale({ baseW, baseH, children, className = "" }) {
+export default function FitScale({ baseW, baseH, children, className = "", maxScale = 1 }) {
   const ref = React.useRef(null);
   const [scale, setScale] = React.useState(1);
 
@@ -13,14 +13,16 @@ export default function FitScale({ baseW, baseH, children, className = "" }) {
     if (!el) return;
     const measure = () => {
       const w = el.clientWidth || baseW;
-      setScale(Math.min(1, w / baseW));
+      // maxScale > 1 позволяет карточке слегка растянуться, чтобы заполнить
+      // ширину планшета (одна колонка) и совпасть с общими отступами.
+      setScale(Math.min(maxScale, w / baseW));
     };
     measure();
     let ro = null;
     try { ro = new ResizeObserver(measure); ro.observe(el); } catch {}
     window.addEventListener("resize", measure);
     return () => { if (ro) ro.disconnect(); window.removeEventListener("resize", measure); };
-  }, [baseW]);
+  }, [baseW, maxScale]);
 
   return (
     <div ref={ref} className={className} style={{ width: "100%", height: baseH * scale, overflow: "hidden" }}>

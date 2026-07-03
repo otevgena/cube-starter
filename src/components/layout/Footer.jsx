@@ -41,7 +41,7 @@ export default function Footer() {
         {/* навигационные колонки — 2 колонки (Контакты/Отзывы во второй) */}
         <div className="mt-[35px] flex gap-x-16 text-[14px] font-semibold leading-[1.2] sm:gap-0">
           {NAV.map((col, i) => (
-            <nav key={i} className={i === 0 ? "" : "mt-9 sm:ml-[120px] sm:mt-0 lg:ml-[234px]"}>
+            <nav key={i} className={i === 0 ? "" : "mt-9 sm:ml-[120px] sm:mt-[36px] lg:ml-[234px]"}>
               {col.map((item, j) => (
                 <a key={item.href} href={item.href} className={`block hover:underline ${j === 0 ? "" : "mt-[19px]"}`}>
                   {item.label}

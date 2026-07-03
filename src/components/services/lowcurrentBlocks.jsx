@@ -3,7 +3,7 @@
 // Слаботочка ≠ электромонтаж: сигналы, порты, зоны, роли, события, маршруты данных.
 // Только inline-стили + токены проекта; Tailwind-классы — лишь для адаптивных сеток.
 import React from "react";
-import { UI, BG, INK, MUTED, DottedDivider, DetailStatGrid, MiniTabs } from "@/components/services/detailBlocks.jsx";
+import { UI, BG, INK, MUTED, DottedDivider, DetailStatGrid, MiniTabs, gridFillers } from "@/components/services/detailBlocks.jsx";
 
 const gridBox = { border: `1px solid ${INK}`, borderRadius: 12, overflow: "hidden", gap: 1, background: INK };
 const cell = { background: BG, padding: 16 };
@@ -33,8 +33,8 @@ function Bullets({ items = [] }) {
 function FlowArrow() {
   return (
     <div aria-hidden="true" style={{ display: "flex", alignItems: "center", justifyContent: "center", color: "#999" }}>
-      <span className="md:hidden" style={{ fontSize: 18, lineHeight: 1 }}>↓</span>
-      <span className="hidden md:inline" style={{ fontSize: 18, lineHeight: 1 }}>→</span>
+      <span className="lg:hidden" style={{ fontSize: 18, lineHeight: 1 }}>↓</span>
+      <span className="hidden lg:inline" style={{ fontSize: 18, lineHeight: 1 }}>→</span>
     </div>
   );
 }
@@ -168,6 +168,7 @@ export function CoverageBoard({ zones = [] }) {
           </div>
         </div>
       ))}
+      {gridFillers(zones.length, 2, 3)}
     </div>
   );
 }
@@ -217,7 +218,7 @@ export function AccessMatrix({ zones = [], rows = [] }) {
   const cols = `minmax(108px, 1.3fr) repeat(${n}, minmax(0, 1fr))`;
   return (
     <div style={cardCss}>
-      <div className="hidden md:block">
+      <div className="hidden lg:block">
         <div style={{ display: "grid", gridTemplateColumns: cols, columnGap: 10, alignItems: "end" }}>
           <span style={lblCss}>Роль / Зона</span>
           {zones.map((z, i) => <span key={i} style={{ ...lblCss, textAlign: "center" }}>{z}</span>)}
@@ -235,8 +236,8 @@ export function AccessMatrix({ zones = [], rows = [] }) {
           </React.Fragment>
         ))}
       </div>
-      {/* mobile cards */}
-      <div className="md:hidden" style={{ display: "grid", rowGap: 12 }}>
+      {/* mobile + планшет — карточки (матрица тесная на узком) */}
+      <div className="lg:hidden" style={{ display: "grid", rowGap: 12 }}>
         {rows.map((r, ri) => (
           <div key={ri} style={{ border: "1px solid #e3e3e3", borderRadius: 10, padding: 12 }}>
             <div style={{ fontSize: 14, fontWeight: 700, color: INK, marginBottom: 8 }}>{r.role}</div>
@@ -280,7 +281,7 @@ export function CallRouteBoard({ steps = [] }) {
 /* ===== 9. RackElevation (Серверные) — монохромная стойка 19″ по зонам ===== */
 export function RackElevation({ zones = [] }) {
   return (
-    <div style={{ maxWidth: 760, border: `1px solid ${INK}`, borderRadius: 12, background: BG, overflow: "hidden" }}>
+    <div className="max-w-[760px] md:max-w-none lg:max-w-[760px]" style={{ border: `1px solid ${INK}`, borderRadius: 12, background: BG, overflow: "hidden" }}>
       <div style={{ padding: "8px 16px", ...lblCss, fontSize: 12, borderBottom: `1px solid ${INK}`, background: "#efefef" }}>Стойка 19″</div>
       {zones.map((z, i) => (
         <div key={i} style={{ borderBottom: i < zones.length - 1 ? "1px solid #e3e3e3" : "none", padding: 16 }}>
@@ -337,7 +338,7 @@ export function SoundZoneMatrix({ columns = [], rows = [] }) {
   const grid = `minmax(96px, 1.1fr) repeat(${n - 1}, minmax(0, 1fr))`;
   return (
     <div style={cardCss}>
-      <div className="hidden md:block">
+      <div className="hidden lg:block">
         <div style={{ display: "grid", gridTemplateColumns: grid, columnGap: 12, ...lblCss, paddingBottom: 10 }}>
           {columns.map((c, i) => <span key={i} style={i > 0 && i < n - 1 ? { textAlign: "center" } : undefined}>{c}</span>)}
         </div>
@@ -353,8 +354,8 @@ export function SoundZoneMatrix({ columns = [], rows = [] }) {
           </React.Fragment>
         ))}
       </div>
-      {/* mobile cards */}
-      <div className="md:hidden" style={{ display: "grid", rowGap: 12 }}>
+      {/* mobile + планшет — карточки (матрица тесная на узком) */}
+      <div className="lg:hidden" style={{ display: "grid", rowGap: 12 }}>
         {rows.map((r, ri) => (
           <div key={ri} style={{ border: "1px solid #e3e3e3", borderRadius: 10, padding: 12 }}>
             <div style={{ fontSize: 14, fontWeight: 700, color: INK, marginBottom: 8 }}>{r[0]}</div>
@@ -374,10 +375,10 @@ export function SoundZoneMatrix({ columns = [], rows = [] }) {
 /* ===== 12. EventFlow — универсальная цепочка события: сигнал → обработка → действие → фиксация ===== */
 export function EventFlow({ steps = [] }) {
   return (
-    <div className="flex flex-col md:flex-row md:items-stretch" style={{ gap: 10 }}>
+    <div className="flex flex-col lg:flex-row lg:items-stretch" style={{ gap: 10 }}>
       {steps.map((s, i) => (
         <React.Fragment key={i}>
-          <div style={{ flex: 1, ...cardCss }}>
+          <div data-reveal style={{ flex: 1, ...cardCss, ["--rd"]: `${i * 90}ms` }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: INK, fontVariantNumeric: "tabular-nums" }}>{String(i + 1).padStart(2, "0")}</div>
             <div style={{ marginTop: 6, fontSize: 15, fontWeight: 600, color: INK }}>{s.title}</div>
             {s.happens && (

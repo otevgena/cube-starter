@@ -1523,8 +1523,9 @@ export default function AccountProfilePage() {
                       </div>
 
                       <div style={{ marginTop: 28, fontSize: 14, fontWeight: 300, color: "#222" }}>
-                        КУБ может информировать меня о продуктах и услугах, отправляя персонализированные письма. Подробнее
-                        см. в нашей{" "}
+                        КУБ может информировать меня о продуктах и услугах, отправляя персонализированные письма.{" "}
+                        <br className="hidden md:inline lg:hidden" />
+                        Подробнее см. в нашей{" "}
                         <a href="https://cube-tech.ru/legal/privacy" target="_blank" rel="noopener noreferrer" style={{ fontWeight: 600, color: TEXT, textDecoration: "none" }}>
                           Политике конфиденциальности
                         </a>.
@@ -1659,8 +1660,9 @@ export default function AccountProfilePage() {
                       </div>
 
                       <div style={{ marginTop: 28 - INFO_UP, fontSize: 14, fontWeight: 300, color: "#222" }}>
-                        КУБ может информировать меня о продуктах и услугах, отправляя персонализированные письма. Подробнее
-                        см. в нашей{" "}
+                        КУБ может информировать меня о продуктах и услугах, отправляя персонализированные письма.{" "}
+                        <br className="hidden md:inline lg:hidden" />
+                        Подробнее см. в нашей{" "}
                         <a href="https://cube-tech.ru/legal/privacy" target="_blank" rel="noopener noreferrer" style={{ fontWeight: 600, color: TEXT, textDecoration: "none" }}>
                           Политике конфиденциальности
                         </a>.

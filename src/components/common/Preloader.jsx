@@ -3,11 +3,11 @@ import React, { useEffect, useRef } from "react";
 
 /** Картинки карточек Services (обычные <img>) */
 const SERVICES_IMAGES = [
-  "/services/electrical.png",
-  "/services/low_current_systems.png",
-  "/services/ventilation.png",
-  "/services/design.png",
-  "/services/construction.png",
+  "/services/electrical.jpg",
+  "/services/low_current_systems.jpg",
+  "/services/ventilation.jpg",
+  "/services/design.jpg",
+  "/services/construction.jpg",
 ];
 
 /** Иконки для нижних полос карточек (грузятся через <object>) */

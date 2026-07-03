@@ -89,26 +89,26 @@ export default function About() {
 
       {/* УЗНАТЬ БОЛЬШЕ / О НАС (отступ от метки «Обзор» — фирменный, держим одинаковым) */}
       <div ref={learnMoreRef} onMouseEnter={replayScrew} className="mt-[26px] text-center">
-        <h2 className="font-semibold uppercase leading-none" style={TITLE}>УЗНАТЬ БОЛЬШЕ</h2>
-        <h2 className="font-semibold uppercase leading-none" style={TITLE}>
+        <h2 className="font-semibold uppercase leading-none h-hero">УЗНАТЬ БОЛЬШЕ</h2>
+        <h2 className="font-semibold uppercase leading-none h-hero">
           О НА
           <span className="relative inline-block">
             С
             <span
               ref={screwWrapRef}
               aria-hidden="true"
-              className="pointer-events-none absolute block h-[40px] w-[40px] select-none sm:h-[60px] sm:w-[60px]"
+              className="pointer-events-none absolute block h-[40px] w-[40px] select-none sm:h-[60px] sm:w-[60px] md:h-[44px] md:w-[44px] lg:h-[60px] lg:w-[60px]"
               style={{ left: "calc(50% + 33px)", top: "calc(100% - 74px)", transform: "translate(-50%, -8%)" }}
             >
-              <img src="/about/screw.gif" alt="" width="60" height="60" className="block h-[40px] w-[40px] sm:h-[60px] sm:w-[60px]" loading="lazy" decoding="async" />
+              <img src="/about/screw.gif" alt="" width="60" height="60" className="block h-[40px] w-[40px] sm:h-[60px] sm:w-[60px] md:h-[44px] md:w-[44px] lg:h-[60px] lg:w-[60px]" loading="lazy" decoding="async" />
             </span>
           </span>
         </h2>
-        <p className="mt-3.5 text-[18px] font-light leading-7 sm:mt-4 sm:text-[21px]">Наши проекты, опыт, решения.</p>
+        <p className="mt-3.5 text-[18px] font-light leading-7 sm:mt-4 sm:text-[21px] md:text-[19px] lg:text-[21px]">Наши проекты, опыт, решения.</p>
       </div>
 
       {/* Крупные абзацы (картинку убрали — текст идёт сразу) */}
-      <div className="mx-4 mt-16 max-w-[1100px] text-left text-[24px] leading-[32px] sm:mx-12 sm:text-[32px] sm:leading-[42px] lg:ml-20 lg:mr-0 lg:mt-24 lg:text-[40px] lg:leading-[52px]">
+      <div className="mx-4 mt-16 max-w-[1100px] text-left text-[24px] leading-[32px] sm:mx-12 sm:text-[32px] sm:leading-[42px] md:mx-4 md:text-[18px] md:leading-7 lg:ml-20 lg:mr-0 lg:mt-24 lg:text-[40px] lg:leading-[52px]">
         <p className="font-semibold">
           Признание и опыт, отмечающие вклад нашей команды в развитие инженерных систем.
         </p>
@@ -124,12 +124,12 @@ export default function About() {
       </div>
 
       {/* Команда */}
-      <div className="mt-12 grid grid-cols-1 items-start gap-y-10 lg:mt-[172px] lg:grid-cols-2">
+      <div className="mt-12 grid grid-cols-1 items-start gap-y-10 md:grid-cols-2 lg:mt-[172px] lg:grid-cols-2">
         {/* текст */}
         <div className="mx-4 max-w-[760px] text-left text-dark lg:ml-20 lg:mr-0 lg:mt-[221px]">
           <div className="text-sm font-light leading-7">Команда</div>
-          <h2 className="mt-3.5 text-[30px] font-semibold leading-[38px] sm:text-[36px] sm:leading-[44px] lg:text-[43px] lg:leading-[52px]">Почему</h2>
-          <h2 className="text-[30px] font-semibold leading-[38px] sm:text-[36px] sm:leading-[44px] lg:text-[43px] lg:leading-[52px]">
+          <h2 className="mt-3.5 text-[30px] font-semibold leading-[38px] sm:text-[36px] sm:leading-[44px] md:text-[30px] md:leading-[38px] lg:text-[43px] lg:leading-[52px]">Почему</h2>
+          <h2 className="text-[30px] font-semibold leading-[38px] sm:text-[36px] sm:leading-[44px] md:text-[30px] md:leading-[38px] lg:text-[43px] lg:leading-[52px]">
             компания «<span className="font-semibold">КУБ</span>»?
           </h2>
           <p className="mt-8 max-w-[760px] text-pretty text-[18px] font-light leading-[26px] lg:mt-12 lg:text-[21px] lg:leading-7">
@@ -155,7 +155,7 @@ export default function About() {
         {/* картинка */}
         <div className="mx-4 lg:ml-0 lg:mr-20">
           <img
-            src="/about/about2.png"
+            src="/about/about2.jpg"
             alt="Команда КУБ"
             className="block h-auto w-full max-w-[760px] rounded-[10px] transition-[filter] duration-200 hover:brightness-[0.82]"
             loading="lazy"
@@ -164,11 +164,11 @@ export default function About() {
       </div>
 
       {/* Бюрократия */}
-      <div className="mt-12 grid grid-cols-1 items-start gap-y-10 lg:mt-[220px] lg:grid-cols-[auto_1fr] lg:gap-x-[94px]">
+      <div className="mt-12 grid grid-cols-1 items-start gap-y-10 md:grid-cols-2 lg:mt-[220px] lg:grid-cols-[auto_1fr] lg:gap-x-[94px]">
         {/* картинка */}
-        <div className="order-2 mx-4 lg:order-none lg:ml-20 lg:mr-0">
+        <div className="order-2 mx-4 md:order-none lg:order-none lg:ml-20 lg:mr-0">
           <img
-            src="/about/about3.png"
+            src="/about/about3.jpg"
             alt="Как делаем «под ключ» без лишней бюрократии"
             className="block h-auto w-full max-w-[693px] rounded-[10px] object-cover transition-[filter] duration-200 hover:brightness-[0.82] lg:h-[1039px] lg:w-[693px]"
             loading="lazy"
@@ -180,10 +180,10 @@ export default function About() {
         <div
           onClick={handleProcTextClick}
           title="Нажмите, чтобы раскрыть подробности"
-          className="order-1 mx-4 max-w-[760px] cursor-pointer text-left text-dark lg:order-none lg:ml-0 lg:mr-20 lg:mt-[221px]"
+          className="order-1 mx-4 max-w-[760px] cursor-pointer text-left text-dark md:order-none lg:order-none lg:ml-0 lg:mr-20 lg:mt-[221px]"
         >
           <div className="text-sm font-light leading-7">Бюрократия</div>
-          <h2 className="mt-3.5 text-[30px] font-semibold leading-[38px] sm:text-[36px] sm:leading-[44px] lg:text-[43px] lg:leading-[52px]">
+          <h2 className="mt-3.5 text-[30px] font-semibold leading-[38px] sm:text-[36px] sm:leading-[44px] md:text-[30px] md:leading-[38px] lg:text-[43px] lg:leading-[52px]">
             Как делаем «под ключ» без лишней бюрократии?
           </h2>
           <p className="mt-8 max-w-[760px] text-pretty text-[18px] font-light leading-[26px] lg:mt-12 lg:text-[21px] lg:leading-7">

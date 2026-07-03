@@ -7,7 +7,7 @@ const SERVICES = [
   {
     key: "electrical",
     title: "Электромонтаж",
-    img: "/services/electrical.png",
+    img: "/services/electrical.jpg",
     href: "/services/electrical",
     features: [
       { icon: "/services/icon/thumbs_up.svg", top: "Долговечный", bottom: "результат", offset: 0.3 },
@@ -18,7 +18,7 @@ const SERVICES = [
   {
     key: "low_current",
     title: "Слаботочные системы",
-    img: "/services/low_current_systems.png",
+    img: "/services/low_current_systems.jpg",
     href: "/services/lowcurrent",
     features: [
       { icon: "/services/icon/phone.svg", top: "Надёжная", bottom: "связь", offset: 0.1 },
@@ -29,7 +29,7 @@ const SERVICES = [
   {
     key: "ventilation",
     title: "Климат-системы",
-    img: "/services/ventilation.png",
+    img: "/services/ventilation.jpg",
     href: "/services/ventilation",
     features: [
       { icon: "/services/icon/drop.svg", top: "Эффективное", bottom: "охлаждение", offset: 0.1 },
@@ -40,7 +40,7 @@ const SERVICES = [
   {
     key: "design",
     title: "Проектирование",
-    img: "/services/design.png",
+    img: "/services/design.jpg",
     href: "/services/design",
     features: [
       { icon: "/services/icon/expand.svg", top: "Точные", bottom: "расчёты", offset: 1.7 },
@@ -51,7 +51,7 @@ const SERVICES = [
   {
     key: "construction",
     title: "Общестрой",
-    img: "/services/construction.png",
+    img: "/services/construction.jpg",
     href: "/services/construction",
     features: [
       { icon: "/services/icon/home.svg", top: "Надёжное", bottom: "строительство", offset: 1.7 },
@@ -148,9 +148,9 @@ function FeatureIcon({ icon, top, bottom, offset = 0, speed = 1.5, size = 22 }) 
       >
         <img src={icon} alt="" width={size} height={size} className="block" />
       </object>
-      <div className="min-w-0 overflow-hidden text-[11px] font-light leading-[14px] text-dark sm:text-[13px] sm:leading-[16px]">
-        <div className="truncate">{top}</div>
-        <div className="truncate">{bottom}</div>
+      <div className="min-w-0 overflow-hidden text-[11px] font-light leading-[14px] text-dark sm:text-[13px] sm:leading-[16px] md:overflow-visible md:text-[11px] md:leading-[14px] lg:overflow-hidden lg:text-[13px] lg:leading-[16px]">
+        <div className="truncate md:overflow-visible md:whitespace-normal md:text-clip lg:truncate">{top}</div>
+        <div className="truncate md:overflow-visible md:whitespace-normal md:text-clip lg:truncate">{bottom}</div>
       </div>
     </div>
   );
@@ -170,28 +170,25 @@ function Arrow() {
 
 export default function Services() {
   return (
-    <section className="mt-14 bg-page pb-0 font-tight text-ink sm:mt-40 sm:pb-24 lg:mt-[255px]">
+    <section className="mt-14 bg-page pb-0 font-tight text-ink sm:mt-40 sm:pb-24 md:mt-14 md:pb-0 lg:mt-[255px] lg:pb-24">
       {/* Заголовок УСЛУГИ + гифка на «И» */}
       <div className="text-center">
         <div className="text-sm font-light leading-7">Направления</div>
-        <h2
-          className="relative mt-[26px] inline-block font-semibold uppercase leading-none"
-          style={{ fontSize: "clamp(48px, 13.5vw, 137px)" }}
-        >
+        <h2 className="relative mt-[26px] inline-block font-semibold uppercase leading-none h-hero">
           УСЛУГ
           <span className="relative inline-block">
             И
             <img
               src="/services/hammer_chisel_logo.gif"
               alt=""
-              className="pointer-events-none absolute left-1/2 top-1/2 z-[2] block w-[54px] max-w-none translate-x-[calc(-50%+18px)] translate-y-[calc(-50%-15px)] select-none sm:w-[120px] sm:translate-x-[calc(-50%+39px)] sm:translate-y-[calc(-50%-34px)]"
+              className="pointer-events-none absolute left-1/2 top-1/2 z-[2] block w-[54px] max-w-none translate-x-[calc(-50%+18px)] translate-y-[calc(-50%-15px)] select-none sm:w-[120px] sm:translate-x-[calc(-50%+39px)] sm:translate-y-[calc(-50%-34px)] md:w-[62px] md:translate-x-[calc(-50%+20px)] md:translate-y-[calc(-50%-17px)] lg:w-[120px] lg:translate-x-[calc(-50%+39px)] lg:translate-y-[calc(-50%-34px)]"
             />
           </span>
         </h2>
       </div>
 
       {/* Вводный блок слева */}
-      <div className="mt-3.5 px-4 text-center sm:mt-8 sm:pl-[52px] sm:pr-0 sm:text-left">
+      <div className="mt-3.5 px-4 text-center sm:mt-8 sm:pl-[52px] sm:pr-0 sm:text-left md:pl-4 lg:pl-[52px]">
         <div className="text-[18px] font-light leading-7 sm:text-sm">Технологии под задачу</div>
         <h3 className="mt-3.5 hidden text-[28px] font-semibold leading-[1.2] sm:block sm:text-[36px] lg:text-[43px]">Делегируйте всё</h3>
         <h3 className="hidden text-[28px] font-semibold leading-[1.2] sm:block sm:text-[36px] lg:text-[43px]">— оставьте себе контроль.</h3>

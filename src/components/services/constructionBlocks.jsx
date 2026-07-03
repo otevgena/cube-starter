@@ -5,7 +5,7 @@
 // монохром, 1px border, пунктир, hover чёрный/белый, без цвета/иконок/градиентов.
 // Только inline-стили + токены проекта; Tailwind — лишь для адаптивных сеток.
 import React, { useState } from "react";
-import { UI, BG, INK, MUTED, DottedDivider, DetailStatGrid, MatrixTable, MiniTabs } from "@/components/services/detailBlocks.jsx";
+import { UI, BG, INK, MUTED, DottedDivider, DetailStatGrid, MatrixTable, MiniTabs, gridFillers } from "@/components/services/detailBlocks.jsx";
 
 const lblCss = { fontSize: 11, letterSpacing: ".06em", textTransform: "uppercase", color: MUTED, fontWeight: 400 };
 const valCss = { marginTop: 2, fontSize: 14, lineHeight: "20px", fontWeight: 300, color: "#222" };
@@ -93,6 +93,7 @@ export function AcceptancePackage({ items = [] }) {
           <div style={{ marginTop: 6, fontSize: 14, lineHeight: "22px", fontWeight: 300, color: "#333" }}>{it.text}</div>
         </div>
       ))}
+      {gridFillers(items.length, items.length >= 4 ? 2 : 3, items.length >= 4 ? 4 : 3)}
     </div>
   );
 }

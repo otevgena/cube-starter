@@ -61,7 +61,7 @@ export function LegalLayout({ active, title, slogan, children }) {
           ))}
         </nav>
 
-        <h1 className="mt-2 text-center font-semibold uppercase leading-none text-[clamp(22px,8vw,32px)] sm:text-[clamp(48px,13.5vw,137px)] lg:mt-0.5">
+        <h1 className="mt-2 text-center font-semibold uppercase leading-none text-[clamp(22px,8vw,32px)] sm:text-[clamp(48px,13.5vw,137px)] md:text-[clamp(40px,6vw,52px)] lg:mt-0.5 lg:text-[clamp(48px,13.5vw,137px)]">
           {title}
         </h1>
 

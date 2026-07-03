@@ -56,18 +56,18 @@ export function ServiceDetailLayout({ active, title, slogan, children }) {
           </div>
         </div>
 
-        <h1 className="mt-2 text-[clamp(22px,8vw,32px)] sm:text-[clamp(48px,13.5vw,137px)] lg:mt-0.5" style={{ fontWeight: 600, textTransform: "uppercase", lineHeight: 1, color: "#222" }}>
+        <h1 className="mt-2 text-[clamp(22px,8vw,32px)] sm:text-[clamp(48px,13.5vw,137px)] md:text-[clamp(40px,6vw,52px)] lg:mt-0.5 lg:text-[clamp(48px,13.5vw,137px)]" style={{ fontWeight: 600, textTransform: "uppercase", lineHeight: 1, color: "#222" }}>
           {title}
         </h1>
 
         <p className="mx-4 mt-3 text-[18px] leading-6 lg:mx-0 lg:text-[21px] lg:leading-7" style={{ fontWeight: 600, color: "#222" }}>{slogan}</p>
       </div>
 
-      <div className="mt-2 flex justify-end lg:-mt-[61px]" style={{ marginLeft: PAD, marginRight: PAD }}>
+      <div className="mx-[clamp(16px,6vw,80px)] mt-2 flex justify-end md:mx-4 lg:mx-[80px] lg:-mt-[61px]">
         <div style={{ fontSize: 14, fontWeight: 300, color: "#3b3b3b" }}>Обновление: {formatRuDate()}</div>
       </div>
 
-      <div className="mt-10 grid gap-y-12 lg:mt-20 lg:gap-y-[72px]" style={{ marginLeft: PAD, marginRight: PAD }}>
+      <div data-reveal-seq className="mx-[clamp(16px,6vw,80px)] mt-10 grid gap-y-12 md:mx-4 lg:mx-[80px] lg:mt-20 lg:gap-y-[72px]">
         {children}
         <div className="flex flex-wrap items-center justify-between gap-4" style={{ marginTop: 24 }}>
           <div style={{ color: "#3b3b3b", fontSize: 14, fontWeight: 300 }}>Страница услуги в составе раздела «Общестрой».</div>

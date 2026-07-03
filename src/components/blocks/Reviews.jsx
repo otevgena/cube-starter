@@ -9,7 +9,7 @@ const TITLE = { fontSize: "clamp(48px, 13.5vw, 137px)" };
 
 const REVIEWS = [
   {
-    bg: "/reviews/review1.png",
+    bg: "/reviews/review1.jpg",
     pdf: "/reviews/review1.pdf",
     title: ["Опыт сотрудничества глазами", "наших заказчиков"],
     name: "Цыганков В. И.",
@@ -18,7 +18,7 @@ const REVIEWS = [
     city: "Ноябрьск",
   },
   {
-    bg: "/reviews/review2.png",
+    bg: "/reviews/review2.jpg",
     pdf: "/reviews/review2.pdf",
     title: ["Что говорят партнёры", "о результатах работы"],
     name: "",
@@ -196,6 +196,47 @@ function MobileReviewCard({ review, onRead }) {
   );
 }
 
+/* Планшетная карточка отзыва — landscape (как awwwards): слева текст, скан справа затемнён */
+function TabletReviewCard({ review, onRead }) {
+  return (
+    <div className="relative overflow-hidden rounded-[10px] bg-black text-white">
+      {/* скан справа, затемнён и растворяется в чёрный слева */}
+      <img
+        src={review.bg}
+        alt="Скан отзыва"
+        className="absolute right-0 top-0 h-full w-[52%] object-cover brightness-[0.42]"
+        loading="lazy"
+        decoding="async"
+      />
+      <div aria-hidden="true" className="absolute inset-0 bg-gradient-to-r from-black via-black/85 to-black/25" />
+
+      <div className="relative flex min-h-[320px] flex-col p-9">
+        <div className="text-sm font-light leading-7 opacity-95">Отзыв клиента</div>
+        <div className="mt-3 text-[32px] font-semibold leading-[38px]">
+          {review.title.map((line, i) => (
+            <React.Fragment key={i}>
+              {line}
+              {i !== review.title.length - 1 && <br />}
+            </React.Fragment>
+          ))}
+        </div>
+        <a
+          href={review.pdf}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-7 inline-flex h-[56px] w-[176px] items-center justify-center rounded-[10px] text-base text-white ring-[0.5px] ring-inset ring-white transition-colors hover:bg-white hover:text-black"
+        >
+          Читать отзыв
+        </a>
+        <div className="mt-auto pt-10 text-sm font-light leading-7">
+          Хотите оставить свой?{" "}
+          <a href="/contact" className="underline-offset-2 hover:underline">Напишите нам</a>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Reviews() {
   const [open, setOpen] = React.useState(null);
 
@@ -204,17 +245,21 @@ export default function Reviews() {
       {/* Шапка */}
       <div className="text-center text-sm font-light leading-7">Портфолио</div>
       <div className="mt-[26px] text-center">
-        <h2 className="font-semibold uppercase leading-none" style={TITLE}>ОТЗЫВЫ</h2>
-        <p className="mt-3.5 text-[18px] font-light leading-7 sm:mt-4 sm:text-[21px]">История сотрудничества</p>
+        <h2 className="font-semibold uppercase leading-none h-hero">ОТЗЫВЫ</h2>
+        <p className="mt-3.5 text-[18px] font-light leading-7 sm:mt-4 sm:text-[21px] md:text-[19px] lg:text-[21px]">История сотрудничества</p>
       </div>
 
       {/* Карточки: на узких экранах — в столбик, карточка масштабируется под ширину (дизайн 1:1) */}
       <div className="mt-16 grid grid-cols-1 gap-6 px-4 lg:mx-[52px] lg:mt-20 lg:grid-cols-2 lg:px-0">
         {REVIEWS.map((r) => (
-          <div key={r.bg} className="mx-auto w-full max-w-[710px]">
-            {/* Мобилка/планшет — вертикальная карточка с крупным текстом */}
-            <div className="lg:hidden">
+          <div key={r.bg} className="mx-auto w-full max-w-[710px] md:max-w-none lg:max-w-[710px]">
+            {/* Мобилка — вертикальная карточка с крупным текстом */}
+            <div className="md:hidden">
               <MobileReviewCard review={r} onRead={() => setOpen(r)} />
+            </div>
+            {/* Планшет — landscape-карточка во всю ширину (как awwwards) */}
+            <div className="hidden md:block lg:hidden">
+              <TabletReviewCard review={r} onRead={() => setOpen(r)} />
             </div>
             {/* Десктоп — фиксированный дизайн 710×555 */}
             <div className="hidden lg:block">

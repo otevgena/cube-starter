@@ -313,9 +313,24 @@ export default function App(){
     let reduce = false
     try { reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches } catch {}
     if (reduce) return
+    // Контейнеры с последовательным появлением детей (секции страниц услуг и т.п.):
+    // размечаем прямых детей как reveal с лёгким каскадом. Секции, которые содержат
+    // собственные reveal-элементы (напр. карточки EventFlow), НЕ трогаем — пусть
+    // их внутренние элементы каскадят сами, без двойной анимации.
+    document.querySelectorAll('[data-reveal-seq]').forEach((box) => {
+      Array.from(box.children).forEach((child) => {
+        // Секции с собственными reveal (карточки EventFlow) не трогаем — они каскадят сами
+        if (child.querySelector && child.querySelector('[data-reveal]')) return
+        // Каждая секция появляется по мере доскролла (без общего индекс-делэя,
+        // иначе нижние секции «залипали» бы на несколько сот мс)
+        if (!child.hasAttribute('data-reveal')) child.setAttribute('data-reveal', '')
+      })
+    })
+
     const els = Array.from(document.querySelectorAll('[data-reveal]'))
     if (!els.length) return
-    els.forEach((el) => el.classList.add('reveal-on'))
+
+    const vh = window.innerHeight || 800
     let io = null
     try {
       io = new IntersectionObserver((entries) => {
@@ -323,9 +338,20 @@ export default function App(){
           if (e.isIntersecting) { e.target.classList.add('is-visible'); io.unobserve(e.target) }
         })
       }, { threshold: 0.08, rootMargin: '0px 0px -8% 0px' })
-      els.forEach((el) => io.observe(el))
+
+      els.forEach((el) => {
+        el.classList.add('reveal-on')
+        const r = el.getBoundingClientRect()
+        // Уже видно при заходе → показываем сразу (без пустоты и без каскада)
+        if (r.top < vh * 0.92 && r.bottom > 0) {
+          el.style.setProperty('--rd', '0ms')
+          el.classList.add('is-visible')
+        } else {
+          io.observe(el)
+        }
+      })
     } catch {
-      els.forEach((el) => el.classList.add('is-visible'))
+      els.forEach((el) => el.classList.add('reveal-on', 'is-visible'))
     }
     return () => { if (io) io.disconnect() }
   }, [path])

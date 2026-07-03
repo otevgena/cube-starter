@@ -19,16 +19,13 @@ export default function HomeMain() {
       </div>
 
       {/* Заголовок */}
-      <h1
-        className="mt-5 font-semibold uppercase leading-none"
-        style={{ fontSize: "clamp(48px, 13.5vw, 137px)" }}
-      >
+      <h1 className="mt-5 font-semibold uppercase leading-none h-hero">
         CUBE-TECH
       </h1>
 
       {/* Подпись: директор + бейдж */}
       <div className="mt-4 flex items-center justify-center gap-2.5 text-sm">
-        <img src="/about/director.png" alt="" className="h-8 w-8 rounded-full object-cover" />
+        <img src="/about/director.jpg" alt="" className="h-8 w-8 rounded-full object-cover" />
         <a href="#director" className="group relative pb-1 font-semibold">
           Генеральный директор
           <span className="absolute inset-x-0 bottom-0 h-0.5 bg-neutral-300" />
@@ -40,7 +37,7 @@ export default function HomeMain() {
       {/* «Ромб» с главным изображением (тёмная рамка вокруг картинки) */}
       <div className="mx-auto mt-8 aspect-[1441/1112] w-[calc(100vw-32px)] rounded-[10px] bg-ink p-[clamp(20px,4.3vw,62px)] sm:w-[min(1441px,96vw)] lg:mt-20">
         <img
-          src="/main/main.png"
+          src="/main/main.jpg"
           alt="Главное изображение"
           className="h-full w-full rounded-lg object-cover"
         />

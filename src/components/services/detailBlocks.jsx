@@ -55,6 +55,24 @@ export function CubeCard({ title, children, style }) {
 const gridBox = { border: `1px solid ${INK}`, borderRadius: 12, overflow: "hidden", gap: 1, background: INK };
 const cell = { background: BG, padding: 16 };
 
+/* Заполнители пустых ячеек grid-контейнера с чёрным фоном (gridBox), чтобы на планшете/десктопе
+   в неполном последнем ряду не проступал чёрный. colsSm/colsLg — число колонок на sm / lg.
+   Заполнители светлые (cellStyle), скрыты на мобилке (1 колонка). */
+export function gridFillers(count, colsSm, colsLg, cellStyle = cell) {
+  const need = (cols) => (cols - (count % cols)) % cols;
+  const sameLg = colsLg === colsSm;
+  const out = [];
+  for (let i = 0; i < need(colsSm); i++) {
+    out.push(<div key={`fs-${i}`} aria-hidden="true" className={sameLg ? "hidden sm:block" : "hidden sm:block lg:hidden"} style={cellStyle} />);
+  }
+  if (!sameLg) {
+    for (let i = 0; i < need(colsLg); i++) {
+      out.push(<div key={`fl-${i}`} aria-hidden="true" className="hidden lg:block" style={cellStyle} />);
+    }
+  }
+  return out;
+}
+
 /* ===== SectionHead — редакторский лейбл секции (как «Learn from the Best» → «ACADEMY») ===== */
 export function SectionHead({ label, title, center = false }) {
   return (
@@ -242,6 +260,7 @@ export function ZoneGrid({ zones = [], cols = 3 }) {
           )}
         </div>
       ))}
+      {gridFillers(zones.length, 2, cols >= 3 ? 3 : 2)}
     </div>
   );
 }

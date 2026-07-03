@@ -98,11 +98,11 @@ function ModalShell({ children, onClose, width }) {
     <div
       aria-modal="true"
       role="dialog"
-      className="fixed inset-0 z-[1000] animate-svcfade bg-black/55 font-tight md:grid md:place-items-center md:p-6"
+      className="fixed inset-0 z-[1000] animate-svcfade bg-black/55 font-tight md:flex md:items-center md:justify-center md:p-6"
       onClick={onClose}
     >
       <div
-        className="relative h-full w-full overflow-y-auto overflow-x-hidden bg-white text-[#111] md:h-auto md:max-h-[calc(100vh-48px)] md:w-[var(--mw)] md:overflow-hidden md:rounded-[14px] md:border md:border-[#dcdcdc] md:shadow-[0_16px_48px_rgba(0,0,0,.35)]"
+        className="relative h-full w-full overflow-y-auto overflow-x-hidden bg-white text-[#111] md:h-auto md:max-h-[calc(100dvh-48px)] md:w-[var(--mw)] md:overflow-hidden md:rounded-[10px] md:border md:border-[#dcdcdc] md:shadow-[0_16px_48px_rgba(0,0,0,.35)]"
         style={{ ["--mw"]: `min(${width || 980}px, calc(100vw - 48px))` }}
         onClick={(e) => e.stopPropagation()}
       >

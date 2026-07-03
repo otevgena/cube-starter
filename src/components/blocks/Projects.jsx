@@ -49,6 +49,30 @@ const COLS = [
 const TABLE_W = COLS.reduce((s, c) => s + c.w, 0);
 const SHIFT = 28; // сдвиг текста вправо в ячейках
 
+// Планшет: та же ПК-таблица, но с компактными (читаемыми) ширинами колонок
+const TABLET_COLS = [
+  { key: "name", w: 200, label: "Заказчик" },
+  { key: "client", w: 168, label: "Название" },
+  { key: "year", w: 74, label: "Год" },
+  { key: "serv", w: 176, label: "Услуги" },
+  { key: "act", w: 108, label: "" },
+];
+const TABLET_TABLE_W = TABLET_COLS.reduce((s, c) => s + c.w, 0);
+const SHIFT_T = 12;
+
+function useIsTablet() {
+  const [v, setV] = React.useState(false);
+  React.useEffect(() => {
+    let mq;
+    try { mq = window.matchMedia("(min-width:768px) and (max-width:1023px)"); } catch { return; }
+    const on = () => setV(mq.matches);
+    on();
+    mq.addEventListener ? mq.addEventListener("change", on) : mq.addListener(on);
+    return () => { mq.removeEventListener ? mq.removeEventListener("change", on) : mq.removeListener(on); };
+  }, []);
+  return v;
+}
+
 function Arrow() {
   return (
     <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true" className="block shrink-0">
@@ -279,6 +303,101 @@ function MobileProjectCard({ logo, shots = [], location, objectTitle, customer, 
   );
 }
 
+/* Планшетная карточка проекта — landscape (как у awwwards): лого + картинка справа сверху,
+   крупный заголовок слева, «Дней» справа, заказчик/услуги снизу. Во всю ширину колонки. */
+function TabletProjectCard({ logo, shots = [], location, objectTitle, customer, servicesLabel, days }) {
+  const [idx, setIdx] = React.useState(0);
+  const [prevIdx, setPrevIdx] = React.useState(0);
+  const [opacity, setOpacity] = React.useState(1);
+  const dragRef = React.useRef({ x: 0, dragging: false });
+  const total = shots.length || 1;
+
+  const go = (next) => {
+    const n = ((next % total) + total) % total;
+    setPrevIdx(idx);
+    setIdx(n);
+    setOpacity(0);
+    requestAnimationFrame(() => requestAnimationFrame(() => setOpacity(1)));
+  };
+  const onDown = (e) => { dragRef.current = { x: e.clientX ?? e.touches?.[0]?.clientX ?? 0, dragging: true }; };
+  const onUp = (e) => {
+    if (!dragRef.current.dragging) return;
+    const x2 = e.clientX ?? e.changedTouches?.[0]?.clientX ?? dragRef.current.x;
+    const dx = x2 - dragRef.current.x;
+    dragRef.current.dragging = false;
+    if (Math.abs(dx) > 40) go(idx + (dx < 0 ? 1 : -1));
+  };
+
+  return (
+    <div className="rounded-[10px] bg-ink p-8 text-white">
+      {/* верх: лого слева + картинка справа */}
+      <div className="flex items-start justify-between gap-8">
+        <div className="grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-full bg-white">
+          <img src={logo} alt="Логотип" className="block h-full w-full object-contain p-1.5" />
+        </div>
+        <div className="w-[44%] shrink-0 mr-[16%]">
+          <div
+            className="relative aspect-[16/10] w-full touch-pan-y overflow-hidden rounded-lg"
+            onMouseDown={onDown}
+            onMouseUp={onUp}
+            onMouseLeave={onUp}
+            onTouchStart={onDown}
+            onTouchEnd={onUp}
+          >
+            {shots.length > 0 && (
+              <img
+                key={`t-prev-${prevIdx}`}
+                src={shots[prevIdx]}
+                alt=""
+                aria-hidden="true"
+                className="absolute inset-0 block h-full w-full object-cover transition-opacity duration-300"
+                style={{ opacity: 1 - opacity }}
+              />
+            )}
+            {shots.length > 0 && (
+              <img
+                key={`t-cur-${idx}`}
+                src={shots[idx]}
+                alt="Проект — превью"
+                className="absolute inset-0 block h-full w-full object-cover transition-opacity duration-300"
+                style={{ opacity }}
+                loading="lazy"
+                decoding="async"
+              />
+            )}
+          </div>
+        </div>
+      </div>
+      {/* точки переключения — у правого края, под картинкой (как было) */}
+      {total > 1 && (
+        <div className="mt-3 flex justify-end">
+          <Dots active={idx} total={total} onSelect={go} />
+        </div>
+      )}
+
+      {/* локация + заголовок + «Дней» */}
+      <div className="mt-5 flex items-end justify-between gap-6">
+        <div>
+          <div className="text-[14px] font-light leading-5 opacity-95">{location}</div>
+          <h3 className="mt-2 text-[34px] font-semibold leading-[40px]">{objectTitle}</h3>
+        </div>
+        <div className="flex h-[58px] w-[58px] shrink-0 items-center justify-center rounded-[10px] bg-ink ring-1 ring-inset ring-[#494949]">
+          <div className="translate-y-0.5 text-center">
+            <div className="text-[11px] font-light leading-[13px] opacity-95">Дней</div>
+            <div className="text-[22px] font-semibold leading-[24px]">{days}</div>
+          </div>
+        </div>
+      </div>
+
+      {/* заказчик + услуги */}
+      <div className="mt-8 flex items-center justify-between text-[14px] font-light leading-5">
+        <span>{customer}</span>
+        <span>{servicesLabel}</span>
+      </div>
+    </div>
+  );
+}
+
 /* Кнопка «Подробнее» */
 function MoreButton() {
   return (
@@ -292,22 +411,30 @@ function MoreButton() {
 }
 
 export default function Projects() {
+  const isTablet = useIsTablet();
+  const cols = isTablet ? TABLET_COLS : COLS;
+  const tableW = isTablet ? TABLET_TABLE_W : TABLE_W;
+  const shift = isTablet ? SHIFT_T : SHIFT;
   return (
     <section className="bg-page pt-14 font-tight text-ink lg:pt-[126px]" aria-label="Проекты">
       {/* Шапка */}
       <div className="text-center text-sm font-light leading-7">Директория</div>
       <div className="mt-[26px] text-center">
-        <h2 className="font-semibold uppercase leading-none" style={TITLE}>ПРОЕКТЫ</h2>
-        <p className="mt-3.5 text-[18px] font-light leading-7 sm:mt-4 sm:text-[21px]">География выполненных работ</p>
+        <h2 className="font-semibold uppercase leading-none h-hero">ПРОЕКТЫ</h2>
+        <p className="mt-3.5 text-[18px] font-light leading-7 sm:mt-4 sm:text-[21px] md:text-[19px] lg:text-[21px]">География выполненных работ</p>
       </div>
 
       {/* Две карточки: на узких экранах — в столбик, карточка масштабируется под ширину (дизайн 1:1) */}
       <div className="mt-16 grid grid-cols-1 gap-6 px-4 lg:mx-[52px] lg:mt-20 lg:grid-cols-2 lg:px-0">
         {PROJECTS.map((p) => (
-          <div key={p.name} className="mx-auto w-full max-w-[710px]">
-            {/* Мобилка/планшет — вертикальная карточка с крупной картинкой */}
-            <div className="lg:hidden">
+          <div key={p.name} className="mx-auto w-full max-w-[710px] md:max-w-none lg:max-w-[710px]">
+            {/* Мобилка — вертикальная карточка с крупной картинкой */}
+            <div className="md:hidden">
               <MobileProjectCard {...p} />
+            </div>
+            {/* Планшет — landscape-карточка во всю ширину (как awwwards) */}
+            <div className="hidden md:block lg:hidden">
+              <TabletProjectCard {...p} />
             </div>
             {/* Десктоп — фиксированный дизайн 710×555, масштабируется под колонку */}
             <div className="hidden lg:block">
@@ -320,7 +447,7 @@ export default function Projects() {
       </div>
 
       {/* Список заказчиков (mobile) — строки с точками, как в таблице / awwwards */}
-      <div className="mx-4 mt-10 lg:hidden">
+      <div className="mx-4 mt-10 md:hidden">
         <div className="pb-3 text-sm font-normal text-ink">Заказчик</div>
         <DottedLine />
         {PROJECTS.map((p) => (
@@ -345,14 +472,14 @@ export default function Projects() {
         ))}
       </div>
 
-      {/* Таблица (desktop) */}
-      <div className="mx-[52px] mt-5 hidden overflow-x-auto lg:block">
-        <div style={{ width: TABLE_W }}>
+      {/* Таблица (планшет + десктоп) — на планшете компактнее */}
+      <div className="mx-4 mt-5 hidden overflow-x-auto md:block lg:mx-[52px]">
+        <div style={{ width: isTablet ? "100%" : tableW }}>
           {/* шапка таблицы */}
-          <div className="flex h-[72px]">
-            {COLS.map((c) => (
-              <div key={c.key} className="flex items-center text-sm font-normal text-ink" style={{ width: c.w }}>
-                <span style={{ marginLeft: SHIFT }}>{c.label}</span>
+          <div className="flex h-[64px] lg:h-[72px]">
+            {cols.map((c, i) => (
+              <div key={c.key} className="flex items-center text-sm font-normal text-ink" style={isTablet && i === cols.length - 1 ? { flex: 1 } : { width: c.w }}>
+                <span style={{ marginLeft: shift }}>{c.label}</span>
               </div>
             ))}
           </div>
@@ -361,14 +488,14 @@ export default function Projects() {
           {/* строки */}
           {PROJECTS.map((p) => (
             <div key={p.name}>
-              <div className="flex h-[104px]">
+              <div className="flex h-[88px] lg:h-[104px]">
                 {/* Заказчик */}
-                <div className="flex items-center" style={{ width: COLS[0].w }}>
-                  <div className="flex items-center gap-1.5" style={{ marginLeft: SHIFT }}>
+                <div className="flex items-center" style={{ width: cols[0].w }}>
+                  <div className="flex items-center gap-1.5" style={{ marginLeft: shift }}>
                     <div className="grid h-8 w-8 place-items-center overflow-hidden rounded-full bg-white">
                       <img src={p.logo} alt="" className="block h-full w-full object-contain p-1" />
                     </div>
-                    <a href="#more" onClick={(e) => e.preventDefault()} className="group relative pb-1 text-[18px]">
+                    <a href="#more" onClick={(e) => e.preventDefault()} className="group relative pb-1 text-[16px] lg:text-[18px]">
                       {p.name}
                       <Underline />
                     </a>
@@ -376,19 +503,19 @@ export default function Projects() {
                   </div>
                 </div>
                 {/* Название */}
-                <div className="flex items-center" style={{ width: COLS[1].w }}>
-                  <div className="text-[18px] text-dark" style={{ marginLeft: SHIFT }}>{p.client}</div>
+                <div className="flex items-center" style={{ width: cols[1].w }}>
+                  <div className="text-[16px] text-dark lg:text-[18px]" style={{ marginLeft: shift }}>{p.client}</div>
                 </div>
                 {/* Год */}
-                <div className="flex items-center" style={{ width: COLS[2].w }}>
-                  <div className="text-[18px] text-dark" style={{ marginLeft: SHIFT }}>{p.year}</div>
+                <div className="flex items-center" style={{ width: cols[2].w }}>
+                  <div className="text-[16px] text-dark lg:text-[18px]" style={{ marginLeft: shift }}>{p.year}</div>
                 </div>
                 {/* Услуги */}
-                <div className="flex items-center" style={{ width: COLS[3].w }}>
-                  <div className="text-[18px] text-dark" style={{ marginLeft: SHIFT }}>{p.services}</div>
+                <div className="flex items-center" style={{ width: cols[3].w }}>
+                  <div className="text-[16px] text-dark lg:text-[18px]" style={{ marginLeft: shift }}>{p.services}</div>
                 </div>
                 {/* Кнопка */}
-                <div className="flex items-center justify-center" style={{ width: COLS[4].w }}>
+                <div className="flex items-center justify-center" style={isTablet ? { flex: 1, justifyContent: "flex-end" } : { width: cols[4].w }}>
                   <MoreButton />
                 </div>
               </div>

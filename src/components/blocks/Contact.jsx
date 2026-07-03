@@ -163,11 +163,11 @@ export default function Contact({ topClass = "pt-14" }) {
       {/* Шапка */}
       <div className="text-center text-sm font-light leading-7">Напишите нам</div>
       <div className="mt-[26px] text-center">
-        <h2 className="font-semibold uppercase leading-none" style={TITLE}>КОНТАКТЫ</h2>
+        <h2 className="font-semibold uppercase leading-none h-hero">КОНТАКТЫ</h2>
       </div>
 
       {/* Колонки: слева текст, справа форма (на узких экранах — в одну колонку) */}
-      <div className="mx-4 mt-12 grid grid-cols-1 items-start gap-10 lg:mx-[52px] lg:mt-20 lg:grid-cols-[1fr_auto]">
+      <div className="mx-4 mt-12 grid grid-cols-1 items-start gap-10 md:grid-cols-2 lg:mx-[52px] lg:mt-20 lg:grid-cols-[1fr_auto]">
         {/* Левый текст */}
         <div className="max-w-[760px] text-left">
           <p className="text-[21px] font-semibold leading-7">Мы — КУБ, и мы рядом, чтобы помочь!</p>

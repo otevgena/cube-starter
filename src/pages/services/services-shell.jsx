@@ -20,6 +20,20 @@ function formatRuDate(d = new Date()) {
   return `${mm} ${dd}, ${yy}`;
 }
 
+/* планшетный диапазон 768–1023 (график ПК показываем с md, но подписи ужимаем) */
+function useIsTablet() {
+  const [v, setV] = React.useState(false);
+  React.useEffect(() => {
+    let mq;
+    try { mq = window.matchMedia("(min-width:768px) and (max-width:1023px)"); } catch { return; }
+    const on = () => setV(mq.matches);
+    on();
+    mq.addEventListener ? mq.addEventListener("change", on) : mq.addListener(on);
+    return () => { mq.removeEventListener ? mq.removeEventListener("change", on) : mq.removeListener(on); };
+  }, []);
+  return v;
+}
+
 /* пунктирная линия (как в таблице проектов) */
 function DottedLine() {
   return (
@@ -99,6 +113,25 @@ function ServiceTable({ lines }) {
 function ActivityGraph({ metrics }) {
   const wrapRef = React.useRef(null);
   const [animate, setAnimate] = React.useState(false);
+  const isTablet = useIsTablet();
+  // На планшете расширяем ТОЛЬКО узкий сегмент с длинной подписью (иначе она наезжает на соседа),
+  // а недостающую ширину забираем у самого широкого сегмента. Остальные сегменты не трогаем. ПК — по данным.
+  const tShares = React.useMemo(() => {
+    const orig = metrics.map((m) => m.sharePct);
+    if (!isTablet) return orig;
+    const longest = (s) => String(s).split(/[\s-]+/).reduce((a, w) => Math.max(a, w.length), 0);
+    const BUMP = 17;
+    const isBumped = (i) => orig[i] < 14 && longest(metrics[i].label) >= 11;
+    const adj = orig.slice();
+    let deficit = 0;
+    orig.forEach((v, i) => { if (isBumped(i) && v < BUMP) { deficit += BUMP - v; adj[i] = BUMP; } });
+    if (deficit > 0) {
+      let maxI = -1;
+      adj.forEach((v, i) => { if (!isBumped(i) && (maxI < 0 || v > adj[maxI])) maxI = i; });
+      if (maxI >= 0) adj[maxI] = Math.max(6, adj[maxI] - deficit);
+    }
+    return adj;
+  }, [metrics, isTablet]);
 
   React.useEffect(() => {
     const el = wrapRef.current;
@@ -116,7 +149,7 @@ function ActivityGraph({ metrics }) {
   return (
     <div ref={wrapRef} className="relative mx-4 lg:mx-[80px]">
       {/* мобилка: вертикальный список метрик */}
-      <div className="lg:hidden">
+      <div className="md:hidden">
         {metrics.map((m, idx) => (
           <div key={m.key} className={idx > 0 ? "mt-4" : ""}>
             <div className="flex items-baseline justify-between">
@@ -134,12 +167,12 @@ function ActivityGraph({ metrics }) {
         ))}
       </div>
 
-      {/* десктоп: полосный график */}
-      <div className="hidden lg:block">
+      {/* десктоп + планшет: полосный график */}
+      <div className="hidden md:block">
         <div className="relative flex items-stretch overflow-visible border border-line bg-white" style={{ height: 48 }}>
           <div aria-hidden="true" style={tick} />
           {metrics.map((m, idx) => (
-            <div key={m.key} className="relative" style={{ flex: `0 0 ${m.sharePct}%`, background: "#f5f5f5" }}>
+            <div key={m.key} className="relative" style={{ flex: `0 0 ${tShares[idx]}%`, background: "#f5f5f5" }}>
               <div className="pointer-events-none absolute text-left" style={{ left: 11, top: -58 }}>
                 <div style={{ fontSize: 14, lineHeight: "20px", fontWeight: 300, color: "#222" }}>{m.label}</div>
                 <div style={{ fontSize: 14, lineHeight: "20px", fontWeight: 600, color: "#222" }}>{m.sharePct}%</div>
@@ -159,9 +192,9 @@ function ActivityGraph({ metrics }) {
         </div>
 
         <div className="mt-[30px] flex">
-          {metrics.map((m) => (
-            <div key={m.key} style={{ flex: `0 0 ${m.sharePct}%` }}>
-              <div style={{ fontSize: 14, lineHeight: "22px", fontWeight: 600, color: "#111" }}>
+          {metrics.map((m, idx) => (
+            <div key={m.key} style={{ flex: `0 0 ${tShares[idx]}%` }}>
+              <div style={{ fontSize: 14, lineHeight: "22px", fontWeight: 600, color: "#111", whiteSpace: isTablet ? "nowrap" : undefined }}>
                 {m.score10.toFixed(1)} <span style={{ fontWeight: 600, opacity: 0.9 }}>/ 10</span>
               </div>
             </div>
@@ -300,7 +333,7 @@ export function ServiceCategoryPage({ title, slogan, intro, lines, metrics, scor
           </div>
         </nav>
 
-        <h1 className="mt-2 text-center font-semibold uppercase leading-none text-[clamp(28px,10vw,42px)] sm:text-[clamp(48px,13.5vw,137px)] lg:mt-0.5">
+        <h1 className="mt-2 text-center font-semibold uppercase leading-none text-[clamp(28px,10vw,42px)] sm:text-[clamp(48px,13.5vw,137px)] md:text-[70px] lg:mt-0.5 lg:text-[clamp(48px,13.5vw,137px)]">
           {title}
         </h1>
 
@@ -308,7 +341,7 @@ export function ServiceCategoryPage({ title, slogan, intro, lines, metrics, scor
       </div>
 
       {/* вступительный текст */}
-      <div className="mx-4 mt-10 text-left text-[26px] font-semibold leading-[32px] text-ink lg:mx-[80px] lg:mt-[150px] lg:text-[43px] lg:leading-[51px]">
+      <div className="mx-4 mt-10 text-left text-[26px] font-semibold leading-[32px] text-ink md:text-[30px] md:leading-[38px] lg:mx-[80px] lg:mt-[150px] lg:text-[43px] lg:leading-[51px]">
         {intro.map((line, i) => (
           <p key={i} className="m-0">{line}</p>
         ))}
@@ -334,7 +367,7 @@ export function ServiceCategoryPage({ title, slogan, intro, lines, metrics, scor
       {/* заголовки к графику */}
       <div className="mx-4 mt-16 lg:mx-[80px] lg:mt-[150px]">
         <div style={{ fontSize: 14, lineHeight: "28px", fontWeight: 300, color: "#222" }}>График</div>
-        <div className="mt-3.5 text-[26px] font-semibold leading-[32px] text-[#111] lg:text-[43px] lg:leading-[51px]">
+        <div className="mt-3.5 text-[26px] font-semibold leading-[32px] text-[#111] md:text-[30px] md:leading-[38px] lg:text-[43px] lg:leading-[51px]">
           {graphHeading}
         </div>
       </div>
@@ -345,7 +378,7 @@ export function ServiceCategoryPage({ title, slogan, intro, lines, metrics, scor
       </div>
 
       {/* график */}
-      <div className="mt-14 lg:mt-[200px]">
+      <div className="mt-14 md:mt-[124px] lg:mt-[200px]">
         <ActivityGraph metrics={metrics} />
       </div>
 

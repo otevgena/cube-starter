@@ -4,7 +4,7 @@
 // схема трассы). Монохром, прямоугольники, тонкие border, пунктир — стиль Cube. Без воронок/колец/кругов.
 // Только inline-стили + токены проекта; Tailwind-классы — лишь для адаптивных сеток.
 import React, { useState } from "react";
-import { UI, BG, INK, MUTED, DottedDivider, DetailStatGrid, MatrixTable, MiniTabs } from "@/components/services/detailBlocks.jsx";
+import { UI, BG, INK, MUTED, DottedDivider, DetailStatGrid, MatrixTable, MiniTabs, gridFillers } from "@/components/services/detailBlocks.jsx";
 
 const cardCss = { border: `1px solid ${INK}`, borderRadius: 12, background: BG, padding: 16 };
 const cell = { background: BG, padding: 16 };
@@ -86,6 +86,7 @@ export function ResultPackage({ items = [] }) {
           <div style={{ marginTop: 6, fontSize: 14, lineHeight: "22px", fontWeight: 300, color: "#333" }}>{it.text}</div>
         </div>
       ))}
+      {gridFillers(items.length, items.length >= 4 ? 2 : 3, items.length >= 4 ? 4 : 3)}
     </div>
   );
 }
@@ -136,6 +137,7 @@ export function ZoneTiles({ zones = [] }) {
           </div>
         </div>
       ))}
+      {gridFillers(zones.length, 2, 3)}
     </div>
   );
 }

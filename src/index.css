@@ -204,7 +204,18 @@ body.review-open #dock-root .dock{
   pointer-events: none !important;
 }
 
+/* Крупные заголовки: мобилка/десктоп — как было (clamp по vw),
+   планшет (768–1023) — компактнее (~71px, как awwwards) */
+.h-hero{ font-size: clamp(48px, 13.5vw, 137px); line-height: 1; }
+@media (min-width:768px) and (max-width:1023px){
+  .h-hero{ font-size: 70px; }
+}
+
 /* Появление блоков при скролле (класс reveal-on вешает JS только без reduced-motion) */
 .reveal-on { opacity: 0; transform: translateY(14px); }
-.reveal-on.is-visible { opacity: 1; transform: none; transition: opacity .6s ease, transform .6s ease; }
+.reveal-on.is-visible {
+  opacity: 1; transform: none;
+  transition: opacity .55s ease, transform .55s ease;
+  transition-delay: var(--rd, 0ms); /* каскад «по одному» для рядов/секций */
+}
 
