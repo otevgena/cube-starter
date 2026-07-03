@@ -73,7 +73,7 @@ const SERVICE_CATEGORIES = [
     key: "electrical",
     label: "Электромонтаж",
     href: "/services/electrical",
-    icon: "/electricity.jpg",
+    icon: "/electricity.png",
     items: [
       { label: "Подключение объектов к электросетям", tag: "ТУ", href: "/services/electrical/power-connection" },
       { label: "Увеличение мощности и модернизация сетей", tag: "кВт", href: "/services/electrical/power-upgrade" },
@@ -89,7 +89,7 @@ const SERVICE_CATEGORIES = [
     key: "lowcurrent",
     label: "Слаботочные системы",
     href: "/services/lowcurrent",
-    icon: "/lowcurrent.jpg",
+    icon: "/lowcurrent.png",
     items: [
       { label: "СКС и структурированные кабельные сети", tag: "СКС", href: "/services/lowcurrent/sks" },
       { label: "Видеонаблюдение (CCTV)", tag: "CCTV", href: "/services/lowcurrent/cctv" },
@@ -105,7 +105,7 @@ const SERVICE_CATEGORIES = [
     key: "ventilation",
     label: "Климат-системы",
     href: "/services/ventilation",
-    icon: "/climat.jpg",
+    icon: "/climat.png",
     items: [
       { label: "Проектирование и монтаж вентиляции", tag: "ОВ", href: "/services/ventilation/ventilation-design-install" },
       { label: "Системы кондиционирования (VRF/VRV)", tag: "VRF", href: "/services/ventilation/conditioning-vrf-vrv" },
@@ -121,7 +121,7 @@ const SERVICE_CATEGORIES = [
     key: "design",
     label: "Проектирование",
     href: "/services/design",
-    icon: "/design.jpg",
+    icon: "/design.png",
     items: [
       { label: "Проект электроснабжения (ЭОМ)", tag: "ЭОМ", href: "/services/design/power-eom" },
       { label: "Проект ОВ и ВК", tag: "ОВ/ВК", href: "/services/design/hvac-vk" },
@@ -137,7 +137,7 @@ const SERVICE_CATEGORIES = [
     key: "construction",
     label: "Общестрой",
     href: "/services/construction",
-    icon: "/construction.jpg",
+    icon: "/construction.png",
     items: [
       { label: "Общестроительные и отделочные работы", tag: "СМР", href: "/services/construction/general-finishing" },
       { label: "Монолитные и бетонные работы", tag: "ЖБ", href: "/services/construction/monolith-concrete" },
