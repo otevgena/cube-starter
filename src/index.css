@@ -210,6 +210,10 @@ body.review-open #dock-root .dock{
 @media (min-width:768px) and (max-width:1023px){
   .h-hero{ font-size: 70px; }
 }
+/* iPad Pro / узкие ноуты (1024–1279): компактнее десктопных 137px, ПК ≥1280 не трогаем */
+@media (min-width:1024px) and (max-width:1279px){
+  .h-hero{ font-size: clamp(84px, 9vw, 110px); }
+}
 
 /* Появление блоков при скролле (класс reveal-on вешает JS только без reduced-motion) */
 .reveal-on { opacity: 0; transform: translateY(14px); }

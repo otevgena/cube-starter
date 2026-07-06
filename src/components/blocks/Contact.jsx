@@ -167,7 +167,7 @@ export default function Contact({ topClass = "pt-14" }) {
       </div>
 
       {/* Колонки: слева текст, справа форма (на узких экранах — в одну колонку) */}
-      <div className="mx-4 mt-12 grid grid-cols-1 items-start gap-10 md:grid-cols-2 lg:mx-[52px] lg:mt-20 lg:grid-cols-[1fr_auto]">
+      <div className="mx-4 mt-12 grid grid-cols-1 items-start gap-10 md:grid-cols-2 lg:mx-[52px] lg:mt-20 xl:grid-cols-[1fr_auto]">
         {/* Левый текст */}
         <div className="max-w-[760px] text-left">
           <p className="text-[21px] font-semibold leading-7">Мы — КУБ, и мы рядом, чтобы помочь!</p>

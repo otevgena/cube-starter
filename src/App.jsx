@@ -505,7 +505,7 @@ export default function App(){
           data-spy-offset="120"
           data-click-offset="16"
         >
-          <Contact />
+          <Contact topClass="pt-14 lg:pt-[96px] xl:pt-14" />
         </section>
 
         <section

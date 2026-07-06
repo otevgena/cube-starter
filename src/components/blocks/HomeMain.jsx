@@ -35,7 +35,7 @@ export default function HomeMain() {
       </div>
 
       {/* «Ромб» с главным изображением (тёмная рамка вокруг картинки) */}
-      <div className="mx-auto mt-8 aspect-[1441/1112] w-[calc(100vw-32px)] rounded-[10px] bg-ink p-[clamp(20px,4.3vw,62px)] sm:w-[min(1441px,96vw)] lg:mt-20">
+      <div className="mx-auto mt-8 aspect-[1441/1112] w-[calc(100vw-32px)] rounded-[10px] bg-ink p-[clamp(20px,4.3vw,62px)] sm:w-[min(1441px,96vw)] lg:mx-[52px] lg:mt-20 lg:w-auto xl:mx-auto xl:w-[min(1441px,96vw)]">
         <img
           src="/main/main.jpg"
           alt="Главное изображение"

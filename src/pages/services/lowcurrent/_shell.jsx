@@ -58,7 +58,7 @@ export function ServiceDetailLayout({ active, title, slogan, children }) {
         </div>
 
         <h1
-          className="mt-2 text-[clamp(20px,8vw,30px)] sm:text-[clamp(48px,13.5vw,137px)] md:text-[clamp(40px,6vw,52px)] lg:mt-0.5 lg:text-[clamp(48px,13.5vw,137px)]"
+          className="mt-2 text-[clamp(20px,8vw,30px)] sm:text-[clamp(48px,13.5vw,137px)] md:text-[clamp(40px,6vw,52px)] lg:mt-0.5 lg:text-[clamp(44px,7.5vw,88px)] xl:text-[clamp(48px,13.5vw,137px)]"
           style={{ fontWeight: 600, textTransform: "uppercase", lineHeight: 1, color: "#222" }}
         >
           {title}

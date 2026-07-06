@@ -83,7 +83,7 @@ export default function About() {
   };
 
   return (
-    <section className="bg-page pt-14 font-tight text-ink lg:pt-[88px]" aria-label="О нас">
+    <section className="bg-page pt-14 font-tight text-ink lg:pt-[96px] xl:pt-[88px]" aria-label="О нас">
       {/* Обзор */}
       <div className="text-center text-sm font-light leading-7">Обзор</div>
 
@@ -97,10 +97,10 @@ export default function About() {
             <span
               ref={screwWrapRef}
               aria-hidden="true"
-              className="pointer-events-none absolute block h-[40px] w-[40px] select-none sm:h-[60px] sm:w-[60px] md:h-[44px] md:w-[44px] lg:h-[60px] lg:w-[60px]"
-              style={{ left: "calc(50% + 33px)", top: "calc(100% - 74px)", transform: "translate(-50%, -8%)" }}
+              className="pointer-events-none absolute block h-[40px] w-[40px] select-none left-[calc(50%+33px)] top-[calc(100%-74px)] sm:h-[60px] sm:w-[60px] md:h-[44px] md:w-[44px] lg:left-[calc(50%+24px)] lg:top-[calc(100%-54px)] lg:h-[50px] lg:w-[50px] xl:left-[calc(50%+33px)] xl:top-[calc(100%-74px)] xl:h-[60px] xl:w-[60px]"
+              style={{ transform: "translate(-50%, -8%)" }}
             >
-              <img src="/about/screw.gif" alt="" width="60" height="60" className="block h-[40px] w-[40px] sm:h-[60px] sm:w-[60px] md:h-[44px] md:w-[44px] lg:h-[60px] lg:w-[60px]" loading="lazy" decoding="async" />
+              <img src="/about/screw.gif" alt="" width="60" height="60" style={{ filter: "brightness(0.96) saturate(1.2) hue-rotate(-32deg)" }} className="block h-[40px] w-[40px] sm:h-[60px] sm:w-[60px] md:h-[44px] md:w-[44px] lg:h-[50px] lg:w-[50px] xl:h-[60px] xl:w-[60px]" loading="lazy" decoding="async" />
             </span>
           </span>
         </h2>
@@ -108,7 +108,7 @@ export default function About() {
       </div>
 
       {/* Крупные абзацы (картинку убрали — текст идёт сразу) */}
-      <div className="mx-4 mt-16 max-w-[1100px] text-left text-[24px] leading-[32px] sm:mx-12 sm:text-[32px] sm:leading-[42px] md:mx-4 md:text-[18px] md:leading-7 lg:ml-20 lg:mr-0 lg:mt-24 lg:text-[40px] lg:leading-[52px]">
+      <div className="mx-4 mt-16 max-w-[1100px] text-left text-[24px] leading-[32px] sm:mx-12 sm:text-[32px] sm:leading-[42px] md:mx-4 md:text-[18px] md:leading-7 lg:ml-[52px] lg:mr-[52px] lg:mt-24 lg:text-[28px] lg:leading-[38px] xl:ml-20 xl:mr-0 xl:text-[40px] xl:leading-[52px]">
         <p className="font-semibold">
           Признание и опыт, отмечающие вклад нашей команды в развитие инженерных систем.
         </p>
@@ -124,15 +124,15 @@ export default function About() {
       </div>
 
       {/* Команда */}
-      <div className="mt-12 grid grid-cols-1 items-start gap-y-10 md:grid-cols-2 lg:mt-[172px] lg:grid-cols-2">
+      <div className="mt-12 grid grid-cols-1 items-start gap-y-10 md:grid-cols-2 xl:mt-[172px] xl:grid-cols-2">
         {/* текст */}
-        <div className="mx-4 max-w-[760px] text-left text-dark lg:ml-20 lg:mr-0 lg:mt-[221px]">
+        <div className="mx-4 max-w-[760px] text-left text-dark lg:ml-[52px] xl:ml-20 xl:mr-0 xl:mt-[221px]">
           <div className="text-sm font-light leading-7">Команда</div>
-          <h2 className="mt-3.5 text-[30px] font-semibold leading-[38px] sm:text-[36px] sm:leading-[44px] md:text-[30px] md:leading-[38px] lg:text-[43px] lg:leading-[52px]">Почему</h2>
-          <h2 className="text-[30px] font-semibold leading-[38px] sm:text-[36px] sm:leading-[44px] md:text-[30px] md:leading-[38px] lg:text-[43px] lg:leading-[52px]">
+          <h2 className="mt-3.5 text-[30px] font-semibold leading-[38px] sm:text-[36px] sm:leading-[44px] md:text-[30px] md:leading-[38px] xl:text-[43px] xl:leading-[52px]">Почему</h2>
+          <h2 className="text-[30px] font-semibold leading-[38px] sm:text-[36px] sm:leading-[44px] md:text-[30px] md:leading-[38px] xl:text-[43px] xl:leading-[52px]">
             компания «<span className="font-semibold">КУБ</span>»?
           </h2>
-          <p className="mt-8 max-w-[760px] text-pretty text-[18px] font-light leading-[26px] lg:mt-12 lg:text-[21px] lg:leading-7">
+          <p className="mt-8 max-w-[760px] text-pretty text-[18px] font-light leading-[26px] lg:mt-12 xl:text-[21px] xl:leading-7">
             В компании «<span className="font-semibold">КУБ</span>» мы собрали команду специалистов с большим
             опытом работы в проектировании и монтаже инженерных систем. Каждый проект проходит детальную
             проработку и контроль качества, чтобы результат был надёжным, безопасным и соответствовал
@@ -140,7 +140,7 @@ export default function About() {
           </p>
           <LearnMore onClick={() => setExpanded((v) => !v)} />
           <Expandable open={expanded}>
-            <p className="mt-6 text-pretty text-[18px] font-light leading-[26px] lg:text-[21px] lg:leading-7">
+            <p className="mt-6 text-pretty text-[18px] font-light leading-[26px] xl:text-[21px] xl:leading-7">
               Мы берём на себя полный цикл работ — от обследования объекта и разработки проектной документации
               до поставки оборудования, монтажа, пусконаладки и сдачи в эксплуатацию. Работа ведётся в
               соответствии с действующими нормами и стандартами (СП, ГОСТ, ПУЭ, ПТЭЭП). За каждым проектом
@@ -153,7 +153,7 @@ export default function About() {
         </div>
 
         {/* картинка */}
-        <div className="mx-4 lg:ml-0 lg:mr-20">
+        <div className="mx-4 lg:mr-[52px] xl:ml-0 xl:mr-20">
           <img
             src="/about/about2.jpg"
             alt="Команда КУБ"
@@ -164,13 +164,13 @@ export default function About() {
       </div>
 
       {/* Бюрократия */}
-      <div className="mt-12 grid grid-cols-1 items-start gap-y-10 md:grid-cols-2 lg:mt-[220px] lg:grid-cols-[auto_1fr] lg:gap-x-[94px]">
+      <div className="mt-12 grid grid-cols-1 items-start gap-y-10 md:grid-cols-2 xl:mt-[220px] xl:grid-cols-[auto_1fr] xl:gap-x-[94px]">
         {/* картинка */}
-        <div className="order-2 mx-4 md:order-none lg:order-none lg:ml-20 lg:mr-0">
+        <div className="order-2 mx-4 md:order-none lg:ml-[52px] xl:order-none xl:ml-20 xl:mr-0">
           <img
             src="/about/about3.jpg"
             alt="Как делаем «под ключ» без лишней бюрократии"
-            className="block h-auto w-full max-w-[693px] rounded-[10px] object-cover transition-[filter] duration-200 hover:brightness-[0.82] lg:h-[1039px] lg:w-[693px]"
+            className="block h-auto w-full max-w-[693px] rounded-[10px] object-cover transition-[filter] duration-200 hover:brightness-[0.82] xl:h-[1039px] xl:w-[693px]"
             loading="lazy"
             decoding="async"
           />
@@ -180,20 +180,20 @@ export default function About() {
         <div
           onClick={handleProcTextClick}
           title="Нажмите, чтобы раскрыть подробности"
-          className="order-1 mx-4 max-w-[760px] cursor-pointer text-left text-dark md:order-none lg:order-none lg:ml-0 lg:mr-20 lg:mt-[221px]"
+          className="order-1 mx-4 max-w-[760px] cursor-pointer text-left text-dark md:order-none lg:mr-[52px] xl:order-none xl:ml-0 xl:mr-20 xl:mt-[221px]"
         >
           <div className="text-sm font-light leading-7">Бюрократия</div>
-          <h2 className="mt-3.5 text-[30px] font-semibold leading-[38px] sm:text-[36px] sm:leading-[44px] md:text-[30px] md:leading-[38px] lg:text-[43px] lg:leading-[52px]">
+          <h2 className="mt-3.5 text-[30px] font-semibold leading-[38px] sm:text-[36px] sm:leading-[44px] md:text-[30px] md:leading-[38px] xl:text-[43px] xl:leading-[52px]">
             Как делаем «под ключ» без лишней бюрократии?
           </h2>
-          <p className="mt-8 max-w-[760px] text-pretty text-[18px] font-light leading-[26px] lg:mt-12 lg:text-[21px] lg:leading-7">
+          <p className="mt-8 max-w-[760px] text-pretty text-[18px] font-light leading-[26px] lg:mt-12 xl:text-[21px] xl:leading-7">
             Только нужные бумаги и понятные шаги. Площадка и офис работают синхронно: статус и бюджет видны в
             один клик. Сначала показываем «как есть», потом идём по согласованному плану. Итог — готовая система
             и простая эксплуатация.
           </p>
           <LearnMore onClick={() => setExpandedProc((v) => !v)} />
           <Expandable open={expandedProc}>
-            <div className="mt-6 space-y-1.5 text-[18px] font-light leading-[26px] lg:text-[21px] lg:leading-7">
+            <div className="mt-6 space-y-1.5 text-[18px] font-light leading-[26px] xl:text-[21px] xl:leading-7">
               {[
                 "Покажем на схемах, что где стоит и сколько нужно.",
                 "Дадим план по датам: когда и что делаем, что привозим.",
@@ -208,7 +208,7 @@ export default function About() {
         </div>
 
         {/* Кто отвечает за → Результат */}
-        <div className="order-3 col-span-full -mt-2 px-4 text-center text-base font-light lg:order-none lg:mt-[108px] lg:px-20">
+        <div className="order-3 col-span-full -mt-2 px-4 text-center text-base font-light xl:order-none xl:mt-[108px] xl:px-20">
           Кто отвечает за{" "}
           <span className="inline-flex items-center gap-1.5 align-middle">
             <Arrow />

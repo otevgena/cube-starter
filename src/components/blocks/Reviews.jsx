@@ -241,7 +241,7 @@ export default function Reviews() {
   const [open, setOpen] = React.useState(null);
 
   return (
-    <section className="bg-page pt-14 font-tight text-ink lg:pt-[126px]" aria-label="Отзывы">
+    <section className="bg-page pt-14 font-tight text-ink lg:pt-[96px] xl:pt-[126px]" aria-label="Отзывы">
       {/* Шапка */}
       <div className="text-center text-sm font-light leading-7">Портфолио</div>
       <div className="mt-[26px] text-center">
@@ -250,19 +250,19 @@ export default function Reviews() {
       </div>
 
       {/* Карточки: на узких экранах — в столбик, карточка масштабируется под ширину (дизайн 1:1) */}
-      <div className="mt-16 grid grid-cols-1 gap-6 px-4 lg:mx-[52px] lg:mt-20 lg:grid-cols-2 lg:px-0">
+      <div className="mt-16 grid grid-cols-1 gap-6 px-4 lg:mx-[52px] lg:mt-20 lg:px-0 xl:grid-cols-2">
         {REVIEWS.map((r) => (
-          <div key={r.bg} className="mx-auto w-full max-w-[710px] md:max-w-none lg:max-w-[710px]">
+          <div key={r.bg} className="mx-auto w-full max-w-[710px] md:max-w-none xl:max-w-[710px]">
             {/* Мобилка — вертикальная карточка с крупным текстом */}
             <div className="md:hidden">
               <MobileReviewCard review={r} onRead={() => setOpen(r)} />
             </div>
-            {/* Планшет — landscape-карточка во всю ширину (как awwwards) */}
-            <div className="hidden md:block lg:hidden">
+            {/* Планшет + iPad Pro — landscape-карточка во всю ширину (как awwwards) */}
+            <div className="hidden md:block xl:hidden">
               <TabletReviewCard review={r} onRead={() => setOpen(r)} />
             </div>
-            {/* Десктоп — фиксированный дизайн 710×555 */}
-            <div className="hidden lg:block">
+            {/* Десктоп ≥1280 — фиксированный дизайн 710×555 */}
+            <div className="hidden xl:block">
               <FitScale baseW={710} baseH={555}>
                 <ReviewCard review={r} onRead={() => setOpen(r)} />
               </FitScale>

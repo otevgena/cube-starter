@@ -830,11 +830,11 @@ export default function ProJobsPage() {
       </div>
 
       {/* сетка */}
-      <div className="grid grid-cols-1 gap-5 px-4 pb-0 md:max-w-[820px] lg:grid-cols-[240px_minmax(640px,1fr)_280px] lg:max-w-[calc(100%-160px)] lg:gap-5 lg:px-0 lg:pb-[60px]" style={{
+      <div className="grid grid-cols-1 gap-5 px-4 pb-0 md:max-w-[820px] xl:grid-cols-[240px_minmax(640px,1fr)_280px] xl:max-w-[calc(100%-160px)] xl:gap-5 xl:px-0 xl:pb-[60px]" style={{
         width: "100%", margin: "0 auto", alignItems: "start",
       }}>
         {/* Этапы */}
-        <aside className="hidden lg:block" style={{ background: CARD, border: "none", borderRadius: 14, padding: 16, position: "sticky", top: 24 }}>
+        <aside className="hidden xl:block" style={{ background: CARD, border: "none", borderRadius: 14, padding: 16, position: "sticky", top: 24 }}>
           <div style={{ fontSize: 12, letterSpacing: ".06em", textTransform: "uppercase", color: TEXT, fontWeight: 300, marginBottom: 10 }}>Этапы</div>
           {sections.map((s) => {
             const active = activeId === s.id;
@@ -1182,7 +1182,7 @@ export default function ProJobsPage() {
         </section>
 
         {/* Правая заметка */}
-        <aside className="lg:sticky lg:top-6" style={{ background: CARD, border: "none", borderRadius: 14, padding: 16 }}>
+        <aside className="xl:sticky xl:top-6" style={{ background: CARD, border: "none", borderRadius: 14, padding: 16 }}>
           <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Подсказка</div>
           <div style={{ fontSize: 14, fontWeight: 300, color: "#222" }}>
             Заполняйте только актуальные поля — чем точнее анкета, тем быстрее обратная связь.

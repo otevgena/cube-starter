@@ -64,7 +64,7 @@ function useIsTablet() {
   const [v, setV] = React.useState(false);
   React.useEffect(() => {
     let mq;
-    try { mq = window.matchMedia("(min-width:768px) and (max-width:1023px)"); } catch { return; }
+    try { mq = window.matchMedia("(min-width:768px) and (max-width:1279px)"); } catch { return; }
     const on = () => setV(mq.matches);
     on();
     mq.addEventListener ? mq.addEventListener("change", on) : mq.addListener(on);
@@ -416,7 +416,7 @@ export default function Projects() {
   const tableW = isTablet ? TABLET_TABLE_W : TABLE_W;
   const shift = isTablet ? SHIFT_T : SHIFT;
   return (
-    <section className="bg-page pt-14 font-tight text-ink lg:pt-[126px]" aria-label="Проекты">
+    <section className="bg-page pt-14 font-tight text-ink lg:pt-[96px] xl:pt-[126px]" aria-label="Проекты">
       {/* Шапка */}
       <div className="text-center text-sm font-light leading-7">Директория</div>
       <div className="mt-[26px] text-center">
@@ -526,7 +526,7 @@ export default function Projects() {
       </div>
 
       {/* Центровой блок */}
-      <div className="mt-8 px-4 pb-0 text-center text-base font-light lg:mt-[108px] lg:px-20 lg:pb-[120px]">
+      <div className="mt-8 px-4 pb-0 text-center text-base font-light lg:px-20 lg:pb-0 xl:mt-[108px] xl:pb-[120px]">
         Познакомьтесь с <span className="font-semibold">26</span> проектами и реализованными объектами{" "}
         <span className="inline-flex items-center gap-1.5 align-middle">
           <Arrow />

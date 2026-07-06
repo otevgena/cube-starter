@@ -372,6 +372,37 @@ function HeaderBar({ servicesOpen, setServicesOpen, user, authReady, onLogout, i
   );
 }
 
+/* ===== Строка шапки для iPad Pro / узких ноутов (1024–1279) =====
+   Стиль awwwards: бургер слева (полное меню) + логотип + поиск + правые кнопки как на ПК.
+   Живёт только в диапазоне lg…xl — реальный десктоп (≥1280) её не видит. */
+function TabletProBar({ onOpenMenu, onOpenSearch, user, authReady, onLogout }) {
+  return (
+    <div className="flex h-header items-center gap-3.5">
+      {/* Бургер слева — открывает полноэкранное меню (О нас/Проекты/Контакты/Отзывы + услуги) */}
+      <button type="button" onClick={onOpenMenu} aria-label="Меню" className="-ml-0.5 shrink-0 text-ink transition-opacity hover:opacity-70">
+        <Menu size={22} strokeWidth={2} />
+      </button>
+
+      {/* Логотип */}
+      <a href="/" onClick={onLogoClick()} className="relative -top-0.5 shrink-0 text-[30px] font-bold leading-none text-ink">
+        c.
+      </a>
+
+      {/* Поиск — та же «пилюля», что и в открытом меню (без прыжка при открытии) */}
+      <button type="button" onClick={onOpenSearch} className={`${MOBILE_SEARCH_PILL} text-left`}>
+        <Search size={14} strokeWidth={2} className="shrink-0 text-[#222222]" />
+        <span className={`truncate text-[#222222] ${MOBILE_SEARCH_TEXT}`}>Поиск</span>
+      </button>
+
+      {/* Правые кнопки — как на ПК, прижаты вправо */}
+      <div className="flex shrink-0 items-center gap-3">
+        <AuthControls user={user} authReady={authReady} onLogout={onLogout} />
+        <ActionButtons />
+      </div>
+    </div>
+  );
+}
+
 /* ===== Панель «Услуги» — портал в body; раскладка как у awwwards ===== */
 function ServicesPanel({ activeCat, setActiveCat, barProps, onClose, query, setQuery }) {
   const cat = SERVICE_CATEGORIES[activeCat];
@@ -562,7 +593,7 @@ function MobileAccountMenu({ onClose, user, onLogout }) {
 }
 
 /* ===== Полноэкранное мобильное меню (услуги-аккордеон + навигация + действия) ===== */
-function MobileMenu({ open, onClose, query, setQuery, user, onLogout, mode = "menu" }) {
+function MobileMenu({ open, onClose, query, setQuery, user, authReady, onLogout, mode = "menu" }) {
   const [openIdx, setOpenIdx] = React.useState(-1);
   const [present, setPresent] = React.useState(open);
   const [shown, setShown] = React.useState(false);
@@ -609,7 +640,7 @@ function MobileMenu({ open, onClose, query, setQuery, user, onLogout, mode = "me
   return createPortal(
     <div className={`fixed inset-0 z-[100] overflow-y-scroll bg-page font-tight [overflow-anchor:none] transition-opacity duration-[240ms] ease-out will-change-[opacity] ${shown ? "opacity-100" : "opacity-0"}`}>
       {/* верхняя строка меню — та же, что в шапке: бургер (закрывает) · c. · поиск · аккаунт */}
-      <div className="sticky top-0 z-10 bg-page px-4 pt-0">
+      <div className="sticky top-0 z-10 bg-page px-4 pt-0 lg:px-[52px] lg:pt-3">
         <div className="flex h-header items-center gap-3.5">
           <button type="button" onClick={onClose} aria-label="Закрыть меню" className="-ml-0.5 shrink-0 text-ink">
             <Menu size={22} strokeWidth={2} />
@@ -626,30 +657,38 @@ function MobileMenu({ open, onClose, query, setQuery, user, onLogout, mode = "me
               className={`w-full min-w-0 bg-transparent text-[#222222] outline-none placeholder:text-[#222222] ${MOBILE_SEARCH_TEXT}`}
             />
           </label>
-          {user ? (
-            <a href="/account/profile" onClick={onServiceClick("/account/profile", onClose)} className="shrink-0" aria-label="Профиль">
-              <img src="/profile/profile.png" alt="" className="h-[30px] w-[30px] rounded-full object-cover" />
-            </a>
-          ) : (
-            <button type="button" onClick={() => { window.openModal?.("login"); onClose(); }} aria-label="Аккаунт" className="-mr-0.5 shrink-0 text-ink">
-              <UserRound size={20} strokeWidth={2} />
-            </button>
-          )}
+          {/* Мобилка (<1024) — иконка аккаунта */}
+          <div className="lg:hidden">
+            {user ? (
+              <a href="/account/profile" onClick={onServiceClick("/account/profile", onClose)} className="shrink-0" aria-label="Профиль">
+                <img src="/profile/profile.png" alt="" className="h-[30px] w-[30px] rounded-full object-cover" />
+              </a>
+            ) : (
+              <button type="button" onClick={() => { window.openModal?.("login"); onClose(); }} aria-label="Аккаунт" className="-mr-0.5 shrink-0 text-ink">
+                <UserRound size={20} strokeWidth={2} />
+              </button>
+            )}
+          </div>
+          {/* iPad Pro (1024–1279) — те же правые кнопки, что и в закрытой шапке (без прыжка) */}
+          <div className="hidden shrink-0 items-center gap-3 lg:flex" onClick={onClose}>
+            <AuthControls user={user} authReady={authReady} onLogout={onLogout} />
+            <ActionButtons />
+          </div>
         </div>
       </div>
 
       {query.trim() ? (
-        <div className="px-4 pb-10">
+        <div className="px-4 pb-10 lg:px-[52px]">
           <SearchResults query={query} onClose={onClose} />
         </div>
       ) : searchMode ? (
-        <div className="px-4 pb-10 pt-5 text-[14px] leading-6 text-neutral-500">
+        <div className="px-4 pb-10 pt-5 text-[14px] leading-6 text-neutral-500 lg:px-[52px]">
           Начните вводить запрос — услуги, направления, страницы…
         </div>
       ) : (
         <div className="flex min-h-[calc(100dvh-64px)] flex-col pb-6">
           {/* Услуги — заголовок-плашка (тёмная #ececec) */}
-          <div className="mt-1 flex min-h-[54px] items-center border-b border-[#d4d4d4] bg-[#ececec] px-4 text-[14px] font-semibold text-ink">Услуги</div>
+          <div className="mt-1 flex min-h-[54px] items-center border-b border-[#d4d4d4] bg-[#ececec] px-4 text-[14px] font-semibold text-ink lg:px-[52px]">Услуги</div>
 
           {/* Строки-направления — белые, как пункты внутри них */}
           <ul className="flex flex-col border-b border-[#d4d4d4] bg-white">
@@ -661,7 +700,7 @@ function MobileMenu({ open, onClose, query, setQuery, user, onLogout, mode = "me
                     type="button"
                     onClick={() => setOpenIdx(open ? -1 : i)}
                     aria-expanded={open}
-                    className="flex min-h-[54px] w-full items-center justify-between gap-3 px-4 text-left text-[14px] font-medium text-ink active:bg-[#f2f2f2]"
+                    className="flex min-h-[54px] w-full items-center justify-between gap-3 px-4 text-left text-[14px] font-medium text-ink active:bg-[#f2f2f2] lg:px-[52px]"
                   >
                     <span className="flex items-center gap-3">
                       <img src={c.icon} alt="" className="h-5 w-5 shrink-0 object-contain" />
@@ -673,7 +712,7 @@ function MobileMenu({ open, onClose, query, setQuery, user, onLogout, mode = "me
                     <ul className="bg-white py-1">
                       {c.items.map((it) => (
                         <li key={it.label}>
-                          <a href={it.href || c.href} onClick={onServiceClick(it.href || c.href, onClose)} className="flex items-center gap-3 py-2.5 pl-[52px] pr-5 text-[14px] text-ink">
+                          <a href={it.href || c.href} onClick={onServiceClick(it.href || c.href, onClose)} className="flex items-center gap-3 py-2.5 pl-[52px] pr-5 text-[14px] text-ink lg:pl-[84px] lg:pr-[52px]">
                             <span className="min-w-0 flex-1">{it.label}</span>
                             <span className="shrink-0 text-neutral-400">{it.tag}</span>
                           </a>
@@ -691,7 +730,7 @@ function MobileMenu({ open, onClose, query, setQuery, user, onLogout, mode = "me
                 <a
                   href={l.href}
                   onClick={onMobileNav(l.href)}
-                  className="flex min-h-[54px] items-center justify-between gap-2 bg-[#ececec] px-4 text-[14px] font-medium text-ink active:bg-[#e2e2e2]"
+                  className="flex min-h-[54px] items-center justify-between gap-2 bg-[#ececec] px-4 text-[14px] font-medium text-ink active:bg-[#e2e2e2] lg:px-[52px]"
                 >
                   <span>{l.label}</span>
                   {l.badge && <span className="rounded bg-dark px-1.5 py-0.5 text-[10px] font-medium leading-none text-white">{l.badge}</span>}
@@ -706,7 +745,7 @@ function MobileMenu({ open, onClose, query, setQuery, user, onLogout, mode = "me
               <a
                 href="/contact"
                 onClick={onServiceClick("/contact", onClose)}
-                className="flex min-h-[54px] items-center justify-between gap-2 bg-carrot px-4 text-[14px] font-semibold text-black transition-colors active:bg-[#e8541f]"
+                className="flex min-h-[54px] items-center justify-between gap-2 bg-carrot px-4 text-[14px] font-semibold text-black transition-colors active:bg-[#e8541f] lg:px-[52px]"
               >
                 <span>Оставить заявку</span>
               </a>
@@ -715,7 +754,7 @@ function MobileMenu({ open, onClose, query, setQuery, user, onLogout, mode = "me
               <a
                 href="/pro"
                 onClick={onServiceClick("/pro", onClose)}
-                className="flex min-h-[54px] items-center justify-between gap-2 px-4 text-[14px] font-medium text-ink active:bg-[#e2e2e2]"
+                className="flex min-h-[54px] items-center justify-between gap-2 px-4 text-[14px] font-medium text-ink active:bg-[#e2e2e2] lg:px-[52px]"
               >
                 <span>Ищу работу</span>
               </a>
@@ -723,7 +762,7 @@ function MobileMenu({ open, onClose, query, setQuery, user, onLogout, mode = "me
           </ul>
 
           {/* Контакты внизу — как в подвале главной */}
-          <div className="mt-auto flex flex-col gap-1.5 px-4 pt-8 text-[14px]">
+          <div className="mt-auto flex flex-col gap-1.5 px-4 pt-8 text-[14px] lg:px-[52px]">
             <div>
               <span className="font-semibold">Почта:</span>{" "}
               <a href="mailto:info@cube-tech.ru" className="font-normal hover:underline">info@cube-tech.ru</a>
@@ -1022,10 +1061,22 @@ export default function Header() {
   return (
     <header className="sticky top-0 z-40 bg-page pt-0 font-tight lg:relative lg:bg-transparent lg:pt-3">
       {/* Реальная шапка. Desktop — полная строка; мобильная (< lg) — компактная строка */}
-      <div className="mx-auto max-w-[1700px] px-4 lg:px-10">
-        <div className="hidden lg:block">
+      <div className="mx-auto max-w-[1700px] px-4 lg:px-[52px] xl:px-10">
+        {/* Десктоп (≥1280) — полная строка с инлайновым меню. Не трогаем. */}
+        <div className="hidden xl:block">
           <HeaderBar {...barProps} />
         </div>
+        {/* iPad Pro / узкие ноуты (1024–1279) — бургер + правые кнопки как на ПК */}
+        <div className="hidden lg:block xl:hidden">
+          <TabletProBar
+            onOpenMenu={() => setMobileView("menu")}
+            onOpenSearch={() => setMobileView("search")}
+            user={user}
+            authReady={authReady}
+            onLogout={handleLogout}
+          />
+        </div>
+        {/* Мобилка / планшет (<1024) — компактная строка. Не трогаем. */}
         <div className="lg:hidden">
           <MobileBar onOpenMenu={() => setMobileView("menu")} onOpenSearch={() => setMobileView("search")} onOpenAccount={() => setAcctOpen(true)} user={user} />
         </div>
@@ -1051,6 +1102,7 @@ export default function Header() {
         query={query}
         setQuery={setQuery}
         user={user}
+        authReady={authReady}
         onLogout={handleLogout}
       />
 

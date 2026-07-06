@@ -148,9 +148,9 @@ function FeatureIcon({ icon, top, bottom, offset = 0, speed = 1.5, size = 22 }) 
       >
         <img src={icon} alt="" width={size} height={size} className="block" />
       </object>
-      <div className="min-w-0 overflow-hidden text-[11px] font-light leading-[14px] text-dark sm:text-[13px] sm:leading-[16px] md:overflow-visible md:text-[11px] md:leading-[14px] lg:overflow-hidden lg:text-[13px] lg:leading-[16px]">
-        <div className="truncate md:overflow-visible md:whitespace-normal md:text-clip lg:truncate">{top}</div>
-        <div className="truncate md:overflow-visible md:whitespace-normal md:text-clip lg:truncate">{bottom}</div>
+      <div className="min-w-0 overflow-hidden text-[11px] font-light leading-[14px] text-dark sm:text-[13px] sm:leading-[16px] md:overflow-visible md:text-[11px] md:leading-[14px] lg:text-[13px] lg:leading-[16px] xl:overflow-hidden xl:text-[13px] xl:leading-[16px]">
+        <div className="truncate md:overflow-visible md:whitespace-normal md:text-clip xl:truncate">{top}</div>
+        <div className="truncate md:overflow-visible md:whitespace-normal md:text-clip xl:truncate">{bottom}</div>
       </div>
     </div>
   );
@@ -170,7 +170,7 @@ function Arrow() {
 
 export default function Services() {
   return (
-    <section className="mt-14 bg-page pb-0 font-tight text-ink sm:mt-40 sm:pb-24 md:mt-14 md:pb-0 lg:mt-[255px] lg:pb-24">
+    <section className="mt-14 bg-page pb-0 font-tight text-ink sm:mt-40 sm:pb-24 md:mt-14 md:pb-0 lg:mt-[96px] lg:pb-0 xl:mt-[255px] xl:pb-24">
       {/* Заголовок УСЛУГИ + гифка на «И» */}
       <div className="text-center">
         <div className="text-sm font-light leading-7">Направления</div>
@@ -181,21 +181,22 @@ export default function Services() {
             <img
               src="/services/hammer_chisel_logo.gif"
               alt=""
-              className="pointer-events-none absolute left-1/2 top-1/2 z-[2] block w-[54px] max-w-none translate-x-[calc(-50%+18px)] translate-y-[calc(-50%-15px)] select-none sm:w-[120px] sm:translate-x-[calc(-50%+39px)] sm:translate-y-[calc(-50%-34px)] md:w-[62px] md:translate-x-[calc(-50%+20px)] md:translate-y-[calc(-50%-17px)] lg:w-[120px] lg:translate-x-[calc(-50%+39px)] lg:translate-y-[calc(-50%-34px)]"
+              style={{ filter: "brightness(0.96) saturate(1.2) hue-rotate(-32deg)" }}
+              className="pointer-events-none absolute left-1/2 top-1/2 z-[2] block w-[54px] max-w-none translate-x-[calc(-50%+18px)] translate-y-[calc(-50%-15px)] select-none sm:w-[120px] sm:translate-x-[calc(-50%+39px)] sm:translate-y-[calc(-50%-34px)] md:w-[62px] md:translate-x-[calc(-50%+20px)] md:translate-y-[calc(-50%-17px)] lg:w-[90px] lg:translate-x-[calc(-50%+29px)] lg:translate-y-[calc(-50%-25px)] xl:w-[120px] xl:translate-x-[calc(-50%+39px)] xl:translate-y-[calc(-50%-34px)]"
             />
           </span>
         </h2>
       </div>
 
       {/* Вводный блок слева */}
-      <div className="mt-3.5 px-4 text-center sm:mt-8 sm:pl-[52px] sm:pr-0 sm:text-left md:pl-4 lg:pl-[52px]">
+      <div className="mt-3.5 px-4 text-center sm:mt-8 sm:pl-[52px] sm:pr-0 sm:text-left md:pl-4 lg:pl-[52px] lg:pr-[52px] xl:pr-0">
         <div className="text-[18px] font-light leading-7 sm:text-sm">Технологии под задачу</div>
         <h3 className="mt-3.5 hidden text-[28px] font-semibold leading-[1.2] sm:block sm:text-[36px] lg:text-[43px]">Делегируйте всё</h3>
         <h3 className="hidden text-[28px] font-semibold leading-[1.2] sm:block sm:text-[36px] lg:text-[43px]">— оставьте себе контроль.</h3>
       </div>
 
       {/* Карточки услуг: адаптивная сетка (моб 1 / планшет 2 / десктоп 3) */}
-      <div className="mx-auto mt-12 grid max-w-[1461px] grid-cols-1 justify-center gap-5 px-4 sm:grid-cols-2 sm:mt-16 lg:grid-cols-3 lg:mt-20">
+      <div className="mx-auto mt-12 grid max-w-[1461px] grid-cols-1 justify-center gap-5 px-4 sm:grid-cols-2 sm:mt-16 lg:mt-20 lg:px-[52px] xl:grid-cols-3 xl:px-4">
         {SERVICES.map((s) => (
           <article key={s.key} className="flex flex-col overflow-hidden rounded-[10px] bg-white">
             {/* картинка (клик → страница услуги, затемнение/зум на ховере) */}
@@ -237,7 +238,7 @@ export default function Services() {
       </div>
 
       {/* Каждая деталь имеет → Значение */}
-      <div className="mt-8 px-4 text-center text-base font-light text-ink lg:mt-[108px]">
+      <div className="mt-8 px-4 text-center text-base font-light text-ink xl:mt-[108px]">
         Каждая деталь имеет{" "}
         <span className="inline-flex items-center gap-1.5 align-middle">
           <Arrow />

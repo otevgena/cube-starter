@@ -243,12 +243,12 @@ function CubeIndex({ score, dateText }) {
       </div>
 
       {/* десктоп: полная композиция со стрелкой по «К» */}
-      <div className="mx-[80px] hidden items-end justify-between lg:flex">
+      <div className="mx-[52px] hidden items-end justify-between lg:flex xl:mx-[80px]">
       <div>
         <div
           ref={wrapRef}
-          className="relative whitespace-nowrap font-semibold uppercase"
-          style={{ fontSize: 96, lineHeight: 1, color: "#222" }}
+          className="relative whitespace-nowrap font-semibold uppercase leading-none text-[64px] xl:text-[96px]"
+          style={{ color: "#222" }}
         >
           <span>{before}</span>
           <span ref={markerRef} style={{ display: "inline-block", width: 0 }} />
@@ -257,11 +257,11 @@ function CubeIndex({ score, dateText }) {
 
         <div className="relative mt-6">
           <div aria-hidden="true" className="absolute top-0" style={{ left: offset, transform: "translateX(calc(-100% - 16px))" }}>
-            <span style={{ fontSize: 96, fontWeight: 600, lineHeight: 1 }}>→</span>
+            <span className="text-[64px] font-semibold leading-none xl:text-[96px]">→</span>
           </div>
           <div className="flex items-start whitespace-nowrap" style={{ marginLeft: offset, gap: 8, color: "#111" }}>
-            <span style={{ fontSize: 96, fontWeight: 600, lineHeight: 1 }}>{Number(score).toFixed(1)}</span>
-            <span style={{ fontSize: 28, fontWeight: 300, lineHeight: 1, transform: "translateY(-6px)" }}>/ 10</span>
+            <span className="text-[64px] font-semibold leading-none xl:text-[96px]">{Number(score).toFixed(1)}</span>
+            <span className="text-[20px] font-light leading-none xl:text-[28px]" style={{ transform: "translateY(-6px)" }}>/ 10</span>
           </div>
         </div>
       </div>
@@ -333,7 +333,7 @@ export function ServiceCategoryPage({ title, slogan, intro, lines, metrics, scor
           </div>
         </nav>
 
-        <h1 className="mt-2 text-center font-semibold uppercase leading-none text-[clamp(28px,10vw,42px)] sm:text-[clamp(48px,13.5vw,137px)] md:text-[70px] lg:mt-0.5 lg:text-[clamp(48px,13.5vw,137px)]">
+        <h1 className="mt-2 text-center font-semibold uppercase leading-none text-[clamp(28px,10vw,42px)] sm:text-[clamp(48px,13.5vw,137px)] md:text-[70px] lg:mt-0.5 lg:text-[clamp(44px,7.5vw,88px)] xl:text-[clamp(48px,13.5vw,137px)]">
           {title}
         </h1>
 
@@ -341,7 +341,7 @@ export function ServiceCategoryPage({ title, slogan, intro, lines, metrics, scor
       </div>
 
       {/* вступительный текст */}
-      <div className="mx-4 mt-10 text-left text-[26px] font-semibold leading-[32px] text-ink md:text-[30px] md:leading-[38px] lg:mx-[80px] lg:mt-[150px] lg:text-[43px] lg:leading-[51px]">
+      <div className="mx-4 mt-10 text-left text-[26px] font-semibold leading-[32px] text-ink md:text-[30px] md:leading-[38px] lg:mx-[52px] lg:mt-[96px] lg:text-[30px] lg:leading-[40px] xl:mx-[80px] xl:mt-[150px] xl:text-[43px] xl:leading-[51px]">
         {intro.map((line, i) => (
           <p key={i} className="m-0">{line}</p>
         ))}
@@ -365,15 +365,15 @@ export function ServiceCategoryPage({ title, slogan, intro, lines, metrics, scor
       </div>
 
       {/* заголовки к графику */}
-      <div className="mx-4 mt-16 lg:mx-[80px] lg:mt-[150px]">
+      <div className="mx-4 mt-16 lg:mx-[52px] lg:mt-[96px] xl:mx-[80px] xl:mt-[150px]">
         <div style={{ fontSize: 14, lineHeight: "28px", fontWeight: 300, color: "#222" }}>График</div>
-        <div className="mt-3.5 text-[26px] font-semibold leading-[32px] text-[#111] md:text-[30px] md:leading-[38px] lg:text-[43px] lg:leading-[51px]">
+        <div className="mt-3.5 text-[26px] font-semibold leading-[32px] text-[#111] md:text-[30px] md:leading-[38px] lg:text-[30px] lg:leading-[40px] xl:text-[43px] xl:leading-[51px]">
           {graphHeading}
         </div>
       </div>
 
       {/* CUBE / ИНДЕКС */}
-      <div className="mt-14 lg:mt-[150px]">
+      <div className="mt-14 lg:mt-[96px] xl:mt-[150px]">
         <CubeIndex score={score} dateText={today} />
       </div>
 
