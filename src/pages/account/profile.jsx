@@ -1,7 +1,10 @@
 import React from "react";
 import QRCode from "qrcode";
-import ObjectsSection, { EmployeesModule, TemplatesModule } from "@/pages/account/objects/ObjectsSection.jsx";
+import ObjectsSection, { EmployeesModule, TemplatesModule, CreateObjectForm, UnderSelect, UnderInput, FLabel, PrimaryBtn } from "@/pages/account/objects/ObjectsSection.jsx";
 import { AccessSheetModal } from "@/components/documents/AccessSheet.jsx";
+import { BTN as MBTN, inputCls, ErrorSlot as MErrorSlot, FancyCheckbox, Label as MLabel, FormShell } from "@/components/common/Modals.jsx";
+import Spinner, { CenterSpinner } from "@/components/common/Spinner.jsx";
+import * as DB from "@/data/objects.js";
 
 /* ===== API helpers ===== */
 const API_BASE =
@@ -434,16 +437,16 @@ async function apiAdminGetUser(token, userId) {
   }
 }
 
-/* Генератор надёжного пароля (для ручного заведения учётки админом) */
-function genPassword(len = 14) {
-  const upper = "ABCDEFGHJKLMNPQRSTUVWXYZ", lower = "abcdefghijkmnpqrstuvwxyz",
-    digit = "23456789", sym = "!@#$%*?-";
-  const all = upper + lower + digit + sym;
+/* Генератор временного пароля (админ заводит учётку заказчику).
+   Читаемый и легко диктуется: без похожих символов (0/O, 1/l/I) и без спецсимволов.
+   Формат «Xxxx-9999» — заглавная + 3 строчные, дефис, 4 цифры (напр. «Rasp-8472»).
+   Пароль временный: при первом входе заказчику предложат сменить его на свой. */
+function genPassword() {
+  const up = "ABCDEFGHJKMNPQRSTUVWXYZ", lo = "abcdefghijkmnpqrstuvwxyz", dg = "23456789";
   const pick = (s) => s[Math.floor(Math.random() * s.length)];
-  let out = [pick(upper), pick(lower), pick(digit), pick(sym)];
-  for (let i = out.length; i < len; i++) out.push(pick(all));
-  for (let i = out.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [out[i], out[j]] = [out[j], out[i]]; }
-  return out.join("");
+  const letters = pick(up) + pick(lo) + pick(lo) + pick(lo);
+  const digits = pick(dg) + pick(dg) + pick(dg) + pick(dg);
+  return `${letters}-${digits}`;
 }
 
 /* ===== UI ===== */
@@ -1664,7 +1667,7 @@ function AdminPanelCore({ token, filterGroup }) {
         </div>
         <AcctDotted />
         {loading ? (
-          <div style={{ padding: "28px 8px", color: "#777", fontSize: 14, fontWeight: 300 }}>Загрузка…</div>
+          <CenterSpinner minHeight={160} label="Загружаем учётные записи…" />
         ) : list.length === 0 ? (
           <div style={{ padding: "28px 8px", color: "#777", fontSize: 14, fontWeight: 300 }}>{q ? "Ничего не найдено." : "Нет данных."}</div>
         ) : (
@@ -1765,12 +1768,8 @@ function AdminCreateAccount({ token }) {
   const [legalAddress, setLegalAddress] = React.useState("");
   const [errors, setErrors] = React.useState({});
   const [busy, setBusy] = React.useState(false);
-  const [done, setDone] = React.useState(null); // { loginLabel, password, byLogin }
+  const [done, setDone] = React.useState(null); // { loginLabel, password, byLogin, email }
   const [copied, setCopied] = React.useState(false);
-  // Лист доступа (форма КУБ-ЛК-01): данные объекта заполняются на экране «создано».
-  const [sheetOpen, setSheetOpen] = React.useState(false);
-  const [sheet, setSheet] = React.useState({ objectNumber: "", objectTitle: "", objectAddress: "", objectUrl: "", contractNumber: "", contractDate: "" });
-  const setSheetField = (k) => (v) => setSheet((s) => ({ ...s, [k]: v }));
 
   const emailOk = (e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(e).trim());
   const loginOk = (l) => /^[a-zA-Z0-9._-]{3,32}$/.test(String(l).trim());
@@ -1825,7 +1824,7 @@ function AdminCreateAccount({ token }) {
       });
       return;
     }
-    setDone({ loginLabel: mode === "login" ? lg : em, password: pwd, byLogin: mode === "login" });
+    setDone({ loginLabel: mode === "login" ? lg : em, password: pwd, byLogin: mode === "login", email: em || "", id: res.user?.id || "", login: res.user?.login || "" });
   };
 
   const copyCreds = async () => {
@@ -1835,7 +1834,7 @@ function AdminCreateAccount({ token }) {
     } catch { /* clipboard недоступен */ }
   };
 
-  const reset = () => { setMode("email"); setEmail(""); setLogin(""); setName(""); setGroup("customer"); setPwd(genPassword()); setOrgOn(false); setOrg(""); setInn(""); setKpp(""); setLegalAddress(""); setErrors({}); setDone(null); setSheetOpen(false); setSheet({ objectNumber: "", objectTitle: "", objectAddress: "", objectUrl: "", contractNumber: "", contractDate: "" }); };
+  const reset = () => { setMode("email"); setEmail(""); setLogin(""); setName(""); setGroup("customer"); setPwd(genPassword()); setOrgOn(false); setOrg(""); setInn(""); setKpp(""); setLegalAddress(""); setErrors({}); setDone(null); };
 
   const seg = (active) => ({ flex: 1, height: 40, borderRadius: 8, border: "none", cursor: "pointer", fontFamily: UI, fontSize: 14, fontWeight: active ? 500 : 300, background: active ? "#111" : "transparent", color: active ? "#fff" : "#555", transition: "background-color .15s ease, color .15s ease" });
 
@@ -1846,35 +1845,44 @@ function AdminCreateAccount({ token }) {
       <div style={{ marginTop: 6, fontSize: 14, fontWeight: 300, color: "#777" }}>Новый пользователь сможет входить по этим данным. Пароль показывается один раз — передайте его заказчику.</div>
 
       {done ? (
-        <div className="animate-svcfade" style={{ marginTop: 22, maxWidth: 520, border: "1px solid #e6e6e6", borderRadius: 14, padding: 20, background: "#fff" }}>
-          <div style={{ fontSize: 16, fontWeight: 600, color: TEXT }}>Учётная запись создана</div>
-          <div style={{ marginTop: 14, display: "grid", gap: 10 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 12, fontSize: 14 }}><span style={{ color: "#888" }}>Логин</span><span style={{ color: TEXT, fontWeight: 500 }}>{done.loginLabel}</span></div>
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 12, fontSize: 14 }}><span style={{ color: "#888" }}>Пароль</span><span style={{ color: TEXT, fontWeight: 500, fontFamily: "ui-monospace,SFMono-Regular,Menlo,monospace" }}>{done.password}</span></div>
-          </div>
-          {done.byLogin ? <div style={{ marginTop: 12, fontSize: 13, fontWeight: 300, color: "#888", lineHeight: 1.5 }}>Учётная запись создана по логину. При первом входе заказчик добавит и подтвердит свою почту.</div> : null}
-          <div style={{ marginTop: 18, display: "flex", gap: 10, flexWrap: "wrap" }}>
-            <DarkTextBtn onClick={copyCreds}>{copied ? "Скопировано ✓" : "Скопировать данные"}</DarkTextBtn>
-            <button type="button" onClick={reset} style={{ height: 44, padding: "0 18px", borderRadius: 10, border: "1px solid #d9d9d9", background: "#fff", cursor: "pointer", fontFamily: UI, fontSize: 14, color: TEXT }}>Создать ещё</button>
+        <div className="animate-svcfade">
+          <div style={{ marginTop: 22, maxWidth: 520, border: "1px solid #e6e6e6", borderRadius: 14, padding: 20, background: "#fff" }}>
+            <div style={{ fontSize: 16, fontWeight: 600, color: TEXT }}>Учётная запись создана</div>
+            <div style={{ marginTop: 14, display: "grid", gap: 10 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 12, fontSize: 14 }}><span style={{ color: "#888" }}>Логин</span><span style={{ color: TEXT, fontWeight: 500 }}>{done.loginLabel}</span></div>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 12, fontSize: 14 }}><span style={{ color: "#888" }}>Пароль</span><span style={{ color: TEXT, fontWeight: 500, fontFamily: "ui-monospace,SFMono-Regular,Menlo,monospace" }}>{done.password}</span></div>
+            </div>
+            {done.byLogin ? <div style={{ marginTop: 12, fontSize: 13, fontWeight: 300, color: "#888", lineHeight: 1.5 }}>Учётная запись создана по логину. При первом входе заказчик добавит и подтвердит свою почту.</div> : null}
+            <div style={{ marginTop: 18, display: "flex", gap: 10, flexWrap: "wrap" }}>
+              <DarkTextBtn onClick={copyCreds}>{copied ? "Скопировано ✓" : "Скопировать данные"}</DarkTextBtn>
+              <button type="button" onClick={reset} style={{ height: 44, padding: "0 18px", borderRadius: 10, border: "1px solid #d9d9d9", background: "#fff", cursor: "pointer", fontFamily: UI, fontSize: 14, color: TEXT }}>Создать ещё</button>
+            </div>
           </div>
 
-          {/* Лист доступа — реквизиты объекта для QR-документа */}
-          <div style={{ borderTop: "1px solid #eee", marginTop: 20, paddingTop: 16 }}>
-            <div style={{ fontSize: 12, letterSpacing: ".05em", textTransform: "uppercase", color: "#a7a7a7", fontWeight: 300 }}>Лист доступа <span style={{ textTransform: "none", fontWeight: 400 }}>— для передачи заказчику</span></div>
-            <div style={{ marginTop: 12, display: "grid", gap: 12 }}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                <Field label="Объект №"><Input value={sheet.objectNumber} onChange={setSheetField("objectNumber")} placeholder="напр. 000123" /></Field>
-                <Field label="Ссылка для входа (QR)"><Input value={sheet.objectUrl} onChange={setSheetField("objectUrl")} placeholder="https://cube-tech.ru/account" /></Field>
-              </div>
-              <Field label="Наименование объекта"><Input value={sheet.objectTitle} onChange={setSheetField("objectTitle")} placeholder="—" /></Field>
-              <Field label="Адрес объекта"><Input value={sheet.objectAddress} onChange={setSheetField("objectAddress")} placeholder="—" /></Field>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                <Field label="Договор №"><Input value={sheet.contractNumber} onChange={setSheetField("contractNumber")} placeholder="—" /></Field>
-                <Field label="Дата договора"><Input value={sheet.contractDate} onChange={setSheetField("contractDate")} placeholder="дд.мм.гггг" /></Field>
-              </div>
+          {/* Лист доступа — отдельная широкая секция: объект выбирается из списка или создаётся тут же (с этапами) */}
+          <div style={{ marginTop: 30, maxWidth: 760, borderTop: "1px solid #ececec", paddingTop: 26 }}>
+            <AccessSheetBuilder account={{ id: done.id || "", name: name || done.loginLabel, loginLabel: done.loginLabel, password: done.password, email: (done.email || "").trim().toLowerCase() }} />
+          </div>
+
+          {/* Выход после того, как всё готово. Обе кнопки — спокойные (outline), чтобы
+              «Готово» не перетягивало случайный клик до создания объекта. */}
+          <div style={{ marginTop: 30, maxWidth: 760, borderTop: "1px solid #ececec", paddingTop: 22 }}>
+            <div style={{ fontSize: 13, fontWeight: 300, color: "#999", marginBottom: 12, lineHeight: 1.5 }}>
+              Сначала сформируйте лист доступа выше — а когда закончите, вернитесь к модулям или заведите ещё одну учётку.
             </div>
-            <div style={{ marginTop: 14 }}>
-              <DarkTextBtn onClick={() => setSheetOpen(true)}>Сформировать лист доступа</DarkTextBtn>
+            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+              <button type="button" onClick={() => adminNav("/account/admin")}
+                style={{ height: 48, padding: "0 22px", borderRadius: 10, border: "1px solid #d9d9d9", background: "#fff", cursor: "pointer", fontFamily: UI, fontSize: 14, fontWeight: 400, color: TEXT, transition: "background-color .15s ease, border-color .15s ease" }}
+                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "#f5f5f5"; e.currentTarget.style.borderColor = "#c4c4c4"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "#fff"; e.currentTarget.style.borderColor = "#d9d9d9"; }}>
+                Готово — к модулям
+              </button>
+              <button type="button" onClick={reset}
+                style={{ height: 48, padding: "0 22px", borderRadius: 10, border: "1px solid #d9d9d9", background: "#fff", cursor: "pointer", fontFamily: UI, fontSize: 14, fontWeight: 400, color: TEXT, transition: "background-color .15s ease, border-color .15s ease" }}
+                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "#f5f5f5"; e.currentTarget.style.borderColor = "#c4c4c4"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "#fff"; e.currentTarget.style.borderColor = "#d9d9d9"; }}>
+                Создать ещё учётку
+              </button>
             </div>
           </div>
         </div>
@@ -1944,26 +1952,137 @@ function AdminCreateAccount({ token }) {
             </div>
           </Field>
           {errors.form ? <div style={{ fontSize: 13, color: ERR }}>{errors.form}</div> : null}
-          <div><DarkTextBtn onClick={submit} disabled={busy}>{busy ? "Создаём…" : "Создать учётную запись"}</DarkTextBtn></div>
+          <div>{busy ? <RowSpinner label="Создаём учётную запись…" minHeight={48} /> : <DarkTextBtn onClick={submit}>Создать учётную запись</DarkTextBtn>}</div>
         </div>
       )}
+    </div>
+  );
+}
 
-      {sheetOpen && done ? (
-        <AccessSheetModal
-          onClose={() => setSheetOpen(false)}
-          data={{
-            customerName: name || done.loginLabel,
-            accountName: name || done.loginLabel,
-            login: done.loginLabel,
-            temporaryPassword: done.password,
-            objectNumber: sheet.objectNumber,
-            objectTitle: sheet.objectTitle,
-            objectAddress: sheet.objectAddress,
-            objectUrl: sheet.objectUrl || "https://cube-tech.ru/account",
-            contractNumber: sheet.contractNumber,
-            contractDate: sheet.contractDate,
-          }}
-        />
+/* Лист доступа: админ ВЫБИРАЕТ объект заказчика из списка ИЛИ создаёт новый прямо здесь.
+   Данные объекта (№, наименование, адрес, ссылка QR) подтягиваются автоматически —
+   вручную вбивать ничего не нужно. Объект при создании привязывается к учётке. */
+const CUBE_SITE = "https://cube-tech.ru";
+const objectUrlFor = (id) => `${CUBE_SITE}/account/objects/${encodeURIComponent(id)}`;
+
+function AccessSheetBuilder({ account }) {
+  const email = account.email || "";
+  const accountId = account.id || "";
+  const [mode, setMode] = React.useState("select"); // "select" | "create"
+  const [tick, setTick] = React.useState(0);
+
+  React.useEffect(() => {
+    try { DB.hydrateObjects && DB.hydrateObjects(); } catch {}
+    const on = () => setTick((t) => t + 1);
+    window.addEventListener("objects:changed", on);
+    return () => window.removeEventListener("objects:changed", on);
+  }, []);
+
+  // Объекты этой учётки — по e-mail ИЛИ по id учётки (для входа по логину без почты).
+  // Совсем без привязки — все объекты (админ выберет вручную).
+  const objects = React.useMemo(() => {
+    try {
+      const list = (email || accountId) ? DB.listObjectsForCustomer(email, accountId) : DB.listObjects();
+      return Array.isArray(list) ? list : [];
+    } catch { return []; }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [email, accountId, tick]);
+
+  const [selId, setSelId] = React.useState("");
+  const [createdId, setCreatedId] = React.useState("");
+
+  // Договор (общие поля листа)
+  const [contractNumber, setContractNumber] = React.useState("");
+  const [contractDate, setContractDate] = React.useState("");
+  const [sheetOpen, setSheetOpen] = React.useState(false);
+
+  // Актуальный объект (полные данные из хранилища).
+  const activeObj = React.useMemo(() => {
+    const id = mode === "create" ? createdId : selId;
+    if (!id) return null;
+    try { return (DB.getObject && DB.getObject(id)) || objects.find((o) => o.id === id) || null; }
+    catch { return objects.find((o) => o.id === id) || null; }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, createdId, selId, objects, tick]);
+
+  const objAddr = activeObj ? (activeObj.address || activeObj.city || "") : "";
+  const sheetData = activeObj ? {
+    customerName: account.name,
+    accountName: account.name,
+    login: account.loginLabel,
+    temporaryPassword: account.password,
+    objectNumber: activeObj.id,
+    objectTitle: activeObj.title,
+    objectAddress: objAddr,
+    objectUrl: objectUrlFor(activeObj.id),
+    contractNumber: contractNumber || activeObj.contractNumber || "",
+    contractDate,
+  } : null;
+
+  const seg = (active) => ({ flex: 1, height: 40, borderRadius: 8, border: "none", cursor: "pointer", fontFamily: UI, fontSize: 14, fontWeight: active ? 500 : 300, background: active ? "#111" : "transparent", color: active ? "#fff" : "#555", transition: "background-color .15s ease, color .15s ease" });
+
+  return (
+    <div style={{ fontFamily: UI }}>
+      <div style={{ fontSize: 12, letterSpacing: ".06em", textTransform: "uppercase", color: TEXT, fontWeight: 300 }}>Лист доступа <span style={{ textTransform: "none", fontWeight: 400, color: "#999" }}>— для передачи заказчику</span></div>
+      <div style={{ marginTop: 6, fontSize: 14, fontWeight: 300, color: "#777" }}>Выберите объект заказчика или создайте новый — данные подставятся в лист автоматически.</div>
+
+      {/* Выбрать существующий объект или создать новый */}
+      <div style={{ marginTop: 18, display: "flex", gap: 4, padding: 4, background: "#f3f3f3", borderRadius: 10, maxWidth: 340 }}>
+        <button type="button" onClick={() => setMode("select")} style={seg(mode === "select")}>Выбрать объект</button>
+        <button type="button" onClick={() => setMode("create")} style={seg(mode === "create")}>Создать объект</button>
+      </div>
+
+      <div style={{ marginTop: 22 }}>
+        {mode === "select" ? (
+          objects.length ? (
+            <div style={{ maxWidth: 460 }}>
+              <FLabel>Объект</FLabel>
+              <UnderSelect
+                value={selId}
+                onChange={setSelId}
+                placeholder="— выберите объект —"
+                options={objects.map((o) => ({ value: o.id, label: `${o.id} — ${o.title || "без названия"}` }))}
+              />
+            </div>
+          ) : (
+            <div style={{ maxWidth: 520, fontSize: 14, fontWeight: 300, color: "#777", lineHeight: 1.5, background: "#fafafa", border: "1px solid #eee", borderRadius: 12, padding: "14px 16px" }}>
+              У этой учётки пока нет объектов. Переключитесь на «Создать объект» — он сразу привяжется к заказчику.
+            </div>
+          )
+        ) : createdId ? (
+          <div style={{ maxWidth: 520, fontSize: 14, fontWeight: 400, color: "#2f855a", background: "#f2faf4", border: "1px solid #d5ecdc", borderRadius: 12, padding: "14px 16px" }}>
+            Объект <b>{createdId}</b> создан и привязан к учётке. Ниже заполните договор и сформируйте лист.
+          </div>
+        ) : (
+          // Полноценная форма создания объекта — та же, что в разделе «Объекты» (тип работ, ответственный, этапы).
+          <CreateObjectForm
+            embedded
+            fixedCustomer={{ name: account.name, email, id: accountId }}
+            submitLabel="Создать объект"
+            onCreated={(id) => { setCreatedId(id); setTick((t) => t + 1); }}
+          />
+        )}
+      </div>
+
+      {/* Договор + сводка выбранного объекта */}
+      {activeObj ? (
+        <div style={{ marginTop: 24, maxWidth: 460 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18 }}>
+            <div><FLabel>Договор №</FLabel><UnderInput value={contractNumber} onChange={setContractNumber} placeholder="—" /></div>
+            <div><FLabel>Дата договора</FLabel><UnderInput value={contractDate} onChange={setContractDate} placeholder="дд.мм.гггг" /></div>
+          </div>
+          <div style={{ marginTop: 14, fontSize: 13, fontWeight: 300, color: "#999", lineHeight: 1.5 }}>
+            Объект <b style={{ fontWeight: 500, color: "#666" }}>{activeObj.id}</b>{objAddr ? ` · ${objAddr}` : ""} · ссылка QR: {objectUrlFor(activeObj.id)}
+          </div>
+        </div>
+      ) : null}
+
+      <div style={{ marginTop: 22 }}>
+        <PrimaryBtn onClick={() => setSheetOpen(true)} disabled={!activeObj}>Сформировать лист доступа</PrimaryBtn>
+      </div>
+
+      {sheetOpen && sheetData ? (
+        <AccessSheetModal data={sheetData} onClose={() => setSheetOpen(false)} />
       ) : null}
     </div>
   );
@@ -1981,6 +2100,29 @@ function DarkTextBtn({ children, onClick, disabled }) {
   );
 }
 
+/* Кнопка с ховер-эффектом на inline-стилях: hoverStyle накладывается при наведении.
+   Удобно для тёмных/светлых/красных кнопок с произвольной геометрией. */
+function HoverBtn({ children, onClick, disabled, style, hoverStyle, type = "button" }) {
+  const base = { transition: "background-color .15s ease, border-color .15s ease, color .15s ease", cursor: disabled ? "not-allowed" : "pointer", ...style };
+  return (
+    <button type={type} onClick={onClick} disabled={disabled} style={base}
+      onMouseEnter={(e) => { if (!disabled && hoverStyle) Object.assign(e.currentTarget.style, hoverStyle); }}
+      onMouseLeave={(e) => { if (hoverStyle) Object.keys(hoverStyle).forEach((k) => { e.currentTarget.style[k] = base[k] != null ? base[k] : ""; }); }}>
+      {children}
+    </button>
+  );
+}
+
+/* Небольшой брендовый спиннер по центру строки — заменяет ряд кнопок, пока идёт запрос. */
+function RowSpinner({ label, minHeight = 46, color = "#7a7a7a" }) {
+  return (
+    <div style={{ minHeight, display: "flex", alignItems: "center", gap: 12 }}>
+      <Spinner size={24} color={color} />
+      {label ? <span style={{ fontSize: 13, fontWeight: 300, color: "#8a8a8a" }}>{label}</span> : null}
+    </div>
+  );
+}
+
 /* Первый вход по временному паролю — мягкое приглашение задать свой пароль.
    Заказчик может закрыть окно («Позже») и спокойно войти; напомним при следующем входе. */
 function FirstLoginModal({ token, hasEmail, onSaved, onLater }) {
@@ -1990,14 +2132,6 @@ function FirstLoginModal({ token, hasEmail, onSaved, onLater }) {
   const [show, setShow] = React.useState(false);
   const [errs, setErrs] = React.useState({});
   const [busy, setBusy] = React.useState(false);
-
-  const inputStyle = {
-    width: "100%", height: 48, borderRadius: 10, border: "1px solid #e5e5e5",
-    outline: "none", background: "#fff", color: TEXT, padding: "0 14px",
-    fontFamily: UI, fontSize: 15, fontWeight: 300,
-  };
-  const labelStyle = { display: "block", fontFamily: UI, fontSize: 13, fontWeight: 400, color: "#6b6b6b", marginBottom: 7 };
-  const errStyle = { fontFamily: UI, fontSize: 12.5, color: "#d23b1f", marginTop: 6 };
 
   async function submit() {
     const next = {};
@@ -2035,52 +2169,68 @@ function FirstLoginModal({ token, hasEmail, onSaved, onLater }) {
     }
   }
 
+  const clr = (k) => { if (errs[k]) setErrs((s) => ({ ...s, [k]: "" })); };
+
   return (
-    <div role="dialog" aria-modal="true"
-      style={{ position: "fixed", inset: 0, zIndex: 120, display: "flex", alignItems: "center", justifyContent: "center", padding: 18, background: "rgba(17,17,17,.42)", backdropFilter: "blur(2px)" }}>
-      <div style={{ width: "100%", maxWidth: 430, background: "#fff", borderRadius: 16, boxShadow: "0 24px 70px rgba(0,0,0,.28)", padding: "30px 28px 26px" }}>
-        <div style={{ fontFamily: UI, fontSize: 21, fontWeight: 500, color: TEXT, letterSpacing: "-.01em" }}>Задайте свой пароль</div>
-        <div style={{ fontFamily: UI, fontSize: 14, fontWeight: 300, color: "#6b6b6b", marginTop: 8, lineHeight: 1.5 }}>
-          Вы вошли по временному паролю. Придумайте собственный — так в кабинет сможете входить только вы.
-        </div>
+    <div role="dialog" aria-modal="true" className="fixed inset-0 z-[120] animate-svcfade bg-black/55 font-tight md:flex md:items-center md:justify-center md:p-6"
+      onClick={onLater}>
+      <div
+        className="relative h-full w-full overflow-y-auto overflow-x-hidden bg-white text-[#111] md:h-auto md:max-h-[calc(100dvh-48px)] md:w-[var(--mw)] md:overflow-hidden md:rounded-[10px] md:border md:border-[#dcdcdc] md:shadow-[0_16px_48px_rgba(0,0,0,.35)]"
+        style={{ ["--mw"]: "min(980px, calc(100vw - 48px))" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <FormShell
+          welcome="Добро пожаловать!"
+          title="Задайте свой пароль"
+          bottom="Вы вошли по временному паролю. Придумайте собственный — так в личный кабинет сможете входить только вы."
+        >
+          {busy ? <CenterSpinner minHeight={320} label="Сохраняем пароль…" /> : (
+          <form className="flex flex-col gap-[14px] self-start sm:grid sm:grid-cols-2 sm:gap-x-[18px] sm:gap-y-[14px]"
+            onSubmit={(e) => { e.preventDefault(); if (!busy) submit(); }} noValidate>
+            <div className="col-span-2 flex flex-col">
+              <MLabel>НОВЫЙ ПАРОЛЬ (*)</MLabel>
+              <input className={inputCls(errs.pwd)} type={show ? "text" : "password"} value={pwd} autoFocus
+                onChange={(e) => { setPwd(e.target.value); clr("pwd"); }} placeholder="Минимум 6 символов, заглавная и спецсимвол" />
+              <MErrorSlot text={errs.pwd} />
+            </div>
 
-        <div style={{ marginTop: 20 }}>
-          <label style={labelStyle}>Новый пароль</label>
-          <input type={show ? "text" : "password"} value={pwd} autoFocus
-            onChange={(e) => setPwd(e.target.value)} style={inputStyle} placeholder="Минимум 6 символов, заглавная и спецсимвол" />
-          {errs.pwd ? <div style={errStyle}>{errs.pwd}</div> : null}
-        </div>
+            <div className="col-span-2 flex flex-col">
+              <MLabel>ПОВТОР ПАРОЛЯ (*)</MLabel>
+              <input className={inputCls(errs.pwd2)} type={show ? "text" : "password"} value={pwd2}
+                onChange={(e) => { setPwd2(e.target.value); clr("pwd2"); }} placeholder="Ещё раз" />
+              <MErrorSlot text={errs.pwd2} />
+            </div>
 
-        <div style={{ marginTop: 14 }}>
-          <label style={labelStyle}>Повторите пароль</label>
-          <input type={show ? "text" : "password"} value={pwd2}
-            onChange={(e) => setPwd2(e.target.value)} style={inputStyle} placeholder="Ещё раз" />
-          {errs.pwd2 ? <div style={errStyle}>{errs.pwd2}</div> : null}
-        </div>
+            <div className="col-span-2 flex items-center gap-2.5 text-sm font-light text-[#111]">
+              <FancyCheckbox checked={show} onChange={setShow} ariaLabel="Показать пароль" />
+              <span>Показать пароль</span>
+            </div>
 
-        <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 12, cursor: "pointer", fontFamily: UI, fontSize: 13, fontWeight: 300, color: "#6b6b6b" }}>
-          <input type="checkbox" checked={show} onChange={(e) => setShow(e.target.checked)} />
-          Показать пароль
-        </label>
+            {!hasEmail ? (
+              <div className="col-span-2 flex flex-col">
+                <MLabel>E-MAIL ДЛЯ УВЕДОМЛЕНИЙ — НЕОБЯЗАТЕЛЬНО</MLabel>
+                <input className={inputCls(errs.email)} type="email" value={email}
+                  onChange={(e) => { setEmail(e.target.value); clr("email"); }} placeholder="имя@домен.ру" />
+                {errs.email ? <MErrorSlot text={errs.email} /> : (
+                  <p className="mt-1.5 text-[11px] font-light leading-none text-[#a7a7a7]">Можно добавить позже в настройках.</p>
+                )}
+              </div>
+            ) : null}
 
-        {!hasEmail ? (
-          <div style={{ marginTop: 16, paddingTop: 16, borderTop: "1px solid #f0f0f0" }}>
-            <label style={labelStyle}>E-mail для уведомлений <span style={{ color: "#a7a7a7" }}>— необязательно</span></label>
-            <input type="email" value={email}
-              onChange={(e) => setEmail(e.target.value)} style={inputStyle} placeholder="you@example.com" />
-            {errs.email ? <div style={errStyle}>{errs.email}</div> : (
-              <div style={{ fontFamily: UI, fontSize: 12.5, fontWeight: 300, color: "#a7a7a7", marginTop: 6 }}>Можно добавить позже в настройках.</div>
-            )}
-          </div>
-        ) : null}
-
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 24 }}>
-          <button type="button" onClick={onLater} disabled={busy}
-            style={{ background: "none", border: "none", cursor: busy ? "default" : "pointer", fontFamily: UI, fontSize: 14, fontWeight: 300, color: "#9a9a9a", padding: "6px 2px" }}>
-            Позже
-          </button>
-          <DarkTextBtn onClick={submit} disabled={busy}>{busy ? "Сохраняем…" : "Сохранить и войти"}</DarkTextBtn>
-        </div>
+            <div className="col-span-2 mt-2">
+              <button type="submit" className={`${MBTN} w-full`} disabled={busy}>
+                Сохранить и войти
+              </button>
+            </div>
+            <div className="col-span-2 -mt-1 text-center">
+              <button type="button" onClick={onLater} disabled={busy}
+                className="text-sm font-light text-[#9a9a9a] transition-colors hover:text-[#555] disabled:opacity-60">
+                Пропустить и войти по временному
+              </button>
+            </div>
+          </form>
+          )}
+        </FormShell>
       </div>
     </div>
   );
@@ -2129,6 +2279,8 @@ export default function AccountProfilePage() {
   const [isAdmin, setIsAdmin] = React.useState(() => {
     try { return sessionStorage.getItem("auth:isAdmin") === "1"; } catch { return false; }
   });
+  // Пока тянем /me — показываем спиннер, чтобы не мелькали пустые поля профиля.
+  const [booting, setBooting] = React.useState(true);
 
   /* поля */
   const [username, setUsername] = React.useState("");
@@ -2192,6 +2344,18 @@ export default function AccountProfilePage() {
   const [verifyBusy, setVerifyBusy] = React.useState(false);
   const [verifySent, setVerifySent] = React.useState(false);
   const [verifyError, setVerifyError] = React.useState("");
+  // Бейдж «подтверждена» рядом с почтой: показываем на пару секунд и плавно убираем,
+  // чтобы не «светился» постоянно.
+  const [vbadgeShow, setVbadgeShow] = React.useState(false);   // управляет прозрачностью
+  const [vbadgeMount, setVbadgeMount] = React.useState(false); // управляет наличием в DOM
+  React.useEffect(() => {
+    if (!emailVerified || !userEmail) { setVbadgeShow(false); setVbadgeMount(false); return; }
+    setVbadgeMount(true);
+    const rif = requestAnimationFrame(() => setVbadgeShow(true)); // плавное появление
+    const tHide = setTimeout(() => setVbadgeShow(false), 3200);   // начать исчезновение
+    const tOff = setTimeout(() => setVbadgeMount(false), 3800);   // убрать из DOM после анимации
+    return () => { cancelAnimationFrame(rif); clearTimeout(tHide); clearTimeout(tOff); };
+  }, [emailVerified, userEmail]);
 
   /* первый вход по временному паролю: мягкое приглашение задать свой пароль */
   const [mustChange, setMustChange] = React.useState(false); // сервер: must_change_password
@@ -2226,6 +2390,7 @@ export default function AccountProfilePage() {
   /* подхватываем юзера */
   React.useEffect(() => {
     (async () => {
+      try {
       let t = sessionStorage.getItem("auth:accessToken");
       if (!t) t = await apiRefresh(1200);
       if (!t) return;
@@ -2266,6 +2431,9 @@ export default function AccountProfilePage() {
       const mc = Boolean(u.mustChangePassword);
       setMustChange(mc);
       if (mc) setOnboardOpen(true); // мягкое приглашение — заказчик может закрыть и зайти
+      } finally {
+        setBooting(false); // сняли спиннер загрузки профиля (в т.ч. если сессии нет)
+      }
     })();
   }, []);
 
@@ -2664,6 +2832,15 @@ export default function AccountProfilePage() {
     admin:    { title: "Роли и группы", desc: "Управляйте ролями (доступ) и группами (кто вы?) прямо тут." },
   }[tab] || { title: "Ваш профиль", desc: "Добавьте здесь дополнительную информацию о себе." };
 
+  // Первичная загрузка профиля — брендовый спиннер вместо мигающих пустых полей.
+  if (booting) {
+    return (
+      <main className="lg:min-h-[100dvh]" style={{ fontFamily: UI, color: TEXT, background: "#f8f8f8" }}>
+        <CenterSpinner minHeight="70vh" size={36} label="Загружаем профиль…" />
+      </main>
+    );
+  }
+
   return (
     <main className="lg:min-h-[100dvh]" style={{ fontFamily: UI, color: TEXT, background: "#f8f8f8" }}>
       {onboardOpen ? (
@@ -2807,9 +2984,37 @@ export default function AccountProfilePage() {
                   </SectionButton>
                 }
               >
+                {userEmail && !emailVerified && (
+                  <div className="animate-svcfade" style={{ marginBottom: 16, padding: "14px 16px", borderRadius: 12, border: "1px solid #f0d9a8", background: "#fdf7ec", transition: "opacity .35s ease" }}>
+                    {verifySent ? (
+                      <div style={{ fontSize: 14, fontWeight: 300, color: "#222", lineHeight: 1.5 }}>
+                        Письмо со ссылкой отправлено на <b style={{ fontWeight: 500 }}>{userEmail}</b>. Проверьте почту (ссылка действует 24 часа).
+                      </div>
+                    ) : (
+                      <>
+                        <div style={{ fontSize: 14, fontWeight: 500, color: TEXT }}>Почта не подтверждена</div>
+                        <div style={{ fontSize: 13, fontWeight: 300, color: "#7a6a45", marginTop: 3, lineHeight: 1.5 }}>
+                          Подтвердите адрес <b style={{ fontWeight: 500 }}>{userEmail}</b>, чтобы обезопасить аккаунт и получать важные уведомления.
+                        </div>
+                        {verifyError && (<div style={{ fontSize: 12, fontWeight: 300, color: "#c0392b", marginTop: 6 }}>{verifyError}</div>)}
+                        {verifyBusy ? (
+                          <div style={{ marginTop: 10 }}><RowSpinner label="Отправляем письмо…" minHeight={38} /></div>
+                        ) : (
+                          <HoverBtn onClick={handleRequestVerify}
+                            style={{ marginTop: 10, height: 38, padding: "0 16px", borderRadius: 8, border: "none", background: "#111", color: "#fff", fontSize: 13, fontWeight: 600, fontFamily: UI }}
+                            hoverStyle={{ background: "#262626" }}>
+                            Отправить письмо для подтверждения
+                          </HoverBtn>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
+
                 <Field label="Текущая почта">
                   <div style={{ height: FIELD_H, display: "flex", alignItems: "center", padding: "0 12px", background: "#fff", boxShadow: `inset 0 -1px 0 0 ${UNDERLINE}`, color: TEXT, fontSize: 14, fontWeight: 300 }}>
                     {userEmail || "—"}
+                    {vbadgeMount ? <span style={{ marginLeft: 8, fontSize: 12, fontWeight: 500, color: "#0a7d32", background: "#e7f6ec", borderRadius: 6, padding: "2px 7px", opacity: vbadgeShow ? 1 : 0, transition: "opacity .5s ease", pointerEvents: "none" }}>подтверждена</span> : null}
                   </div>
                 </Field>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-5" style={{ marginTop: 12 }}>
@@ -2877,27 +3082,6 @@ export default function AccountProfilePage() {
                   </SectionButton>
                 }
               >
-                {!emailVerified && (
-                  <div style={{ marginBottom: 16, padding: "14px 16px", borderRadius: 12, border: "1px solid #f0d9a8", background: "#fdf7ec" }}>
-                    {verifySent ? (
-                      <div style={{ fontSize: 14, fontWeight: 300, color: "#222", lineHeight: 1.5 }}>
-                        Письмо со ссылкой отправлено на <b style={{ fontWeight: 500 }}>{userEmail}</b>. Проверьте почту (ссылка действует 24 часа).
-                      </div>
-                    ) : (
-                      <>
-                        <div style={{ fontSize: 14, fontWeight: 500, color: TEXT }}>Почта не подтверждена</div>
-                        <div style={{ fontSize: 13, fontWeight: 300, color: "#7a6a45", marginTop: 3, lineHeight: 1.5 }}>
-                          Подтвердите адрес <b style={{ fontWeight: 500 }}>{userEmail}</b>, чтобы обезопасить аккаунт и получать важные уведомления.
-                        </div>
-                        {verifyError && (<div style={{ fontSize: 12, fontWeight: 300, color: "#c0392b", marginTop: 6 }}>{verifyError}</div>)}
-                        <button type="button" onClick={handleRequestVerify} disabled={verifyBusy} style={{ marginTop: 10, height: 38, padding: "0 16px", borderRadius: 8, border: "none", background: "#111", color: "#fff", fontSize: 13, fontWeight: 600, cursor: verifyBusy ? "default" : "pointer", opacity: verifyBusy ? 0.6 : 1 }}>
-                          {verifyBusy ? "Отправляем…" : "Отправить письмо для подтверждения"}
-                        </button>
-                      </>
-                    )}
-                  </div>
-                )}
-
                 {sessionsLoading && sessions.length === 0 ? (
                   <div style={{ fontSize: 14, fontWeight: 300, color: "#999" }}>Загрузка сессий…</div>
                 ) : sessions.length === 0 ? (
@@ -2944,15 +3128,19 @@ export default function AccountProfilePage() {
                       ))}
                     </div>
                     <div style={{ marginTop: 14, display: "flex", gap: 10 }}>
-                      <button type="button" onClick={() => { try { navigator.clipboard?.writeText(backupCodes.join("\n")); window.showDockToast?.("Коды скопированы"); } catch {} }} style={{ height: 42, padding: "0 18px", borderRadius: 10, background: "#fff", color: TEXT, border: "1px solid #d9d9d9", fontFamily: UI, fontSize: 14, fontWeight: 300, cursor: "pointer" }}>Скопировать</button>
-                      <button type="button" onClick={close2FASetup} style={{ height: 42, padding: "0 18px", borderRadius: 10, background: TEXT, color: "#fff", border: "none", fontFamily: UI, fontSize: 14, fontWeight: 300, cursor: "pointer" }}>Готово</button>
+                      <HoverBtn onClick={() => { try { navigator.clipboard?.writeText(backupCodes.join("\n")); window.showDockToast?.("Коды скопированы"); } catch {} }}
+                        style={{ height: 42, padding: "0 18px", borderRadius: 10, background: "#fff", color: TEXT, border: "1px solid #d9d9d9", fontFamily: UI, fontSize: 14, fontWeight: 300 }}
+                        hoverStyle={{ background: "#f5f5f5", borderColor: "#c4c4c4" }}>Скопировать</HoverBtn>
+                      <HoverBtn onClick={close2FASetup}
+                        style={{ height: 42, padding: "0 18px", borderRadius: 10, background: TEXT, color: "#fff", border: "none", fontFamily: UI, fontSize: 14, fontWeight: 300 }}
+                        hoverStyle={{ background: "#262626" }}>Готово</HoverBtn>
                     </div>
                   </div>
                 ) : twoFAStage === "setup" ? (
                   <div style={{ padding: 16, borderRadius: 12, border: "1px solid #d9d9d9", background: "#fafafa" }}>
                     <div style={{ display: "flex", gap: 18, flexWrap: "wrap", alignItems: "flex-start" }}>
                       {twoFAQr ? (
-                        <img src={twoFAQr} alt="QR для аутентификатора" width={180} height={180} style={{ flexShrink: 0, borderRadius: 8, background: "transparent" }} />
+                        <img src={twoFAQr} alt="QR для аутентификатора" width={180} height={180} style={{ flexShrink: 0, borderRadius: 8, background: "transparent", marginTop: 22 }} />
                       ) : null}
                       <div style={{ flex: "1 1 220px", minWidth: 220 }}>
                         <div style={{ fontSize: 14, fontWeight: 400, color: TEXT, marginBottom: 8 }}>1. Отсканируйте QR-код в приложении или введите ключ вручную:</div>
@@ -2961,9 +3149,17 @@ export default function AccountProfilePage() {
                         <Field label="Код из приложения" required error={twoFAError}>
                           <Input value={twoFACode} onChange={(v) => { setTwoFACode(v.replace(/\D/g, "").slice(0, 6)); if (twoFAError) setTwoFAError(""); }} placeholder="123456" error={twoFAError} />
                         </Field>
-                        <div style={{ marginTop: 14, display: "flex", gap: 10, flexWrap: "wrap" }}>
-                          <button type="button" onClick={handleEnable2FA} disabled={twoFABusy} style={{ height: 46, padding: "0 20px", borderRadius: 10, background: TEXT, color: "#fff", border: "none", fontFamily: UI, fontSize: 15, fontWeight: 300, cursor: twoFABusy ? "not-allowed" : "pointer", opacity: twoFABusy ? 0.85 : 1 }}>{twoFABusy ? "Включаем…" : "Включить"}</button>
-                          <button type="button" onClick={close2FASetup} disabled={twoFABusy} style={{ height: 46, padding: "0 20px", borderRadius: 10, background: "#fff", color: TEXT, border: "1px solid #d9d9d9", fontFamily: UI, fontSize: 15, fontWeight: 300, cursor: "pointer" }}>Отмена</button>
+                        <div style={{ marginTop: 14, display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+                          {twoFABusy ? <RowSpinner label="Включаем 2FA…" minHeight={46} /> : (
+                            <>
+                              <HoverBtn onClick={handleEnable2FA}
+                                style={{ height: 46, padding: "0 20px", borderRadius: 10, background: TEXT, color: "#fff", border: "none", fontFamily: UI, fontSize: 15, fontWeight: 300 }}
+                                hoverStyle={{ background: "#262626" }}>Включить</HoverBtn>
+                              <HoverBtn onClick={close2FASetup}
+                                style={{ height: 46, padding: "0 20px", borderRadius: 10, background: "#fff", color: TEXT, border: "1px solid #d9d9d9", fontFamily: UI, fontSize: 15, fontWeight: 300 }}
+                                hoverStyle={{ background: "#f5f5f5", borderColor: "#c4c4c4" }}>Отмена</HoverBtn>
+                            </>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -2988,21 +3184,30 @@ export default function AccountProfilePage() {
                         <Field label="Пароль" required error={disable2FAError}>
                           <Input type="password" value={disable2FAPwd} onChange={(v) => { setDisable2FAPwd(v); if (disable2FAError) setDisable2FAError(""); }} placeholder="••••••••" error={disable2FAError} />
                         </Field>
-                        <div style={{ marginTop: 14, display: "flex", gap: 10, flexWrap: "wrap" }}>
-                          <button type="button" onClick={handleDisable2FA} disabled={disable2FABusy} style={{ height: 46, padding: "0 20px", borderRadius: 10, background: "#c0392b", color: "#fff", border: "none", fontFamily: UI, fontSize: 15, fontWeight: 300, cursor: disable2FABusy ? "not-allowed" : "pointer", opacity: disable2FABusy ? 0.85 : 1 }}>{disable2FABusy ? "Отключаем…" : "Отключить"}</button>
-                          <button type="button" onClick={() => { setDisable2FAOpen(false); setDisable2FAPwd(""); setDisable2FAError(""); }} disabled={disable2FABusy} style={{ height: 46, padding: "0 20px", borderRadius: 10, background: "#fff", color: TEXT, border: "1px solid #d9d9d9", fontFamily: UI, fontSize: 15, fontWeight: 300, cursor: "pointer" }}>Отмена</button>
+                        <div style={{ marginTop: 14, display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+                          {disable2FABusy ? <RowSpinner label="Отключаем 2FA…" minHeight={46} color="#c0392b" /> : (
+                            <>
+                              <HoverBtn onClick={handleDisable2FA}
+                                style={{ height: 46, padding: "0 20px", borderRadius: 10, background: "#c0392b", color: "#fff", border: "none", fontFamily: UI, fontSize: 15, fontWeight: 300 }}
+                                hoverStyle={{ background: "#a93125" }}>Отключить</HoverBtn>
+                              <HoverBtn onClick={() => { setDisable2FAOpen(false); setDisable2FAPwd(""); setDisable2FAError(""); }}
+                                style={{ height: 46, padding: "0 20px", borderRadius: 10, background: "#fff", color: TEXT, border: "1px solid #d9d9d9", fontFamily: UI, fontSize: 15, fontWeight: 300 }}
+                                hoverStyle={{ background: "#f5f5f5", borderColor: "#c4c4c4" }}>Отмена</HoverBtn>
+                            </>
+                          )}
                         </div>
                       </div>
                     )}
                   </div>
+                ) : twoFABusy ? (
+                  <RowSpinner label="Готовим подключение…" minHeight={46} />
                 ) : (
                   <IconLink
                     prompt="Сейчас не подключена — рекомендуем включить."
                     icon={<ShieldIcon color={TEXT} />}
                     onClick={handleStart2FA}
-                    disabled={twoFABusy}
                   >
-                    {twoFABusy ? "Готовим…" : "Подключить 2FA"}
+                    Подключить 2FA
                   </IconLink>
                 )}
               </SettingsRow>

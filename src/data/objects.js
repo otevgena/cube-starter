@@ -6,7 +6,7 @@
 // Публичные функции остаются СИНХРОННЫМИ (UI не переписывался): мутации меняют
 // in-memory кэш сразу, а запись на бэкенд идёт фоном (write-through).
 // Переключатель: localStorage['objects:api'] = '0' → вернуться к localStorage.
-import { api } from "@/lib/auth.js";
+import { api, auth } from "@/lib/auth.js";
 
 /* ===================== Справочники / статусы ===================== */
 export const OBJECT_STATUSES = [
@@ -349,6 +349,13 @@ function apiEnabled() {
 // Публичный флаг режима (для UI: presigned-загрузка vs base64 в localStorage-режиме).
 export function usesApi() { return apiEnabled(); }
 
+// Идёт ли первичная загрузка объектов с бэкенда. UI показывает спиннер, пока true,
+// чтобы не мелькало «Пока нет объектов» до ответа сервера. В localStorage-режиме — всегда false.
+export function isObjectsLoading() {
+  if (!apiEnabled()) return false;
+  return !_hydrated;
+}
+
 /* --- localStorage-режим (как было) --- */
 function loadStoreLS() {
   const s = lsGet(STORE_KEY, null);
@@ -375,7 +382,15 @@ export async function hydrateObjects({ force = false } = {}) {
   _hydrating = (async () => {
     try {
       const data = await api("/objects", { method: "GET" });
-      _mem.objects = Array.isArray(data && data.objects) ? data.objects : [];
+      const serverObjs = Array.isArray(data && data.objects) ? data.objects : [];
+      const serverIds = new Set(serverObjs.map((o) => o.id));
+      // Объект больше не «pending», только когда сервер РЕАЛЬНО вернул его в GET
+      // (а не когда POST отдал 200): из-за read-after-write лага YDB следующий GET
+      // может ещё не видеть свежую запись — тогда объект «мигает» и пропадает на 2–3 мин.
+      for (const id of Array.from(_pendingCreates)) { if (serverIds.has(id)) _pendingCreates.delete(id); }
+      // НЕ теряем только что созданные объекты, ещё не подтверждённые сервером: держим их в кэше.
+      const pendingLocal = _mem.objects.filter((o) => _pendingCreates.has(o.id) && !serverIds.has(o.id));
+      _mem.objects = [...pendingLocal, ...serverObjs];
       emitChanged();
     } catch {
       // не залогинен / бэкенд недоступен — оставляем текущий кэш
@@ -453,6 +468,8 @@ function reportSyncErr(e) { try { console.warn("[objects] sync error:", (e && e.
 // Пишем по каждому объекту СТРОГО по очереди (FIFO), чтобы create→edit→delete
 // применялись на бэкенде в том же порядке, что и локально (иначе гонки затрут данные).
 const _chains = new Map();
+// Объекты, созданные локально, чей POST на бэк ещё не подтверждён — чтобы гидрация их не теряла.
+const _pendingCreates = new Set();
 function enqueue(id, fn) {
   const prev = _chains.get(id) || Promise.resolve();
   const next = prev.then(fn, fn).catch(reportSyncErr); // выполняем даже если предыдущий шаг упал
@@ -460,9 +477,30 @@ function enqueue(id, fn) {
   next.finally(() => { if (_chains.get(id) === next) _chains.delete(id); });
   return next;
 }
-function pushCreate(o) { enqueue(o.id, () => api("/objects", { method: "POST", body: o })); }
+function pushCreate(o) {
+  _pendingCreates.add(o.id);
+  // «pending» снимаем НЕ по 200 POST, а когда объект реально вернётся в GET /objects
+  // (см. hydrateObjects) — иначе read-after-write лаг YDB его «теряет» на пару минут.
+  enqueue(o.id, () => api("/objects", { method: "POST", body: o }));
+}
 function pushPut(o)    { enqueue(o.id, () => api(`/objects/${encodeURIComponent(o.id)}`, { method: "PUT", body: o })); }
 function pushDelete(id){ enqueue(id,   () => api(`/objects/${encodeURIComponent(id)}`, { method: "DELETE" })); }
+
+// Сброс кэша при смене пользователя (вход/выход в той же вкладке). Иначе объекты
+// (в т.ч. незавершённые pending-создания) предыдущей учётки «протекают» в список следующей.
+try {
+  let _lastToken = auth.get();
+  auth.subscribe((t) => {
+    if (t === _lastToken) return;
+    _lastToken = t;
+    _mem.objects = [];
+    _pendingCreates.clear();
+    _chains.clear();
+    _hydrated = false;
+    _hydrating = null;
+    emitChanged();
+  });
+} catch {}
 
 /* --- общий слой --- */
 function loadStore() {
@@ -482,11 +520,14 @@ function withStore(mut) {
   const beforeHash = new Map(store.objects.map((o) => [o.id, JSON.stringify(o)]));
   const r = mut(store);
   const afterIds = new Set(store.objects.map((o) => o.id));
+  let changed = false;
   for (const o of store.objects) {
-    if (!beforeIds.has(o.id)) pushCreate(o);
-    else if (beforeHash.get(o.id) !== JSON.stringify(o)) pushPut(o);
+    if (!beforeIds.has(o.id)) { pushCreate(o); changed = true; }
+    else if (beforeHash.get(o.id) !== JSON.stringify(o)) { pushPut(o); changed = true; }
   }
-  for (const id of beforeIds) { if (!afterIds.has(id)) pushDelete(id); }
+  for (const id of beforeIds) { if (!afterIds.has(id)) { pushDelete(id); changed = true; } }
+  // Локальная мутация видна сразу во всех открытых вьюхах (список объектов, лист доступа).
+  if (changed) emitChanged();
   return r;
 }
 
@@ -506,7 +547,7 @@ export function updateObject(id, patch, author = "Администратор") {
     return JSON.parse(JSON.stringify(o));
   });
 }
-export function createObject({ title = "Новый объект", templateCode = "free", customerName = "", customerEmail = "", city = "", responsibleName = "", responsibleRole = "", responsibleEmail = "", stages: stageNames = null, author = "Администратор" } = {}) {
+export function createObject({ title = "Новый объект", templateCode = "free", customerName = "", customerEmail = "", customerId = "", city = "", responsibleName = "", responsibleRole = "", responsibleEmail = "", stages: stageNames = null, author = "Администратор" } = {}) {
   return withStore((store) => {
     // Учитываем правки админа (getTemplates), с откатом на базовый список.
     const tpl = templateByCode(templateCode) || OBJECT_TEMPLATES.find((t) => t.code === templateCode) || OBJECT_TEMPLATES[OBJECT_TEMPLATES.length - 1];
@@ -515,15 +556,19 @@ export function createObject({ title = "Новый объект", templateCode =
     const names = Array.isArray(stageNames) ? stageNames.map((s) => String(s).trim()).filter(Boolean) : (tpl.stages || []);
     const stages = names.map((name, i) => ({ id: uid("s"), title: name, description: "", status: i === 0 ? "in_progress" : "not_started", progress: 0, plannedStartDate: "", plannedFinishDate: "", actualFinishDate: "", publicComment: "", internalComment: "", visibleToCustomer: true, order: i }));
     const email = String(customerEmail || "").trim().toLowerCase();
-    // Выбранная учётка-заказчик получает доступ: пишем ownerEmail + запись в customerUsers.
-    const customerUsers = email ? [{ id: uid("cu"), email, name: customerName || email, addedAt: today() }] : [];
+    const ownerUserId = String(customerId || "").trim();
+    // Выбранная учётка-заказчик получает доступ: пишем ownerEmail + ownerUserId (id учётки,
+    // чтобы заказчик БЕЗ почты — вход по логину — тоже видел объект) + запись в customerUsers.
+    const customerUsers = (email || ownerUserId)
+      ? [{ id: uid("cu"), accountId: ownerUserId, email, name: customerName || email || ownerUserId, addedAt: today() }]
+      : [];
     const obj = {
       id, title, customerName, customerEmail: email, inn: "", kpp: "", city, address: "", contractNumber: "",
       status: "draft", progress: 0, currentStageId: stages[0]?.id || "",
       responsibleName, responsibleRole, responsiblePhone: "", responsibleEmail: String(responsibleEmail || "").trim().toLowerCase(),
       plannedFinishDate: "", lastUpdatedAt: today(), internalNote: "",
       now: { doingNow: "", nextStep: "", nextDeadline: "", customerNeeds: "", attention: "on_track" },
-      ownerEmail: email, stages, documents: [], customerRequiredActions: [], customerUsers,
+      ownerEmail: email, ownerUserId, stages, documents: [], customerRequiredActions: [], customerUsers,
       events: [],
       templateCode,
     };
@@ -654,9 +699,14 @@ export function getCustomerView(id) {
     events: (o.events || []).filter((e) => e.visibility === "public"),
   };
 }
-export function listObjectsForCustomer(email) {
+export function listObjectsForCustomer(email, accountId = "") {
   const e = String(email || "").toLowerCase();
-  return listObjects().filter((o) => (o.customerUsers || []).some((u) => String(u.email || "").toLowerCase() === e) || String(o.ownerEmail || "").toLowerCase() === e);
+  const id = String(accountId || "");
+  return listObjects().filter((o) => {
+    const byEmail = e && (String(o.ownerEmail || "").toLowerCase() === e || (o.customerUsers || []).some((u) => String(u.email || "").toLowerCase() === e));
+    const byId = id && (String(o.ownerUserId || "") === id || (o.customerUsers || []).some((u) => String(u.accountId || "") === id));
+    return byEmail || byId;
+  });
 }
 
 /* ===================== Совместимость со старым кодом ===================== */

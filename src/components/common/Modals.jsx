@@ -3,6 +3,7 @@
 import React from "react";
 import { createPortal } from "react-dom";
 import { registerUser, loginUser, verifyTwoFactor, requestPasswordReset, auth } from "@/lib/auth";
+import { CenterSpinner } from "@/components/common/Spinner.jsx";
 
 /* ===== Хост модалок (API: window.openModal("register"|"login"|"forgot"|"custom", props)) ===== */
 export default function ModalsHost() {
@@ -45,16 +46,16 @@ export default function ModalsHost() {
 }
 
 /* ===== Общие классы ===== */
-const BTN =
+export const BTN =
   "h-[72px] rounded-[10px] bg-black px-[18px] text-[18px] font-semibold tracking-[.02em] text-white transition-colors hover:bg-[#2f2f2f] active:translate-y-px disabled:opacity-60";
-const LINK = "font-semibold text-[#111] underline underline-offset-2 hover:opacity-80";
+export const LINK = "font-semibold text-[#111] underline underline-offset-2 hover:opacity-80";
 const MUTED_LINK = "font-semibold text-[#111]";
-const inputCls = (err) =>
+export const inputCls = (err) =>
   "h-[42px] border-0 border-b bg-transparent px-0.5 font-light text-[#111] outline-none transition-colors placeholder:font-light placeholder:text-[#c7c7c7] " +
   (err ? "border-carrot" : "border-[#ededed] focus:border-[#d2d2d2]");
 
 /* ===== Слот ошибки (фикс. высота, верстка не прыгает) ===== */
-function ErrorSlot({ text }) {
+export function ErrorSlot({ text }) {
   return (
     <div className="relative h-[22px]">
       {text ? (
@@ -65,7 +66,7 @@ function ErrorSlot({ text }) {
 }
 
 /* ===== Кастомный чекбокс ===== */
-function FancyCheckbox({ checked, onChange, ariaLabel }) {
+export function FancyCheckbox({ checked, onChange, ariaLabel }) {
   return (
     <span
       role="checkbox"
@@ -140,7 +141,7 @@ function ModalShell({ children, onClose, width }) {
 }
 
 /* ===== Каркас формы: левая графит-панель + правая колонка ===== */
-function FormShell({ welcome, bottom, title, children }) {
+export function FormShell({ welcome, bottom, title, children }) {
   return (
     <div className="grid min-h-[560px] grid-cols-1 md:grid-cols-[1fr_1.35fr]">
       <aside className="grid grid-rows-[auto_1fr_auto] gap-[18px] bg-[#ededed] p-7 text-[#111]">
@@ -160,7 +161,7 @@ function FormShell({ welcome, bottom, title, children }) {
   );
 }
 
-const Label = ({ children }) => (
+export const Label = ({ children }) => (
   <span className="mb-1.5 text-[11px] font-light uppercase leading-none tracking-[.08em] text-[#666]">{children}</span>
 );
 
@@ -331,8 +332,8 @@ function LoginForm() {
       if (window.setHeaderUser) window.setHeaderUser(res.user, res.accessToken);
       if (window.closeModal) window.closeModal();
     } catch (err) {
-      if (err.status === 400) setErrors({ ...es, id: "Введите e-mail (сейчас вход по e-mail)." });
-      else if (err.status === 401) setErrors({ id: "Неверный e-mail или пароль.", pass: "Проверьте пароль." });
+      if (err.status === 400) setErrors({ ...es, id: "Укажите e-mail или логин и пароль." });
+      else if (err.status === 401) setErrors({ id: "Неверный e-mail/логин или пароль.", pass: "Проверьте пароль." });
       else window.openModal("custom", { title: "Ошибка", content: <div>{err.message}</div>, width: 560 });
     } finally {
       setBusy(false);
@@ -380,6 +381,7 @@ function LoginForm() {
           </>
         }
       >
+        {busy ? <CenterSpinner minHeight={320} label="Проверяем код…" /> : (
         <form className="grid grid-cols-2 gap-x-[18px] gap-y-[14px] self-start" onSubmit={onVerify} noValidate>
           <div className="col-span-2 text-sm font-light text-[#555]">
             Введите 6-значный код из приложения-аутентификатора или один из резервных кодов.
@@ -400,6 +402,7 @@ function LoginForm() {
               onClick={() => setTwofa(null)}>Назад ко входу</button>
           </div>
         </form>
+        )}
       </FormShell>
     );
   }
@@ -415,6 +418,7 @@ function LoginForm() {
         </>
       }
     >
+      {busy ? <CenterSpinner minHeight={360} label="Входим в аккаунт…" /> : (<>
       <form className="grid grid-cols-2 gap-x-[18px] gap-y-[14px] self-start" onSubmit={onSubmit} noValidate>
         <div className="col-span-2 flex flex-col">
           <Label>ПОЧТА ИЛИ ИМЯ ПОЛЬЗОВАТЕЛЯ (*)</Label>
@@ -450,6 +454,7 @@ function LoginForm() {
       </form>
 
       <SocialSlab text="Или войдите через" />
+      </>)}
     </FormShell>
   );
 }
@@ -459,6 +464,7 @@ function ForgotForm() {
   const [id, setId] = React.useState("");
   const [errors, setErrors] = React.useState({});
   const [busy, setBusy] = React.useState(false);
+  const [sent, setSent] = React.useState(null); // адрес, на который отправили | null
   const isEmail = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((v || "").trim());
 
   const onSubmit = async (e) => {
@@ -480,17 +486,45 @@ function ForgotForm() {
       setBusy(false);
     }
 
-    window.openModal("custom", {
-      title: "Проверьте почту",
-      content: (
-        <div>
-          Если адрес «{id.trim()}» зарегистрирован, мы отправили на него ссылку для сброса пароля.
-          Ссылка действует 30 минут.
-        </div>
-      ),
-      width: 560,
-    });
+    // Успех показываем в том же брендовом окне (а не generic-карточкой).
+    setSent(id.trim());
   };
+
+  if (sent) {
+    return (
+      <FormShell
+        welcome="Почти готово"
+        title="Проверьте почту"
+        bottom={
+          <>
+            Вспомнили пароль?{" "}
+            <a className={LINK} href="/login" onClick={(e) => { e.preventDefault(); window.openModal("login"); }}>Войдите</a>
+          </>
+        }
+      >
+        <div className="flex flex-col gap-y-[16px] self-start">
+          <p className="text-sm font-light leading-6 text-[#444]">
+            Если адрес <span className="font-semibold text-[#111]">«{sent}»</span> зарегистрирован, мы отправили на него ссылку для сброса пароля. Ссылка действует 30 минут.
+          </p>
+          <p className="text-[13px] font-light leading-5 text-[#8a8a8a]">
+            Не пришло письмо? Проверьте папку «Спам» или отправьте запрос ещё раз.
+          </p>
+
+          <div className="mt-2">
+            <button className={`${BTN} w-full`} type="button" onClick={() => window.openModal("login")}>
+              Вернуться ко входу
+            </button>
+          </div>
+
+          <div className="flex justify-center">
+            <button type="button" className={LINK} onClick={() => setSent(null)}>Отправить ещё раз</button>
+          </div>
+        </div>
+
+        <div className="self-end" aria-hidden="true" />
+      </FormShell>
+    );
+  }
 
   return (
     <FormShell
@@ -503,6 +537,7 @@ function ForgotForm() {
         </>
       }
     >
+      {busy ? <CenterSpinner minHeight={340} label="Отправляем ссылку…" /> : (<>
       <form className="grid grid-cols-1 gap-y-[14px] self-start" onSubmit={onSubmit} noValidate>
         <p className="mb-1.5 text-sm font-semibold leading-7 text-black">
           Введите адрес электронной почты, и мы вышлем вам ссылку для сброса пароля.
@@ -528,6 +563,7 @@ function ForgotForm() {
       </form>
 
       <div className="self-end" aria-hidden="true" />
+      </>)}
     </FormShell>
   );
 }

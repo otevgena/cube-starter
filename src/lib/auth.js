@@ -226,10 +226,11 @@ export async function registerUser({ name, email, password, remember = true }) {
 }
 
 export async function loginUser({ idOrEmail, password, remember }) {
-  if (!idOrEmail.includes('@')) {
-    const e = new Error('Введите e-mail (сейчас вход по e-mail).'); e.status = 400; throw e;
-  }
-  const data = await api('/auth/login', { method: 'POST', authRequired: false, body: { email: idOrEmail, password } });
+  // Вход по e-mail ИЛИ по логину (для учёток, заведённых админом по логину).
+  // Бэкенд принимает body.login или body.email — отправляем нужное поле.
+  const ident = String(idOrEmail || '').trim();
+  const body = ident.includes('@') ? { email: ident, password } : { login: ident, password };
+  const data = await api('/auth/login', { method: 'POST', authRequired: false, body });
   // Если включена 2FA — сервер вернул промежуточный challenge, токенов нет.
   // Пробрасываем наверх, чтобы UI показал второй шаг (ввод кода).
   if (data.twoFactorRequired) {

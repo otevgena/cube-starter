@@ -5,6 +5,7 @@
 import React from "react";
 import { createPortal } from "react-dom";
 import * as DB from "@/data/objects.js";
+import { CenterSpinner } from "@/components/common/Spinner.jsx";
 import {
   OBJECT_STATUSES, STAGE_STATUSES, DOC_CATEGORIES, STAGE_PRESETS, OBJECT_TEMPLATES,
   toneOf, labelOf, extOf, getEmployees, addEmployee, removeEmployee,
@@ -51,8 +52,8 @@ function useForceUpdate() { const [, s] = React.useState(0); return React.useCal
 /* ---- фирменная форма (как на /admin/create-account): подчёркнутое поле, uppercase-лейбл, квадратный чекбокс ---- */
 const UNDER = "#e6e6e6", UNDER_FOCUS = "#111";
 const fLabelStyle = { fontSize: 12, letterSpacing: ".06em", textTransform: "uppercase", color: TEXT, fontWeight: 300, marginBottom: 6 };
-function FLabel({ children }) { return <div style={fLabelStyle}>{children}</div>; }
-function UnderInput({ value, onChange, placeholder, type = "text", maxLength, upper }) {
+export function FLabel({ children }) { return <div style={fLabelStyle}>{children}</div>; }
+export function UnderInput({ value, onChange, placeholder, type = "text", maxLength, upper }) {
   return (
     <input type={type} value={value} maxLength={maxLength} onChange={(e) => onChange && onChange(e.target.value)} placeholder={placeholder} className="obj-ph"
       style={{ width: "100%", height: 46, border: "none", outline: "none", borderRadius: 0, background: "#fff", color: TEXT, padding: "0 14px", fontFamily: UI, fontSize: 14, fontWeight: 300, boxShadow: `inset 0 -1px 0 0 ${UNDER}`, transition: "box-shadow .18s ease", ...(upper ? { textTransform: "uppercase", letterSpacing: ".08em", fontWeight: 600 } : null) }}
@@ -74,7 +75,7 @@ const underMenuStyle = { position: "absolute", left: 0, right: 0, top: 46, backg
 function Chevron({ open }) {
   return <svg viewBox="0 0 24 24" width="18" height="18" style={{ color: "#b1b1b1", justifySelf: "end", transform: open ? "rotate(180deg)" : "none", transition: "transform .18s ease" }}><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>;
 }
-function UnderSelect({ value, onChange, options, placeholder = "Выберите вариант" }) {
+export function UnderSelect({ value, onChange, options, placeholder = "Выберите вариант" }) {
   const [open, setOpen] = React.useState(false);
   const ref = React.useRef(null);
   const cur = options.find((o) => o.value === value);
@@ -268,7 +269,7 @@ function Select({ value, options, onChange, placeholder = "выбрать", widt
 
 /* ---- кнопка с hover-заливкой (как «Оставить заявку») ---- */
 // Кнопка-капсула — идентична «Подробнее» в услугах: контур → чёрная заливка на hover, текст белый.
-function FillBtn({ children, onClick, href, download, fill = "#111", tiny, big }) {
+export function FillBtn({ children, onClick, href, download, fill = "#111", tiny, big }) {
   const [h, setH] = React.useState(false);
   const height = big ? 44 : tiny ? 34 : 42;
   const st = { display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, height, padding: tiny ? "0 14px" : "0 18px", borderRadius: 12, border: `1px solid ${fill}`, background: h ? fill : "transparent", color: h ? "#fff" : fill, fontFamily: UI, fontSize: tiny ? 13 : 14, fontWeight: 400, cursor: "pointer", textDecoration: "none", userSelect: "none", transition: "background-color .16s ease, color .16s ease", flexShrink: 0, whiteSpace: "nowrap" };
@@ -278,7 +279,7 @@ function FillBtn({ children, onClick, href, download, fill = "#111", tiny, big }
 }
 
 /* ---- основная кнопка (сплошная тёмная, парная к FillBtn big) ---- */
-function PrimaryBtn({ children, onClick, disabled, type = "button" }) {
+export function PrimaryBtn({ children, onClick, disabled, type = "button" }) {
   const [h, setH] = React.useState(false);
   return (
     <button type={type} onClick={onClick} disabled={disabled}
@@ -476,7 +477,11 @@ function AdminObjectsList() {
             </ListRow>
           );
         })}
-        {list.length === 0 && <div style={{ padding: "28px 8px", color: MUTED, fontSize: 14, fontWeight: 300 }}>{all.length === 0 ? "Объектов пока нет." : "Ничего не найдено."}</div>}
+        {list.length === 0 && (
+          DB.isObjectsLoading()
+            ? <CenterSpinner minHeight={180} label="Загружаем объекты…" />
+            : <div style={{ padding: "28px 8px", color: MUTED, fontSize: 14, fontWeight: 300 }}>{all.length === 0 ? "Объектов пока нет." : "Ничего не найдено."}</div>
+        )}
       </div>
     </div>
   );
@@ -607,23 +612,26 @@ function StageListEditor({ stages, setStages }) {
   );
 }
 
-function CreateObjectForm({ onCancel, onCreated }) {
+export function CreateObjectForm({ onCancel, onCreated, fixedCustomer = null, embedded = false, submitLabel }) {
   const templates = React.useMemo(() => getTemplates(), []);
   const firstCode = (templates[0] && templates[0].code) || "free";
   const [tpl, setTpl] = React.useState(firstCode);
   const [name, setName] = React.useState("");
   const [city, setCity] = React.useState("");
-  const [cust, setCust] = React.useState(null);      // выбранная учётная запись-заказчик
+  const [cust, setCust] = React.useState(fixedCustomer || null); // выбранная (или фиксированная) учётка-заказчик
   const [accounts, setAccounts] = React.useState([]);
-  const [accLoading, setAccLoading] = React.useState(true);
+  const [accLoading, setAccLoading] = React.useState(!fixedCustomer);
   const [respId, setRespId] = React.useState("");
   const [stages, setStages] = React.useState(() => ((templates.find((x) => x.code === firstCode) || {}).stages || []).slice());
 
   // при смене типа работ подтягиваем его типовые этапы (пользователь дальше правит)
   React.useEffect(() => { setStages(((templates.find((x) => x.code === tpl) || {}).stages || []).slice()); }, [tpl]);
 
-  // список учётных записей для выбора заказчика
-  React.useEffect(() => { let alive = true; (async () => { const list = await DB.listAccounts(); if (alive) { setAccounts(list); setAccLoading(false); } })(); return () => { alive = false; }; }, []);
+  // список учётных записей для выбора заказчика (не нужен, когда заказчик уже задан)
+  React.useEffect(() => {
+    if (fixedCustomer) return;
+    let alive = true; (async () => { const list = await DB.listAccounts(); if (alive) { setAccounts(list); setAccLoading(false); } })(); return () => { alive = false; };
+  }, [fixedCustomer]);
 
   const titlePreview = [name.trim(), city.trim()].filter(Boolean).join(" — ");
 
@@ -634,6 +642,7 @@ function CreateObjectForm({ onCancel, onCreated }) {
       templateCode: tpl,
       customerName: cust ? (cust.name || cust.email) : "",
       customerEmail: cust ? cust.email : "",
+      customerId: cust ? (cust.id || "") : "",
       city: city.trim(),
       responsibleName: emp ? emp.fio : "",
       responsibleRole: emp ? emp.position : "",
@@ -644,12 +653,16 @@ function CreateObjectForm({ onCancel, onCreated }) {
   };
 
   return (
-    <div style={{ fontFamily: UI, marginTop: 8 }}>
-      <button type="button" onClick={onCancel} style={backBtn}>← К объектам</button>
-      <div style={{ marginTop: 14, ...h1 }}>Новый объект</div>
-      <div style={{ marginTop: 6, fontSize: 14, fontWeight: 300, color: MUTED }}>Тип работ задаёт префикс № и типовые этапы. Заказчик и ответственный — из учётных записей.</div>
+    <div style={{ fontFamily: UI, marginTop: embedded ? 0 : 8 }}>
+      {!embedded && (
+        <>
+          <button type="button" onClick={onCancel} style={backBtn}>← К объектам</button>
+          <div style={{ marginTop: 14, ...h1 }}>Новый объект</div>
+          <div style={{ marginTop: 6, fontSize: 14, fontWeight: 300, color: MUTED }}>Тип работ задаёт префикс № и типовые этапы. Заказчик и ответственный — из учётных записей.</div>
+        </>
+      )}
 
-      <div style={{ marginTop: 26, display: "grid", gap: 22 }}>
+      <div style={{ marginTop: embedded ? 0 : 26, display: "grid", gap: 22 }}>
         <div style={{ display: "grid", gap: 22, gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))" }}>
           <div>
             <FLabel>Тип работ — этапы и префикс</FLabel>
@@ -668,7 +681,14 @@ function CreateObjectForm({ onCancel, onCreated }) {
 
         <div>
           <FLabel>Заказчик — из учётных записей</FLabel>
-          <UnderAccountPicker accounts={accounts} value={cust} onPick={setCust} loading={accLoading} />
+          {fixedCustomer ? (
+            <div style={{ height: 46, display: "flex", alignItems: "center", padding: "0 14px", boxShadow: `inset 0 -1px 0 0 ${UNDER}`, fontFamily: UI, fontSize: 14, fontWeight: 300, color: TEXT }}>
+              {fixedCustomer.name || fixedCustomer.email}
+              {fixedCustomer.email && fixedCustomer.name ? <span style={{ color: MUTED, marginLeft: 8, fontSize: 13 }}>· {fixedCustomer.email}</span> : null}
+            </div>
+          ) : (
+            <UnderAccountPicker accounts={accounts} value={cust} onPick={setCust} loading={accLoading} />
+          )}
         </div>
 
         <div>
@@ -677,8 +697,8 @@ function CreateObjectForm({ onCancel, onCreated }) {
         </div>
 
         <div style={{ marginTop: 6, display: "flex", gap: 12 }}>
-          <PrimaryBtn onClick={submit}>Создать объект</PrimaryBtn>
-          <FillBtn big onClick={onCancel}>Отмена</FillBtn>
+          <PrimaryBtn onClick={submit}>{submitLabel || "Создать объект"}</PrimaryBtn>
+          {onCancel ? <FillBtn big onClick={onCancel}>Отмена</FillBtn> : null}
         </div>
       </div>
     </div>
@@ -1135,7 +1155,11 @@ function CustomerObjectsList({ email }) {
             </ListRow>
           );
         })}
-        {list.length === 0 && <div style={{ padding: "28px 8px", color: MUTED, fontSize: 14, fontWeight: 300 }}>{items.length === 0 ? "Пока нет объектов." : "Ничего не найдено."}</div>}
+        {list.length === 0 && (
+          DB.isObjectsLoading()
+            ? <CenterSpinner minHeight={180} label="Загружаем объекты…" />
+            : <div style={{ padding: "28px 8px", color: MUTED, fontSize: 14, fontWeight: 300 }}>{items.length === 0 ? "Пока нет объектов." : "Ничего не найдено."}</div>
+        )}
       </div>
     </div>
   );
