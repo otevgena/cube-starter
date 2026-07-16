@@ -37,6 +37,7 @@ export default function StickyDock() {
   const getIsAccount      = () => { try { return /^\/account(\/|$)/.test(window.location.pathname || "/"); } catch { return false; } };
   // детальная страница услуги: /services/<направление>/<услуга> — в доке «c.» становится стрелкой «назад»
   const getIsServiceDetail = () => { try { return /^\/services\/[^/]+\/[^/]+/.test(window.location.pathname || "/"); } catch { return false; } };
+  const getObjectNumber = () => { try { const m = (window.location.pathname || "/").match(/^\/account\/objects\/([^/?#]+)/); return (!m || m[1] === "u") ? null : decodeURIComponent(m[1]); } catch { return null; } };
 
   /* =============== state =============== */
   const [routeKey, setRouteKey] = React.useState(getPath());
@@ -50,6 +51,7 @@ export default function StickyDock() {
   const [isContact, setIsContact] = React.useState(getIsContact());
   const [isAccount, setIsAccount] = React.useState(getIsAccount());
   const [isServiceDetail, setIsServiceDetail] = React.useState(getIsServiceDetail());
+  const [objectNumber, setObjectNumber] = React.useState(getObjectNumber());
 
   // имя профиля для дока (из кэша Header), обновляется на auth:changed
   const readUserName = () => {
@@ -126,6 +128,7 @@ export default function StickyDock() {
       setIsContact(getIsContact());
       setIsAccount(getIsAccount());
       setIsServiceDetail(getIsServiceDetail());
+      setObjectNumber(getObjectNumber());
 
       if (legal) {
         const p = window.location.pathname || "";
@@ -408,25 +411,14 @@ export default function StickyDock() {
   const [toast, setToast] = React.useState({ visible: false, text: "" });
   const toastTimerRef = React.useRef(null);
   const toastRef = React.useRef(null);
-  const TOAST_WIDTH_SCALE = 0.85; // −15% от естественной ширины
 
   React.useEffect(() => {
     window.showDockToast = (text = "Сохранено", ms = 2400) => {
       try { if (toastTimerRef.current) clearTimeout(toastTimerRef.current); } catch {}
+      // Ширина — всегда по содержимому, в одну строку (без ужимания, иначе текст переносится).
       setToast({ visible: true, text });
 
-      requestAnimationFrame(() => {
-        const el = toastRef.current;
-        if (!el) return;
-        el.style.width = "auto";
-        const w = Math.ceil(el.getBoundingClientRect().width);
-        const target = Math.max(140, Math.round(w * TOAST_WIDTH_SCALE));
-        el.style.width = target + "px";
-      });
-
       toastTimerRef.current = setTimeout(() => {
-        const el = toastRef.current;
-        if (el) el.style.width = "auto";
         setToast({ visible: false, text: "" });
         toastTimerRef.current = null;
       }, Number(ms) || 2400);
@@ -480,12 +472,12 @@ export default function StickyDock() {
       <div id="dock-panel" ref={panelRef} className={dockClass} style={dockVars}>
         <div className="dock__inner">
           {/* левый ромб / бренд. На legal и на детальной странице услуги — стрелка «назад» */}
-          {(isLegal || isServiceDetail) ? (
+          {(isLegal || isServiceDetail || objectNumber) ? (
             <button
               type="button"
               className="dock__brand"
               aria-label="Назад"
-              onClick={(e) => { e.preventDefault(); isServiceDetail ? goParent() : goHome(); }}
+              onClick={(e) => { e.preventDefault(); objectNumber ? go("/account/objects") : isServiceDetail ? goParent() : goHome(); }}
               title="Назад"
               style={{ display: "grid", placeItems: "center", ...(isLegal ? { transform: "translateX(4px)" } : null) }}
             >
@@ -533,19 +525,19 @@ export default function StickyDock() {
               title="Профиль"
             >
               <img src="/profile/profile.png" alt="" className="dock__profile-avatar" />
-              <span className="dock__profile-name">{userName || "Профиль"}</span>
+              <span className="dock__profile-name">{objectNumber || userName || "Профиль"}</span>
             </a>
           )}
 
           {/* CTA справа */}
           {isAccount ? (
             <a
-              href="/account/personal"
-              onClick={(e) => { e.preventDefault(); go("/account/personal"); }}
+              href="/account/objects"
+              onClick={(e) => { e.preventDefault(); go("/account/objects"); }}
               className="dock__settings"
               role="button"
             >
-              Настройки
+              Объекты
             </a>
           ) : (!isLegal && !isContact && (
             isElectro ? (
@@ -574,7 +566,19 @@ export default function StickyDock() {
       {/* локальные стили */}
       <style>{`
         #dock-root{ position: relative; z-index: 2147483647; }
-        body.has-modal #dock-root{ display: none; }
+        /* при открытой модалке (has-modal) или внутри подпунктов админки (dock-off)
+           док не пропадает резко, а плавно уезжает вниз */
+        #dock-panel{ transition: width .4s cubic-bezier(.2,.8,.2,1), opacity .28s ease, transform .34s cubic-bezier(.2,.8,.2,1); }
+        body.has-modal #dock-panel,
+        body.dock-off #dock-panel{
+          opacity: 0 !important;
+          transform: translateX(-50%) translateY(130px) !important;
+          pointer-events: none !important;
+        }
+        body.has-modal .dock-up,
+        body.has-modal .dock-toast,
+        body.dock-off .dock-up,
+        body.dock-off .dock-toast{ opacity: 0 !important; pointer-events: none !important; }
         /* на мобиле/планшете (где работает мобильная шапка) док скрыт — не мешает чтению */
         @media (max-width: 1023px){ #dock-root{ display: none !important; } }
 
@@ -620,7 +624,7 @@ export default function StickyDock() {
         }
         .dock-toast.is-visible{ opacity: 1; transform: translateX(0); pointer-events: auto; }
         .dock-toast__icon{ display: grid; place-items: center; }
-        .dock-toast__text{ font-size: 15px; font-weight: 400; }
+        .dock-toast__text{ font-size: 15px; font-weight: 400; white-space: nowrap; }
 
         /* ===== База дока ===== */
         .dock{

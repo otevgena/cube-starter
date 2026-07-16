@@ -51,6 +51,16 @@ let accessToken = null;
 const listeners = new Set();
 const debug = () => Boolean(localStorage.getItem('auth:debug'));
 
+// Профиль/админка читают токен из sessionStorage['auth:accessToken'],
+// поэтому держим его в синхроне с нашим in-memory токеном.
+const SESSION_KEY = 'auth:accessToken';
+function syncSession(token) {
+  try {
+    if (token) sessionStorage.setItem(SESSION_KEY, token);
+    else sessionStorage.removeItem(SESSION_KEY);
+  } catch {}
+}
+
 function emit() {
   listeners.forEach(fn => {
     try { fn(accessToken); } catch {}
@@ -63,6 +73,7 @@ export const auth = {
     accessToken = t || null;
     if (remember && t) localStorage.setItem('accessToken', t);
     else localStorage.removeItem('accessToken');
+    syncSession(accessToken);
     emit();
   },
   subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn); },
@@ -72,7 +83,7 @@ export const auth = {
     // восстанавливаем access из local/session, если он у вас где-то сохранился
     try {
       const ls = localStorage.getItem('accessToken');
-      if (ls) accessToken = ls;
+      if (ls) { accessToken = ls; syncSession(ls); }
     } catch {}
 
     // одна быстрая попытка рефреша (не обязательна, UI не ждёт)
@@ -84,6 +95,7 @@ export const auth = {
     accessToken = null;
     try { localStorage.removeItem('accessToken'); } catch {}
     try { localStorage.removeItem('remember'); } catch {}
+    syncSession(null);
     emit();
   },
 };
@@ -137,6 +149,7 @@ async function refreshOnce({ force = false } = {}) {
         // запоминаем, если пользователь ставил “Не выходить”
         const remember = !!localStorage.getItem('remember');
         if (remember) localStorage.setItem('accessToken', token);
+        syncSession(token);
         emit();
         if (debug()) console.log('[auth] refresh OK');
         _refreshInflight = null;
@@ -199,8 +212,17 @@ export async function api(path, { method = 'GET', body, authRequired = true } = 
 }
 
 // ===== high-level методы =====
-export async function registerUser({ name, email, password }) {
-  return api('/auth/register', { method: 'POST', authRequired: false, body: { name, email, password } });
+export async function registerUser({ name, email, password, remember = true }) {
+  const data = await api('/auth/register', { method: 'POST', authRequired: false, body: { name, email, password } });
+  // бэкенд возвращает accessToken и ставит refresh-cookie — сразу логиним
+  accessToken = data.accessToken || null;
+  if (remember && accessToken) {
+    localStorage.setItem('remember', '1');
+    localStorage.setItem('accessToken', accessToken);
+  }
+  syncSession(accessToken);
+  emit();
+  return data; // { user, accessToken }
 }
 
 export async function loginUser({ idOrEmail, password, remember }) {
@@ -208,6 +230,11 @@ export async function loginUser({ idOrEmail, password, remember }) {
     const e = new Error('Введите e-mail (сейчас вход по e-mail).'); e.status = 400; throw e;
   }
   const data = await api('/auth/login', { method: 'POST', authRequired: false, body: { email: idOrEmail, password } });
+  // Если включена 2FA — сервер вернул промежуточный challenge, токенов нет.
+  // Пробрасываем наверх, чтобы UI показал второй шаг (ввод кода).
+  if (data.twoFactorRequired) {
+    return { twoFactorRequired: true, challenge: data.challenge, remember: !!remember };
+  }
   // сохраняем access и флаг remember
   accessToken = data.accessToken || null;
   if (remember && accessToken) {
@@ -217,8 +244,43 @@ export async function loginUser({ idOrEmail, password, remember }) {
     localStorage.removeItem('remember');
     localStorage.removeItem('accessToken');
   }
+  syncSession(accessToken);
   emit();
   return data; // { user, accessToken }
+}
+
+// Второй шаг входа при 2FA: обмениваем challenge + код (TOTP или резервный) на токены.
+export async function verifyTwoFactor({ challenge, code, remember }) {
+  const data = await api('/auth/2fa-verify', { method: 'POST', authRequired: false, body: { challenge, code } });
+  accessToken = data.accessToken || null;
+  if (remember && accessToken) {
+    localStorage.setItem('remember', '1');
+    localStorage.setItem('accessToken', accessToken);
+  } else {
+    localStorage.removeItem('remember');
+    localStorage.removeItem('accessToken');
+  }
+  syncSession(accessToken);
+  emit();
+  return data; // { user, accessToken }
+}
+
+// ===== Сброс пароля / подтверждение почты =====
+// Запрос ссылки для сброса — всегда 200 (не раскрываем, есть ли аккаунт).
+export async function requestPasswordReset(email) {
+  return api('/auth/request-reset', { method: 'POST', authRequired: false, body: { email } });
+}
+// Установка нового пароля по одноразовому токену из письма.
+export async function resetPassword({ token, newPassword }) {
+  return api('/auth/reset', { method: 'POST', authRequired: false, body: { token, newPassword } });
+}
+// Запрос письма с подтверждением почты (нужен вход).
+export async function requestEmailVerify() {
+  return api('/auth/request-verify', { method: 'POST', authRequired: true });
+}
+// Подтверждение почты по одноразовому токену из письма.
+export async function verifyEmail(token) {
+  return api('/auth/verify', { method: 'POST', authRequired: false, body: { token } });
 }
 
 export async function me()  { return api('/auth/me',    { method: 'GET',  authRequired: true  }); }
@@ -227,6 +289,7 @@ export async function logout() {
   accessToken = null;
   try { localStorage.removeItem('accessToken'); } catch {}
   try { localStorage.removeItem('remember'); } catch {}
+  syncSession(null);
   emit();
 }
 

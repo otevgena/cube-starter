@@ -12,9 +12,9 @@ const REVIEWS = [
     bg: "/reviews/review1.jpg",
     pdf: "/reviews/review1.pdf",
     title: ["Опыт сотрудничества глазами", "наших заказчиков"],
-    name: "Цыганков В. И.",
-    company: "Альянс Недвижимость",
-    date: "04.09.2025",
+    name: "Кулютников Д. С.",
+    company: "Везерфорд",
+    date: "16.07.2026",
     city: "Ноябрьск",
   },
   {

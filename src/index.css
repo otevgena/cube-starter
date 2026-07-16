@@ -215,6 +215,14 @@ body.review-open #dock-root .dock{
   .h-hero{ font-size: clamp(84px, 9vw, 110px); }
 }
 
+/* Плейсхолдер поиска в разделе «Объекты» — тёмный, а не блёклый */
+.obj-ph::placeholder{ color:#3a3a3a; opacity:1; }
+
+/* Инпуты раздела «Объекты» — мягкая подсветка при наведении/фокусе (единый фирменный стиль) */
+.obj-input{ transition: border-color .16s ease, box-shadow .16s ease; }
+.obj-input:hover{ border-color:#d5d5d5; }
+.obj-input:focus{ border-color:#111 !important; box-shadow:0 0 0 3px rgba(17,17,17,.07); }
+
 /* Появление блоков при скролле (класс reveal-on вешает JS только без reduced-motion) */
 .reveal-on { opacity: 0; transform: translateY(14px); }
 .reveal-on.is-visible {

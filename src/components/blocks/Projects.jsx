@@ -403,7 +403,7 @@ function MoreButton() {
   return (
     <button
       type="button"
-      className="inline-flex h-10 items-center justify-center rounded-xl px-3.5 text-sm text-black ring-[0.5px] ring-inset ring-[#494949] transition-colors hover:bg-black hover:text-white hover:underline"
+      className="inline-flex h-[42px] items-center justify-center rounded-xl border border-[#111] px-[18px] text-sm font-normal text-[#111] transition-colors hover:bg-[#111] hover:text-white"
     >
       Подробнее
     </button>

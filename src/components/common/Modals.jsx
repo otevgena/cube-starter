@@ -2,7 +2,7 @@
 // Модалки Вход / Регистрация / Восстановление / Custom — чистый Tailwind, без <style> и легаси .about-hero-*.
 import React from "react";
 import { createPortal } from "react-dom";
-import { registerUser, loginUser, auth } from "@/lib/auth";
+import { registerUser, loginUser, verifyTwoFactor, requestPasswordReset, auth } from "@/lib/auth";
 
 /* ===== Хост модалок (API: window.openModal("register"|"login"|"forgot"|"custom", props)) ===== */
 export default function ModalsHost() {
@@ -115,7 +115,7 @@ function ModalShell({ children, onClose, width }) {
         aria-label="Закрыть"
         title="Закрыть"
         onClick={onClose}
-        className="fixed right-0 top-0 z-[1001] grid h-14 w-14 place-items-center bg-[#111] text-white md:hidden"
+        className="fixed right-0 top-0 z-[1001] grid h-14 w-14 place-items-center bg-[#111] text-white transition-colors hover:bg-[#262626] md:hidden"
       >
         <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
           <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
@@ -128,7 +128,7 @@ function ModalShell({ children, onClose, width }) {
         aria-label="Закрыть"
         title="Закрыть"
         onClick={onClose}
-        className="fixed right-6 z-[1001] hidden h-[60px] w-[60px] place-items-center rounded-xl bg-[#111] text-white shadow-[0_8px_24px_rgba(0,0,0,.35)] transition-transform hover:-translate-y-px md:grid"
+        className="fixed right-6 z-[1001] hidden h-[60px] w-[60px] place-items-center rounded-xl bg-[#111] text-white shadow-[0_8px_24px_rgba(0,0,0,.35)] transition-colors hover:bg-[#262626] md:grid"
         style={{ bottom: "calc(var(--dock-bottom, 21px) + (var(--dock-h, 72px) - var(--dock-left-tile, 60px)) / 2)" }}
       >
         <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
@@ -304,6 +304,11 @@ function LoginForm() {
   const [busy, setBusy] = React.useState(false);
   const set = (k, v) => setForm((s) => ({ ...s, [k]: v }));
 
+  // Второй шаг при 2FA
+  const [twofa, setTwofa] = React.useState(null); // { challenge, remember } | null
+  const [code, setCode] = React.useState("");
+  const [codeErr, setCodeErr] = React.useState("");
+
   const onSubmit = async (e) => {
     e.preventDefault();
     if (busy) return;
@@ -316,8 +321,14 @@ function LoginForm() {
 
     try {
       setBusy(true);
-      const { user, accessToken } = await loginUser({ idOrEmail: form.id.trim(), password: form.pass, remember: !!form.keep });
-      if (window.setHeaderUser) window.setHeaderUser(user, accessToken);
+      const res = await loginUser({ idOrEmail: form.id.trim(), password: form.pass, remember: !!form.keep });
+      if (res && res.twoFactorRequired) {
+        // переходим ко второму шагу — ввод кода из приложения
+        setTwofa({ challenge: res.challenge, remember: res.remember });
+        setCode(""); setCodeErr("");
+        return;
+      }
+      if (window.setHeaderUser) window.setHeaderUser(res.user, res.accessToken);
       if (window.closeModal) window.closeModal();
     } catch (err) {
       if (err.status === 400) setErrors({ ...es, id: "Введите e-mail (сейчас вход по e-mail)." });
@@ -327,6 +338,71 @@ function LoginForm() {
       setBusy(false);
     }
   };
+
+  const onVerify = async (e) => {
+    e.preventDefault();
+    if (busy) return;
+    const c = code.trim();
+    if (!c) { setCodeErr("Введите код."); return; }
+    try {
+      setBusy(true);
+      setCodeErr("");
+      const { user, accessToken } = await verifyTwoFactor({ challenge: twofa.challenge, code: c, remember: twofa.remember });
+      if (window.setHeaderUser) window.setHeaderUser(user, accessToken);
+      if (window.closeModal) window.closeModal();
+    } catch (err) {
+      if (err.status === 401) {
+        // просроченный challenge — на первый шаг; неверный код — остаёмся
+        if (/challenge/i.test(err.message || "")) {
+          setTwofa(null);
+          setErrors({ pass: "Сессия подтверждения истекла. Войдите заново." });
+        } else {
+          setCodeErr("Неверный код. Попробуйте ещё раз.");
+        }
+      } else {
+        window.openModal("custom", { title: "Ошибка", content: <div>{err.message}</div>, width: 560 });
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // ── Второй шаг: ввод кода 2FA ──
+  if (twofa) {
+    return (
+      <FormShell
+        welcome="Ещё один шаг"
+        title="Двухфакторная защита"
+        bottom={
+          <>
+            Не приходит код?{" "}
+            <a className={LINK} href="#" onClick={(e) => { e.preventDefault(); setTwofa(null); }}>Вернуться ко входу</a>
+          </>
+        }
+      >
+        <form className="grid grid-cols-2 gap-x-[18px] gap-y-[14px] self-start" onSubmit={onVerify} noValidate>
+          <div className="col-span-2 text-sm font-light text-[#555]">
+            Введите 6-значный код из приложения-аутентификатора или один из резервных кодов.
+          </div>
+          <div className="col-span-2 flex flex-col">
+            <Label>КОД ПОДТВЕРЖДЕНИЯ (*)</Label>
+            <input className={inputCls(codeErr)} type="text" inputMode="text" autoFocus
+              value={code} autoComplete="one-time-code"
+              onChange={(e) => { setCode(e.target.value); if (codeErr) setCodeErr(""); }}
+              placeholder="123456 или xxxx-xxxx-xx" />
+            <ErrorSlot text={codeErr} />
+          </div>
+          <div className="col-span-2 mt-2">
+            <button className={`${BTN} w-full`} type="submit" disabled={busy}>Подтвердить</button>
+          </div>
+          <div className="col-span-2 mt-1">
+            <button type="button" className={`${LINK} text-[11px] leading-[11px]`}
+              onClick={() => setTwofa(null)}>Назад ко входу</button>
+          </div>
+        </form>
+      </FormShell>
+    );
+  }
 
   return (
     <FormShell
@@ -382,17 +458,36 @@ function LoginForm() {
 function ForgotForm() {
   const [id, setId] = React.useState("");
   const [errors, setErrors] = React.useState({});
+  const [busy, setBusy] = React.useState(false);
+  const isEmail = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((v || "").trim());
 
-  const onSubmit = (e) => {
+  const onSubmit = async (e) => {
     e.preventDefault();
+    if (busy) return;
     const es = {};
     if (!id.trim()) es.id = "Это значение не должно быть пустым.";
+    else if (!isEmail(id)) es.id = "Введите корректный e-mail (сейчас сброс по e-mail).";
     setErrors(es);
     if (Object.keys(es).length) return;
 
+    try {
+      setBusy(true);
+      // Ответ всегда 200 — не раскрываем, зарегистрирован ли адрес.
+      await requestPasswordReset(id.trim());
+    } catch {
+      // Даже при сбое показываем нейтральное сообщение (не палим существование аккаунта).
+    } finally {
+      setBusy(false);
+    }
+
     window.openModal("custom", {
-      title: "Письмо отправлено",
-      content: <div>Если адрес «{id}» зарегистрирован, мы отправили на него ссылку для сброса пароля.</div>,
+      title: "Проверьте почту",
+      content: (
+        <div>
+          Если адрес «{id.trim()}» зарегистрирован, мы отправили на него ссылку для сброса пароля.
+          Ссылка действует 30 минут.
+        </div>
+      ),
       width: 560,
     });
   };
@@ -410,19 +505,21 @@ function ForgotForm() {
     >
       <form className="grid grid-cols-1 gap-y-[14px] self-start" onSubmit={onSubmit} noValidate>
         <p className="mb-1.5 text-sm font-semibold leading-7 text-black">
-          Введите имя пользователя или адрес электронной почты, и мы вышлем вам ссылку для сброса пароля.
+          Введите адрес электронной почты, и мы вышлем вам ссылку для сброса пароля.
         </p>
 
         <div className="flex flex-col">
-          <Label>ЭЛЕКТРОННАЯ ПОЧТА ИЛИ ИМЯ ПОЛЬЗОВАТЕЛЯ (*)</Label>
-          <input className={inputCls(errors.id)} type="text" value={id}
+          <Label>ЭЛЕКТРОННАЯ ПОЧТА (*)</Label>
+          <input className={inputCls(errors.id)} type="email" value={id}
             onChange={(e) => { setId(e.target.value); if (errors.id) setErrors({}); }}
-            placeholder="имя@домен.ру или логин" />
+            placeholder="имя@домен.ру" />
           <ErrorSlot text={errors.id} />
         </div>
 
         <div className="mt-2">
-          <button className={`${BTN} w-full`} type="submit">Сбросить пароль</button>
+          <button className={`${BTN} w-full`} type="submit" disabled={busy}>
+            {busy ? "Отправляем…" : "Сбросить пароль"}
+          </button>
         </div>
 
         <div className="mt-2.5 flex justify-center">

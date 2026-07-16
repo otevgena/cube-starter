@@ -51,18 +51,23 @@ async function apiRefresh(timeoutMs = 1200) {
   }
 }
 
-async function apiMe(token) {
+async function apiMe(token, timeoutMs = 3000) {
+  const ctrl = new AbortController();
+  const to = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
     const r = await fetch(api("/auth/me"), {
       method: "GET",
       headers: { Authorization: `Bearer ${token}` },
       credentials: "include",
       cache: "no-store",
+      signal: ctrl.signal,
     });
+    clearTimeout(to);
     if (!r.ok) return null;
     const j = await r.json().catch(() => null);
     return j?.user || null;
   } catch {
+    clearTimeout(to);
     return null;
   }
 }
@@ -566,6 +571,7 @@ function MobileAccountMenu({ onClose, user, onLogout }) {
             </div>
             <Divider />
             <Item onClick={() => go("/account/profile")}>Профиль</Item>
+            <Item onClick={() => go("/account/objects")}>Объекты</Item>
             {(isAdmin || grp === "partner") && <Item onClick={() => go("/account/partner")}>Партнёр</Item>}
             {(isAdmin || grp === "supplier") && <Item onClick={() => go("/account/supplier")}>Поставщик</Item>}
             <Item onClick={() => go("/account/personal")}>Настройки</Item>
@@ -813,6 +819,7 @@ function AvatarMenu({ user, onLogout }) {
   const grp = String(user?.group || user?.role || "").toLowerCase();
   const navItems = [
     { label: "Профиль", href: "/account/profile", locked: false },
+    { label: "Объекты", href: "/account/objects", locked: false },
     { label: "Партнёр", href: "/account/partner", locked: !(isAdmin || grp === "partner") },
     { label: "Поставщик", href: "/account/supplier", locked: !(isAdmin || grp === "supplier") },
     { label: "Настройки", href: "/account/personal", locked: false },
@@ -921,6 +928,10 @@ export default function Header() {
     if (bootRef.current) return;
     bootRef.current = true;
 
+    // страховка: что бы ни случилось с сетью, показываем правую часть шапки
+    // («Вход/Регистрация» либо аватар) максимум через 3.5 c — не оставляем пустую заглушку
+    const safety = setTimeout(() => setAuthReady(true), 3500);
+
     const bootstrap = async () => {
       try {
         const t0 = sessionStorage.getItem("auth:accessToken");
@@ -976,7 +987,7 @@ export default function Header() {
       }
     };
     window.addEventListener("focus", onFocus);
-    return () => window.removeEventListener("focus", onFocus);
+    return () => { clearTimeout(safety); window.removeEventListener("focus", onFocus); };
   }, []); // eslint-disable-line
 
   React.useEffect(() => {

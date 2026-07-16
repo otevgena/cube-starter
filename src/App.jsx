@@ -36,6 +36,10 @@ import ContactPage from '@/pages/contact.jsx'
 // ⬇️ Страница профиля (внутри — вкладки)
 import AccountProfilePage from '@/pages/account/profile.jsx'
 
+// ⬇️ Страницы сброса пароля / подтверждения почты (ссылки из писем)
+import ResetPasswordPage from '@/pages/auth/reset.jsx'
+import VerifyEmailPage from '@/pages/auth/verify.jsx'
+
 // ⬇️ Детальные страницы услуг (Электромонтаж)
 import PowerConnectionPage from '@/pages/services/electrical/power-connection.jsx'
 import PowerUpgradePage from '@/pages/services/electrical/power-upgrade.jsx' // NEW
@@ -254,8 +258,11 @@ export default function App(){
       'services/construction/commissioning': 'Пуско-наладка инженерных систем — CUBE',
       'contact': 'Контакты — CUBE',
       'pro': 'Вакансии — CUBE',
+      'reset': 'Сброс пароля — CUBE',
+      'verify-email': 'Подтверждение почты — CUBE',
       'account': 'Профиль — CUBE',
       'account/profile': 'Профиль — CUBE',
+      'account/objects': 'Объекты — CUBE',
       'account/personal': 'Личная информация — CUBE',
       'account/partner': 'Партнёр — CUBE',
       'account/supplier': 'Поставщик — CUBE',
@@ -441,6 +448,10 @@ export default function App(){
 
     if (path === 'contact')               return <ContactPage />
     if (path === 'pro')                   return <ProJobsPage />
+
+    // Сброс пароля / подтверждение почты (ссылки из писем)
+    if (path === 'reset')                 return <ResetPasswordPage />
+    if (path === 'verify-email')          return <VerifyEmailPage />
 
     // ====== АККАУНТ ======
     if (
