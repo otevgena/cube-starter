@@ -1240,14 +1240,16 @@ function MessagesPanel({ objId, side, authorName, disabled, autoOpen }) {
             const mAtts = Array.isArray(m.attachments) ? m.attachments : [];
             return (
               <div key={m.id} style={{ borderLeft: `2px solid ${fromCustomer ? "#e0e0e0" : "#111"}`, paddingLeft: 14, opacity: m.pending ? 0.6 : 1 }}>
-                <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: ".04em", textTransform: "uppercase", color: fromCustomer ? MUTED : TEXT }}>
-                  {fromCustomer ? "Запрос заказчика" : "Ответ ответственного"}
-                </div>
-                {(m.author || m.at) && (
-                  <div style={{ marginTop: 2, fontSize: 12, color: MUTED }}>
-                    {m.author ? m.author : ""}{m.author && fmtMsgTime(m) ? " · " : ""}{fmtMsgTime(m)}
+                <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12 }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: ".04em", textTransform: "uppercase", color: fromCustomer ? MUTED : TEXT }}>
+                    {fromCustomer ? "Запрос заказчика" : "Ответ ответственного"}
                   </div>
-                )}
+                  {(m.author || m.at) && (
+                    <div style={{ flexShrink: 0, maxWidth: "60%", textAlign: "right", fontSize: 12, color: MUTED }}>
+                      {m.author ? m.author : ""}{m.author && fmtMsgTime(m) ? " · " : ""}{fmtMsgTime(m)}
+                    </div>
+                  )}
+                </div>
                 {m.text && <div style={{ marginTop: 5, fontSize: 15, lineHeight: 1.5, color: TEXT, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{m.text}</div>}
                 {mAtts.length > 0 && (
                   <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 8 }}>
