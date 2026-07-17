@@ -548,6 +548,14 @@ function MobileAccountMenu({ onClose, user, onLogout }) {
   };
 
   // Есть ли непросмотренные изменения по объектам (для морковного бейджа «New»).
+  const [tick, force] = React.useReducer((n) => n + 1, 0);
+  React.useEffect(() => {
+    const on = () => force();
+    window.addEventListener("objects:changed", on);
+    window.addEventListener("objects:seen", on);
+    window.addEventListener("messages:seen", on);
+    return () => { window.removeEventListener("objects:changed", on); window.removeEventListener("objects:seen", on); window.removeEventListener("messages:seen", on); };
+  }, []);
   const objectsUnseen = React.useMemo(() => {
     if (!user) return false;
     try {
@@ -556,7 +564,8 @@ function MobileAccountMenu({ onClose, user, onLogout }) {
         : DB.listObjectsForCustomer(user?.email, user?.id || user?.accountId || "");
       return DB.anyObjectUnseen(list);
     } catch { return false; }
-  }, [user, isAdmin]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, isAdmin, tick]);
 
   const Item = ({ children, onClick, strong, right }) => (
     <button
@@ -840,6 +849,24 @@ function AvatarMenu({ user, onLogout }) {
   // вкладки аккаунта по роли (Партнёр/Поставщик — только при доступе, Администратор — только админу)
   const isAdmin = Boolean(user?.isAdmin || user?.role === "admin" || user?.group === "admin");
   const grp = String(user?.group || user?.role || "").toLowerCase();
+
+  // пере-рендер при появлении/сбросе маркеров «новое» (данные объектов подгружаются async)
+  const [tick, force] = React.useReducer((n) => n + 1, 0);
+  React.useEffect(() => {
+    const on = () => force();
+    window.addEventListener("objects:changed", on);
+    window.addEventListener("objects:seen", on);
+    window.addEventListener("messages:seen", on);
+    return () => { window.removeEventListener("objects:changed", on); window.removeEventListener("objects:seen", on); window.removeEventListener("messages:seen", on); };
+  }, []);
+  const objectsUnseen = React.useMemo(() => {
+    if (!user) return false;
+    try {
+      const list = isAdmin ? DB.listObjects() : DB.listObjectsForCustomer(user?.email, user?.id || user?.accountId || "");
+      return DB.anyObjectUnseen(list);
+    } catch { return false; }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, isAdmin, open, tick]);
   const navItems = [
     { label: "Профиль", href: "/account/profile", locked: false },
     { label: "Объекты", href: "/account/objects", locked: false },
@@ -894,9 +921,15 @@ function AvatarMenu({ user, onLogout }) {
                 key={it.href}
                 href={it.href}
                 onClick={(e) => go(e, it.href)}
-                className="block rounded-lg px-2 py-1.5 hover:bg-white/10"
+                className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-white/10"
               >
-                {it.label}
+                <span>{it.label}</span>
+                {it.href === "/account/objects" && objectsUnseen ? (
+                  <span className="relative flex h-2 w-2 shrink-0" title="Есть новое">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-carrot opacity-75" />
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-carrot" />
+                  </span>
+                ) : null}
               </a>
             )
           ))}

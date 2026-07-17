@@ -409,6 +409,60 @@ export function anyObjectUnseen(list) {
   return arr.some((o) => isObjectUnseen(o));
 }
 
+/* --- Маркеры «новое» на уровне сообщений переписки --- */
+// Отдельный seen-state для треда объекта: точка у «Задать вопрос»/«Запросы» и у
+// нового сообщения гаснет, когда собеседник долистал переписку (не при открытии
+// самого объекта). Ключ хранит epoch последнего просмотренного сообщения.
+const MSG_SEEN_KEY = "messages:seen";
+function loadMsgSeen() {
+  try { return JSON.parse(localStorage.getItem(MSG_SEEN_KEY) || "{}") || {}; } catch { return {}; }
+}
+function lastMsgTs(o) {
+  let mx = 0;
+  ((o && o.messages) || []).forEach((m) => { const t = parseTs(m.at); if (t > mx) mx = t; });
+  return mx;
+}
+// Epoch отметки «видел переписку»: если тред ещё не смотрели — базовая линия
+// первого визита (иначе вся СТАРАЯ переписка засветилась бы точками «новое»).
+export function msgSeenAt(objId) {
+  const s = loadMsgSeen();
+  return objId in s ? (Number(s[objId]) || 0) : seenBaseline();
+}
+// Есть ли непрочитанные сообщения ОТ ДРУГОЙ стороны (mySide: 'customer'|'staff').
+export function hasUnreadMessages(objId, mySide) {
+  const o = getObject(objId);
+  if (!o) return false;
+  const other = mySide === "customer" ? "staff" : "customer";
+  const seen = msgSeenAt(objId);
+  return (o.messages || []).some((m) => m.from === other && parseTs(m.at) > seen + 1000);
+}
+// Epoch времени сообщения (для подсветки «новых» сообщений в панели переписки).
+export function msgTs(m) { return m ? parseTs(m.at) : 0; }
+// Отметить переписку просмотренной (гасит точку на «Запросы»/у сообщений).
+export function markMessagesSeen(objId) {
+  if (!objId) return;
+  try {
+    const o = getObject(objId);
+    const ts = lastMsgTs(o) || Date.now();
+    const s = loadMsgSeen();
+    const fresh = (Number(s[objId]) || 0) < ts;
+    if (fresh) {
+      s[objId] = ts;
+      localStorage.setItem(MSG_SEEN_KEY, JSON.stringify(s));
+      try { window.dispatchEvent(new Event("messages:seen")); } catch {}
+    }
+    // Прочитанная переписка = объект просмотрен до времени последнего сообщения:
+    // двигаем и объектную отметку вперёд, чтобы точка «новое» в списке/меню гасла
+    // вместе с внутренней (но не перекрываем более поздние события — берём ts сообщений).
+    const seen = loadSeen();
+    if ((Number(seen[objId]) || 0) < ts) {
+      seen[objId] = ts;
+      localStorage.setItem(SEEN_KEY, JSON.stringify(seen));
+      try { window.dispatchEvent(new Event("objects:seen")); } catch {}
+    }
+  } catch {}
+}
+
 /* ===================== Сид данных ===================== */
 const DEFAULT_OBJECTS = [
   {

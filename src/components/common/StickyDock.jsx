@@ -1,6 +1,6 @@
 // src/components/common/StickyDock.jsx
 import React from "react";
-import { getObject, threadStatus, OBJECT_STATUSES } from "@/data/objects.js";
+import { getObject, threadStatus, OBJECT_STATUSES, hasUnreadMessages } from "@/data/objects.js";
 
 // услуга (страница) → предвыбранный пункт «чем помочь» в форме контактов
 const SERVICE_HELP = {
@@ -82,7 +82,8 @@ export default function StickyDock() {
     const on = () => { setObjInfo(readObjInfo(getObjectNumber())); setIsAdminUser(readIsAdmin()); };
     window.addEventListener("objects:changed", on);
     window.addEventListener("auth:changed", on);
-    return () => { window.removeEventListener("objects:changed", on); window.removeEventListener("auth:changed", on); };
+    window.addEventListener("messages:seen", on);
+    return () => { window.removeEventListener("objects:changed", on); window.removeEventListener("auth:changed", on); window.removeEventListener("messages:seen", on); };
   }, []);
   // «Задать вопрос» / «Запросы» — просим страницу объекта раскрыть переписку и подскроллить.
   const onObjectMessage = (e) => {
@@ -615,7 +616,7 @@ export default function StickyDock() {
               title={isAdminUser ? "Открыть переписку по объекту" : "Задать вопрос по объекту"}
             >
               {isAdminUser ? "Запросы" : "Задать вопрос"}
-              {(isAdminUser ? objInfo?.thread === "awaiting" : objInfo?.thread === "answered") && <span className="dock__objcta-badge" aria-hidden="true" />}
+              {hasUnreadMessages(objInfo?.id || objectNumber, isAdminUser ? "staff" : "customer") && <span className="dock__objcta-badge" aria-hidden="true" />}
             </button>
           ) : isAccount ? (
             <a

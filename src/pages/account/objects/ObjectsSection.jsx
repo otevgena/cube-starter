@@ -611,7 +611,7 @@ function AdminObjectsList() {
               <div style={{ minWidth: 0, flex: 1 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                   <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: ".05em", color: MUTED, textTransform: "uppercase" }}>№ {o.id}</span>
-                  <Badge label={st.label || o.status} tone={st.tone} />
+                  <Badge label={st.label || o.status} tone={DB.isObjectUnseen(o) ? "#8a8a8a" : st.tone} />
                 </div>
                 <div style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 9 }}>
                   <span style={{ fontSize: 17, fontWeight: 500, color: TEXT, lineHeight: 1.3 }}>{o.customerName} — {o.title}</span>
@@ -1150,12 +1150,40 @@ function MessagesPanel({ objId, side, authorName, disabled, autoOpen }) {
   const isCustomer = side === "customer";
   const rootRef = React.useRef(null);
   const fileRef = React.useRef(null);
+  const fadeTimerRef = React.useRef(null);
   // Перерисовка при обновлении треда (оптимистичное добавление + ответ сервера).
   React.useEffect(() => {
     const on = () => force();
     window.addEventListener("objects:changed", on);
     return () => window.removeEventListener("objects:changed", on);
   }, []);
+  // Точка «новое» у входящего сообщения: показываем, пока сообщение новее отметки
+  // просмотра (seenUpTo). Когда собеседник подержал переписку на экране ~2.5с —
+  // точка плавно сжимается (fading) и отметка поднимается, тред помечается
+  // прочитанным (гасит точку на «Задать вопрос»/«Запросы»). Новое сообщение,
+  // пришедшее live-опросом уже после, снова поднимает точку.
+  const [seenUpTo, setSeenUpTo] = React.useState(() => DB.msgSeenAt(objId));
+  const [fading, setFading] = React.useState(false);
+  const [inView, setInView] = React.useState(false);
+  React.useEffect(() => {
+    const el = rootRef.current;
+    if (!el || typeof IntersectionObserver === "undefined") { setInView(true); return; }
+    const io = new IntersectionObserver((es) => setInView(es.some((e) => e.isIntersecting)), { threshold: 0.12 });
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+  const incomingMax = msgs.reduce((mx, m) => (m.from !== side ? Math.max(mx, DB.msgTs(m)) : mx), 0);
+  const hasNew = incomingMax > seenUpTo + 1000;
+  React.useEffect(() => {
+    if (disabled || !inView || !hasNew) { setFading(false); return; }
+    const t1 = setTimeout(() => {
+      setFading(true);
+      fadeTimerRef.current = setTimeout(() => {
+        setSeenUpTo(incomingMax); DB.markMessagesSeen(objId); setFading(false);
+      }, 500);
+    }, 2500);
+    return () => { clearTimeout(t1); if (fadeTimerRef.current) clearTimeout(fadeTimerRef.current); };
+  }, [disabled, inView, hasNew, incomingMax, objId]);
   // Клик по «Задать вопрос» / «Запросы» в StickyDock → подскроллить сюда (и заказчику раскрыть поле).
   React.useEffect(() => {
     const onOpen = () => {
@@ -1235,6 +1263,7 @@ function MessagesPanel({ objId, side, authorName, disabled, autoOpen }) {
             const mine = m.from === side; // моё сообщение — слева, собеседника — справа
             const accent = fromCustomer ? "#e0e0e0" : "#111";
             const mAtts = Array.isArray(m.attachments) ? m.attachments : [];
+            const isNew = !mine && DB.msgTs(m) > seenUpTo + 1000; // новое от собеседника
             return (
               <div key={m.id} style={{ display: "flex", justifyContent: mine ? "flex-start" : "flex-end" }}>
                 <div style={{
@@ -1246,8 +1275,9 @@ function MessagesPanel({ objId, side, authorName, disabled, autoOpen }) {
                   textAlign: mine ? "left" : "right",
                   opacity: m.pending ? 0.6 : 1,
                 }}>
-                  <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: ".04em", textTransform: "uppercase", color: fromCustomer ? MUTED : TEXT }}>
-                    {fromCustomer ? "Запрос заказчика" : "Ответ ответственного"}
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: mine ? "flex-start" : "flex-end", fontSize: 11, fontWeight: 600, letterSpacing: ".04em", textTransform: "uppercase", color: fromCustomer ? MUTED : TEXT }}>
+                    {isNew && <NewBadge size={7} fading={fading} />}
+                    <span>{fromCustomer ? "Запрос заказчика" : "Ответ ответственного"}</span>
                   </div>
                   {(m.author || m.at) && (
                     <div style={{ marginTop: 2, fontSize: 12, color: MUTED }}>
@@ -1331,25 +1361,43 @@ function MessagesPanel({ objId, side, authorName, disabled, autoOpen }) {
   );
 }
 
-// Иконка «отследить изменения»: линия с тремя кружками.
-function TrackIcon() {
+// Иконка «отследить изменения»: узлы-связи (share).
+function TrackIcon({ size = 21 }) {
   return (
-    <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true">
-      <line x1="3" y1="12" x2="21" y2="12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-      <circle cx="6" cy="12" r="2.3" fill="#fff" stroke="currentColor" strokeWidth="1.5" />
-      <circle cx="12" cy="12" r="2.3" fill="#fff" stroke="currentColor" strokeWidth="1.5" />
-      <circle cx="18" cy="12" r="2.3" fill="#fff" stroke="currentColor" strokeWidth="1.5" />
+    <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.7">
+      <circle cx="6" cy="12" r="2.6" />
+      <circle cx="18" cy="6" r="2.6" />
+      <circle cx="18" cy="18" r="2.6" />
+      <line x1="8.35" y1="10.8" x2="15.65" y2="7.15" strokeLinecap="round" />
+      <line x1="8.35" y1="13.2" x2="15.65" y2="16.85" strokeLinecap="round" />
     </svg>
   );
 }
 
+// «стрелка из рамки» — подписка на e-mail-уведомления по объекту.
+function ExtIcon({ size = 21 }) {
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M14 4h6v6" />
+      <path d="M20 4l-8 8" />
+      <path d="M20 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h4" />
+    </svg>
+  );
+}
+
+// Общий стиль иконки-кнопки без рамки (просто значок, мягкий ховер).
+const iconBtnStyle = { flexShrink: 0, display: "inline-flex", alignItems: "center", justifyContent: "center", width: 40, height: 40, borderRadius: 10, border: "none", background: "transparent", cursor: "pointer", padding: 0, transition: "color .15s ease, background-color .15s ease" };
+
 // Кнопка + выезжающая справа панель «История изменений» (таймлайн событий объекта).
 // Морковная пульсирующая точка «новое» — тот же индикатор, что у «Запросы» в
 // StickyDock (расходящееся кольцо). Ставится после названия объекта.
-function NewBadge({ size = 8, style }) {
+function NewBadge({ size = 8, style, fading }) {
   return (
     <span aria-hidden="true" title="Есть новое"
-      style={{ display: "inline-block", width: size, height: size, borderRadius: 999, background: CARROT, flexShrink: 0, animation: "cubeNewPulse 1.8s ease-out infinite", ...style }}>
+      style={{ display: "inline-block", width: size, height: size, borderRadius: 999, background: CARROT, flexShrink: 0,
+        animation: fading ? "none" : "cubeNewPulse 1.8s ease-out infinite",
+        transform: fading ? "scale(0)" : "scale(1)", opacity: fading ? 0 : 1,
+        transition: "transform .5s ease, opacity .5s ease", ...style }}>
       <style>{`@keyframes cubeNewPulse{0%{box-shadow:0 0 0 0 rgba(250,93,41,.5)}70%{box-shadow:0 0 0 6px rgba(250,93,41,0)}100%{box-shadow:0 0 0 0 rgba(250,93,41,0)}}`}</style>
     </span>
   );
@@ -1366,19 +1414,18 @@ function ChangeLogButton({ events }) {
   }, [open]);
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)} title="История изменений по объекту"
-        style={{ flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 8, height: 38, padding: "0 14px", borderRadius: 10, border: `1px solid ${LINE}`, background: "#fff", cursor: "pointer", fontFamily: UI, fontSize: 13, fontWeight: 500, color: TEXT, whiteSpace: "nowrap", transition: "border-color .15s ease" }}
-        onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#bbb"; }}
-        onMouseLeave={(e) => { e.currentTarget.style.borderColor = LINE; }}>
+      <button type="button" onClick={() => setOpen(true)} title="История изменений по объекту" aria-label="История изменений по объекту"
+        style={{ ...iconBtnStyle, color: TEXT }}
+        onMouseEnter={(e) => { e.currentTarget.style.background = "#efefee"; }}
+        onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}>
         <TrackIcon />
-        Изменения
       </button>
-      {open && (
+      {open && createPortal(
         <div onClick={() => setOpen(false)}
           style={{ position: "fixed", inset: 0, zIndex: 2147483000, background: "rgba(17,17,17,.28)", animation: "clFade .2s ease" }}>
           <style>{`@keyframes clFade{from{opacity:0}to{opacity:1}}@keyframes clSlide{from{transform:translateX(100%)}to{transform:translateX(0)}}`}</style>
           <div onClick={(e) => e.stopPropagation()}
-            style={{ position: "absolute", top: 0, right: 0, height: "100%", width: "min(440px, 100%)", background: "#fff", boxShadow: "-12px 0 40px rgba(0,0,0,.18)", display: "flex", flexDirection: "column", animation: "clSlide .28s cubic-bezier(.2,.8,.2,1)" }}>
+            style={{ position: "absolute", top: 0, right: 0, height: "100%", width: "min(440px, 100%)", background: "#f4f4f3", boxShadow: "-12px 0 40px rgba(0,0,0,.18)", display: "flex", flexDirection: "column", animation: "clSlide .28s cubic-bezier(.2,.8,.2,1)" }}>
             <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, padding: "20px 22px", borderBottom: `1px solid ${LINE}` }}>
               <div>
                 <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: ".05em", textTransform: "uppercase", color: MUTED }}>История изменений</div>
@@ -1394,8 +1441,8 @@ function ChangeLogButton({ events }) {
                 <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
                   {list.map((e, i) => (
                     <div key={e.id || i} style={{ position: "relative", paddingLeft: 22 }}>
-                      <span style={{ position: "absolute", left: 3, top: 4, width: 9, height: 9, borderRadius: 999, background: "#fff", border: `2px solid ${CARROT}`, zIndex: 1 }} />
-                      {i < list.length - 1 && <span style={{ position: "absolute", left: 7, top: 15, bottom: -18, width: 1, background: LINE }} />}
+                      <span style={{ position: "absolute", left: 3, top: 4, width: 9, height: 9, borderRadius: 999, background: "transparent", border: `1.5px solid #b3b3b3`, zIndex: 1 }} />
+                      {i < list.length - 1 && <span style={{ position: "absolute", left: 7, top: 16, bottom: -18, width: 1, backgroundImage: "repeating-linear-gradient(to bottom, #c4c4c4 0 1px, rgba(0,0,0,0) 1px 6px)" }} />}
                       <div style={{ fontSize: 14, fontWeight: 600, color: TEXT }}>{e.title || "Изменение"}</div>
                       {e.description && <div style={{ marginTop: 2, fontSize: 13.5, fontWeight: 300, lineHeight: 1.45, color: "#444", wordBreak: "break-word" }}>{e.description}</div>}
                       <div style={{ marginTop: 4, fontSize: 12, color: MUTED }}>{e.author ? e.author : ""}{e.author && e.createdAt ? " · " : ""}{e.createdAt || ""}</div>
@@ -1405,17 +1452,59 @@ function ChangeLogButton({ events }) {
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );
 }
 
-function CustomerObjectView({ id, preview, autoOpenMessages }) {
+// Иконка-переключатель подписки на e-mail-уведомления по объекту.
+// Клик → морковная (подписан), повторный клик → выкл. Если у юзера нет почты —
+// мягкая подсказка «сначала укажите e-mail». Состояние пока в localStorage
+// (серверная рассылка — отложенный бэкенд, см. object-messaging-backend/postbox).
+function SubscribeButton({ objId, userEmail }) {
+  const KEY = "objects:subscribed";
+  const read = () => { try { return JSON.parse(localStorage.getItem(KEY) || "{}"); } catch { return {}; } };
+  const [on, setOn] = React.useState(() => Boolean(read()[objId]));
+  const [hint, setHint] = React.useState("");
+  const hintT = React.useRef(null);
+  const showHint = (t) => { setHint(t); if (hintT.current) clearTimeout(hintT.current); hintT.current = setTimeout(() => setHint(""), 3200); };
+  React.useEffect(() => () => { if (hintT.current) clearTimeout(hintT.current); }, []);
+  const toggle = () => {
+    if (!userEmail) { showHint("Сначала укажите e-mail в профиле"); return; }
+    const map = read();
+    const next = !on;
+    if (next) map[objId] = true; else delete map[objId];
+    try { localStorage.setItem(KEY, JSON.stringify(map)); } catch {}
+    setOn(next);
+    try { window.dispatchEvent(new Event("objects:subscribed")); } catch {}
+    showHint(next ? "Уведомления на e-mail включены" : "Уведомления на e-mail отключены");
+  };
+  return (
+    <div style={{ position: "relative" }}>
+      <button type="button" onClick={toggle} aria-pressed={on} aria-label="Подписка на e-mail-уведомления"
+        title={on ? "Уведомления на e-mail включены — нажмите, чтобы отключить" : "Получать уведомления об изменениях на e-mail"}
+        style={{ ...iconBtnStyle, color: on ? CARROT : TEXT }}
+        onMouseEnter={(e) => { if (!on) e.currentTarget.style.background = "#efefee"; }}
+        onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}>
+        <ExtIcon />
+      </button>
+      {hint && (
+        <div style={{ position: "absolute", top: "calc(100% + 6px)", right: 0, whiteSpace: "nowrap", background: TEXT, color: "#fff", fontSize: 12, fontWeight: 400, padding: "6px 10px", borderRadius: 8, boxShadow: "0 6px 18px rgba(0,0,0,.18)", zIndex: 5, animation: "subHint .18s ease" }}>
+          {hint}
+          <style>{`@keyframes subHint{from{opacity:0;transform:translateY(-3px)}to{opacity:1;transform:translateY(0)}}`}</style>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CustomerObjectView({ id, preview, autoOpenMessages, userEmail }) {
   const o = DB.getCustomerView(id);
-  // Непросмотренность фиксируем на момент захода (до отметки «видел»), чтобы этот
-  // визит показал «новое», а следующий — уже нет. В предпросмотре не трогаем.
-  const unseen = React.useMemo(() => (!preview && o ? DB.isObjectUnseen(o) : false), [id, preview]);
+  // Открытие объекта помечает его просмотренным (гасит точку в списке/меню). Точку
+  // «новое» внутри объекта показываем не в шапке, а у самого нового сообщения в
+  // переписке (см. MessagesPanel) — она гаснет, когда заказчик долистал до него.
   React.useEffect(() => { if (!preview) DB.markObjectSeen(id); }, [id, preview]);
   if (!o) return <div style={{ fontFamily: UI, marginTop: 8 }}><button style={backBtn} onClick={() => navigate("/account/objects")}>← Назад</button><div style={{ marginTop: 20, color: MUTED }}>Объект недоступен.</div></div>;
   const st = OBJECT_STATUSES.find((s) => s.code === o.status) || {};
@@ -1436,7 +1525,6 @@ function CustomerObjectView({ id, preview, autoOpenMessages }) {
         <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: ".04em", color: MUTED, textTransform: "uppercase" }}>№ {o.id}</div>
         <div style={{ marginTop: 4, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
           <span style={{ fontSize: 26, fontWeight: 600, color: TEXT }}>{o.customerName} — {o.title}</span>
-          {unseen && <NewBadge />}
         </div>
         <div style={{ marginTop: 6, display: "flex", flexWrap: "wrap", gap: "6px 18px", fontSize: 14, fontWeight: 300, color: "#444", alignItems: "center" }}>
           {o.address && <span>{o.address}</span>}
@@ -1446,7 +1534,10 @@ function CustomerObjectView({ id, preview, autoOpenMessages }) {
           <Badge label={st.label} tone={st.tone} />
         </div>
       </div>
-        <ChangeLogButton events={o.events} />
+        <div style={{ display: "flex", alignItems: "center", gap: 2, flexShrink: 0 }}>
+          <ChangeLogButton events={o.events} />
+          <SubscribeButton objId={o.id} userEmail={userEmail} />
+        </div>
       </div>
 
       {/* Ответственный */}
@@ -1541,7 +1632,7 @@ function CustomerObjectsList({ email, accountId }) {
               <div style={{ minWidth: 0, flex: 1 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                   <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: ".05em", color: MUTED, textTransform: "uppercase" }}>№ {o.id}</span>
-                  <Badge label={st.label || o.status} tone={st.tone} />
+                  <Badge label={st.label || o.status} tone={DB.isObjectUnseen(o) ? "#8a8a8a" : st.tone} />
                 </div>
                 <div style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 9 }}>
                   <span style={{ fontSize: 17, fontWeight: 500, color: TEXT, lineHeight: 1.3 }}>{o.customerName} — {o.title}</span>
@@ -1827,6 +1918,28 @@ export default function ObjectsSection({ userEmail, userId, isAdmin }) {
     DB.hydrateObjects && DB.hydrateObjects({ force: true }); // подтянуть свежие данные с бэка
     return () => { window.removeEventListener("popstate", on); window.removeEventListener("objects:changed", on); };
   }, [force]);
+
+  // Живое обновление без F5: пока открыта вкладка «Объекты», раз в 15с тихо
+  // перечитываем данные с бэка — новое сообщение/изменение появляется само и
+  // загорается точка «новое». Опрос идёт ТОЛЬКО когда вкладка активна (при
+  // сворачивании — пауза), чтобы не жечь вызовы функции впустую.
+  React.useEffect(() => {
+    if (!(DB.usesApi && DB.usesApi())) return;
+    let timer = null;
+    const tick = () => {
+      if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+      DB.hydrateObjects && DB.hydrateObjects({ force: true });
+    };
+    const start = () => { if (!timer) timer = setInterval(tick, 15000); };
+    const stop = () => { if (timer) { clearInterval(timer); timer = null; } };
+    const onVis = () => {
+      if (typeof document === "undefined" || document.visibilityState === "visible") { tick(); start(); }
+      else stop();
+    };
+    start();
+    if (typeof document !== "undefined") document.addEventListener("visibilitychange", onVis);
+    return () => { stop(); if (typeof document !== "undefined") document.removeEventListener("visibilitychange", onVis); };
+  }, []);
   const p = typeof window !== "undefined" ? window.location.pathname : "";
   const search = typeof window !== "undefined" ? window.location.search : "";
   const preview = /(?:\?|&)preview=customer/.test(search);
@@ -1836,7 +1949,7 @@ export default function ObjectsSection({ userEmail, userId, isAdmin }) {
 
   if (objId) {
     if (isAdmin && !preview) return <AdminObjectEditor id={objId} autoOpenMessages={openMsg} />;
-    return <CustomerObjectView id={objId} preview={isAdmin && preview} autoOpenMessages={openMsg} />;
+    return <CustomerObjectView id={objId} preview={isAdmin && preview} autoOpenMessages={openMsg} userEmail={userEmail} />;
   }
   if (isAdmin) return <AdminObjectsList />;
   return <CustomerObjectsList email={userEmail} accountId={userId} />;

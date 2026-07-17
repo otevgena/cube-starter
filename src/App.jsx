@@ -17,6 +17,8 @@ import ProjectsPage from '@/pages/projects.jsx'
 import HomeMain from '@/components/blocks/HomeMain.jsx'
 // ⬇️ Хост модалок
 import ModalsHost from "@/components/common/Modals.jsx"
+// ⬇️ Хост всплывающих подсказок (тостов)
+import ToastHost from "@/components/common/Toast.jsx"
 
 // ⬇️ LEGAL-страницы
 import TermsPage from '@/pages/legal/terms.jsx'
@@ -551,6 +553,7 @@ export default function App(){
       <Footer />
       <StickyDock />
       <ModalsHost />
+      <ToastHost />
       {loading && <Preloader onReady={() => setLoading(false)} minMs={1200} />}
       <style>{`
         body.hero-zone .dock__pill.is-active,

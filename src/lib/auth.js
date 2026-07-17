@@ -214,7 +214,10 @@ export async function api(path, { method = 'GET', body, authRequired = true } = 
 // ===== high-level методы =====
 export async function registerUser({ name, email, password, remember = true }) {
   const data = await api('/auth/register', { method: 'POST', authRequired: false, body: { name, email, password } });
-  // бэкенд возвращает accessToken и ставит refresh-cookie — сразу логиним
+  // Новый флоу: регистрация НЕ логинит сразу — сперва подтверждение почты письмом.
+  // Бэкенд отдаёт { pendingVerification, email } без токена.
+  if (data && data.pendingVerification) return data;
+  // Обратная совместимость: если бэкенд всё же вернул accessToken — логиним.
   accessToken = data.accessToken || null;
   if (remember && accessToken) {
     localStorage.setItem('remember', '1');
@@ -223,6 +226,12 @@ export async function registerUser({ name, email, password, remember = true }) {
   syncSession(accessToken);
   emit();
   return data; // { user, accessToken }
+}
+
+// Повторная отправка письма-подтверждения по e-mail (без входа) — для тех,
+// кого не пустили из-за неподтверждённой почты.
+export async function resendVerify(email) {
+  return api('/auth/request-verify', { method: 'POST', authRequired: false, body: { email } });
 }
 
 export async function loginUser({ idOrEmail, password, remember }) {

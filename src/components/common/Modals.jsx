@@ -2,8 +2,9 @@
 // Модалки Вход / Регистрация / Восстановление / Custom — чистый Tailwind, без <style> и легаси .about-hero-*.
 import React from "react";
 import { createPortal } from "react-dom";
-import { registerUser, loginUser, verifyTwoFactor, requestPasswordReset, auth } from "@/lib/auth";
+import { registerUser, loginUser, verifyTwoFactor, requestPasswordReset, resendVerify, auth } from "@/lib/auth";
 import { CenterSpinner } from "@/components/common/Spinner.jsx";
+import { toast } from "@/components/common/Toast.jsx";
 
 /* После входа: если сохранён returnTo (напр. из ссылки в письме), возвращаем туда. */
 function returnToAfterLogin() {
@@ -207,9 +208,20 @@ function RegisterForm({ email = "" }) {
   const [form, setForm] = React.useState({ user: "", email, pass: "", pass2: "", news: false, agree: false });
   const [errors, setErrors] = React.useState({});
   const [busy, setBusy] = React.useState(false);
+  const [sent, setSent] = React.useState(null); // e-mail, на который ушло письмо-подтверждение
 
   const set = (k, v) => setForm((s) => ({ ...s, [k]: v }));
   const isEmail = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((v || "").trim());
+
+  const resend = async () => {
+    if (!sent || busy) return;
+    try {
+      setBusy(true);
+      await resendVerify(sent);
+      toast("Письмо отправлено ещё раз — проверьте почту.");
+    } catch { toast("Не удалось отправить письмо. Попробуйте позже.", { tone: "error" }); }
+    finally { setBusy(false); }
+  };
 
   const onSubmit = async (e) => {
     e.preventDefault();
@@ -228,14 +240,23 @@ function RegisterForm({ email = "" }) {
 
     try {
       setBusy(true);
-      const { user, accessToken } = await registerUser({
+      const res = await registerUser({
         name: form.user.trim(),
         email: form.email.trim(),
         password: form.pass,
       });
-      auth.set(accessToken, false);
-      if (window.setHeaderUser) window.setHeaderUser(user, accessToken);
-      if (window.closeModal) window.closeModal();
+      // Новый флоу: сразу в аккаунт не пускаем — просим подтвердить почту.
+      if (res && res.pendingVerification) {
+        setSent(res.email || form.email.trim());
+        toast("Мы отправили письмо для подтверждения почты.");
+        return;
+      }
+      // Обратная совместимость (если бэкенд ещё логинит сразу).
+      if (res && res.accessToken) {
+        auth.set(res.accessToken, false);
+        if (window.setHeaderUser) window.setHeaderUser(res.user, res.accessToken);
+        if (window.closeModal) window.closeModal();
+      }
     } catch (err) {
       if (err.status === 409) setErrors({ ...es, email: "Аккаунт с такой почтой уже зарегистрирован." });
       else if (err.status === 400) setErrors({ ...es, email: "Проверьте корректность введённых данных." });
@@ -244,6 +265,27 @@ function RegisterForm({ email = "" }) {
       setBusy(false);
     }
   };
+
+  // Экран после регистрации: подтверждение почты (в аккаунт ещё не пускаем).
+  if (sent) {
+    return (
+      <FormShell welcome="Почти готово" title="Подтвердите почту">
+        <div className="flex max-w-[420px] flex-col gap-5 self-start">
+          <p className="text-[15px] font-light leading-6 text-[#444]">
+            Мы отправили письмо со ссылкой на <span className="font-medium text-[#111]">{sent}</span>.
+            Перейдите по ссылке из письма, чтобы подтвердить адрес — после этого сможете войти.
+          </p>
+          <p className="text-[13px] font-light leading-5 text-[#777]">
+            Не пришло письмо? Проверьте папку «Спам» или отправьте ещё раз.
+          </p>
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+            <button className={BTN} type="button" onClick={() => window.openModal("login")}>Перейти ко входу</button>
+            <button type="button" className={LINK} onClick={resend} disabled={busy}>Отправить письмо ещё раз</button>
+          </div>
+        </div>
+      </FormShell>
+    );
+  }
 
   return (
     <FormShell
@@ -331,6 +373,18 @@ function LoginForm() {
   const [code, setCode] = React.useState("");
   const [codeErr, setCodeErr] = React.useState("");
 
+  // Вход заблокирован до подтверждения почты (саморегистрация)
+  const [unverified, setUnverified] = React.useState(null); // e-mail | null
+  const resendVerifyMail = async () => {
+    if (!unverified || busy) return;
+    try {
+      setBusy(true);
+      await resendVerify(unverified);
+      toast("Письмо для подтверждения отправлено ещё раз.");
+    } catch { toast("Не удалось отправить письмо. Попробуйте позже.", { tone: "error" }); }
+    finally { setBusy(false); }
+  };
+
   const onSubmit = async (e) => {
     e.preventDefault();
     if (busy) return;
@@ -341,6 +395,7 @@ function LoginForm() {
     setErrors(es);
     if (Object.keys(es).length) return;
 
+    setUnverified(null);
     try {
       setBusy(true);
       const res = await loginUser({ idOrEmail: form.id.trim(), password: form.pass, remember: !!form.keep });
@@ -354,7 +409,11 @@ function LoginForm() {
       if (window.closeModal) window.closeModal();
       returnToAfterLogin();
     } catch (err) {
-      if (err.status === 400) setErrors({ ...es, id: "Укажите e-mail или логин и пароль." });
+      if (err.status === 403 && err.payload && err.payload.error === "email_not_verified") {
+        setUnverified(err.payload.email || form.id.trim());
+        toast("Сначала подтвердите почту — мы отправили вам ссылку.", { tone: "error" });
+      }
+      else if (err.status === 400) setErrors({ ...es, id: "Укажите e-mail или логин и пароль." });
       else if (err.status === 401) setErrors({ id: "Неверный e-mail/логин или пароль.", pass: "Проверьте пароль." });
       else window.openModal("custom", { title: "Ошибка", content: <div>{err.message}</div>, width: 560 });
     } finally {
@@ -442,6 +501,12 @@ function LoginForm() {
       }
     >
       {busy ? <CenterSpinner minHeight={360} label="Входим в аккаунт…" /> : (<>
+      {unverified && (
+        <div className="mb-4 rounded-[12px] border border-[#f6c9b6] bg-[#fff4ef] px-4 py-3 text-sm font-light leading-6 text-[#b0451f]">
+          Почта <span className="font-medium">{unverified}</span> ещё не подтверждена. Перейдите по ссылке из письма, затем войдите.{" "}
+          <button type="button" className={`${LINK} text-[#b0451f]`} onClick={resendVerifyMail} disabled={busy}>Отправить письмо ещё раз</button>
+        </div>
+      )}
       <form className="grid grid-cols-2 gap-x-[18px] gap-y-[14px] self-start" onSubmit={onSubmit} noValidate>
         <div className="col-span-2 flex flex-col">
           <Label>ПОЧТА ИЛИ ИМЯ ПОЛЬЗОВАТЕЛЯ (*)</Label>
