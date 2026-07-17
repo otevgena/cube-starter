@@ -612,9 +612,11 @@ function AdminObjectsList() {
                 <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                   <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: ".05em", color: MUTED, textTransform: "uppercase" }}>№ {o.id}</span>
                   <Badge label={st.label || o.status} tone={st.tone} />
+                </div>
+                <div style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 9 }}>
+                  <span style={{ fontSize: 17, fontWeight: 500, color: TEXT, lineHeight: 1.3 }}>{o.customerName} — {o.title}</span>
                   {DB.isObjectUnseen(o) && <NewBadge />}
                 </div>
-                <div style={{ marginTop: 6, fontSize: 17, fontWeight: 500, color: TEXT, lineHeight: 1.3 }}>{o.customerName} — {o.title}</div>
                 <div style={{ marginTop: 3, fontSize: 13, fontWeight: 300, color: MUTED }}>{o.address || o.city}{o.responsibleName ? ` · ${o.responsibleName}` : ""} · {(o.documents || []).length} док.</div>
               </div>
               <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" style={{ flexShrink: 0, color: "#bdbdbd" }}>
@@ -1342,13 +1344,13 @@ function TrackIcon() {
 }
 
 // Кнопка + выезжающая справа панель «История изменений» (таймлайн событий объекта).
-// Морковный бейдж «новое» — маркер непросмотренных изменений (мягкая пульсация).
-function NewBadge({ compact = false, style }) {
+// Морковная пульсирующая точка «новое» — тот же индикатор, что у «Запросы» в
+// StickyDock (расходящееся кольцо). Ставится после названия объекта.
+function NewBadge({ size = 8, style }) {
   return (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: 5, flexShrink: 0, ...style }}>
-      <style>{`@keyframes newPulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.55);opacity:.5}}`}</style>
-      <span style={{ width: 6, height: 6, borderRadius: 999, background: CARROT, animation: "newPulse 1.6s ease-in-out infinite" }} />
-      {!compact && <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: ".06em", textTransform: "uppercase", color: CARROT }}>новое</span>}
+    <span aria-hidden="true" title="Есть новое"
+      style={{ display: "inline-block", width: size, height: size, borderRadius: 999, background: CARROT, flexShrink: 0, animation: "cubeNewPulse 1.8s ease-out infinite", ...style }}>
+      <style>{`@keyframes cubeNewPulse{0%{box-shadow:0 0 0 0 rgba(250,93,41,.5)}70%{box-shadow:0 0 0 6px rgba(250,93,41,0)}100%{box-shadow:0 0 0 0 rgba(250,93,41,0)}}`}</style>
     </span>
   );
 }
@@ -1540,9 +1542,11 @@ function CustomerObjectsList({ email, accountId }) {
                 <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                   <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: ".05em", color: MUTED, textTransform: "uppercase" }}>№ {o.id}</span>
                   <Badge label={st.label || o.status} tone={st.tone} />
+                </div>
+                <div style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 9 }}>
+                  <span style={{ fontSize: 17, fontWeight: 500, color: TEXT, lineHeight: 1.3 }}>{o.customerName} — {o.title}</span>
                   {DB.isObjectUnseen(o) && <NewBadge />}
                 </div>
-                <div style={{ marginTop: 6, fontSize: 17, fontWeight: 500, color: TEXT, lineHeight: 1.3 }}>{o.customerName} — {o.title}</div>
                 <div style={{ marginTop: 3, fontSize: 13, fontWeight: 300, color: MUTED }}>{o.address || o.city}{o.responsibleName ? ` · ${o.responsibleName}` : ""} · {(o.documents || []).length} док.</div>
               </div>
               <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" style={{ flexShrink: 0, color: "#111" }}>

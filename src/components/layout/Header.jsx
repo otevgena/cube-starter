@@ -586,7 +586,12 @@ function MobileAccountMenu({ onClose, user, onLogout }) {
             <Item onClick={() => go("/account/profile")}>Профиль</Item>
             <Item
               onClick={() => go("/account/objects")}
-              right={objectsUnseen ? <span className="shrink-0 rounded bg-carrot px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white">New</span> : null}
+              right={objectsUnseen ? (
+                <span className="relative flex h-2 w-2 shrink-0" title="Есть новое">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-carrot opacity-75" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-carrot" />
+                </span>
+              ) : null}
             >
               Объекты
             </Item>

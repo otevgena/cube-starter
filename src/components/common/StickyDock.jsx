@@ -592,8 +592,6 @@ export default function StickyDock() {
                 ) : (
                   <span className="dock__objinfo-sub">Этапы не заданы</span>
                 )}
-                {objInfo?.thread === "awaiting" && <span className="dock__thread awaiting">{isAdminUser ? "Новый запрос" : "Ожидание ответа"}</span>}
-                {objInfo?.thread === "answered" && <span className="dock__thread answered">Отвечено</span>}
               </div>
             </div>
           ) : isAccount && (
@@ -617,7 +615,7 @@ export default function StickyDock() {
               title={isAdminUser ? "Открыть переписку по объекту" : "Задать вопрос по объекту"}
             >
               {isAdminUser ? "Запросы" : "Задать вопрос"}
-              {objInfo?.thread === "awaiting" && <span className="dock__objcta-badge" aria-hidden="true" />}
+              {(isAdminUser ? objInfo?.thread === "awaiting" : objInfo?.thread === "answered") && <span className="dock__objcta-badge" aria-hidden="true" />}
             </button>
           ) : isAccount ? (
             <a
@@ -915,13 +913,6 @@ export default function StickyDock() {
         }
         .dock__objinfo-bar-pct{ font-size: 11px; font-weight: 600; color: #cfcfcf; }
         .dock__objinfo-sub{ font-size: 11px; font-weight: 300; color: #9a9a9a; }
-        .dock__thread{ font-size: 11px; font-weight: 600; border-radius: 999px; padding: 2px 9px; white-space: nowrap; }
-        .dock__thread.awaiting{ color: #ffd9c7; background: rgba(250,93,41,.22); animation: dockThreadGlow 2.2s ease-in-out infinite; }
-        .dock__thread.answered{ color: #cdeccf; background: rgba(47,133,90,.30); }
-        @keyframes dockThreadGlow{
-          0%, 100%{ box-shadow: 0 0 0 0 rgba(250,93,41,0); }
-          50%{ box-shadow: 0 0 0 3px rgba(250,93,41,.16); }
-        }
         @keyframes dockBadgePulse{
           0%   { box-shadow: 0 0 0 0 rgba(250,93,41,.45); }
           70%  { box-shadow: 0 0 0 6px rgba(250,93,41,0); }
@@ -943,7 +934,6 @@ export default function StickyDock() {
           animation: dockBadgePulse 1.8s ease-out infinite;
         }
         @media (prefers-reduced-motion: reduce){
-          .dock__thread.awaiting{ animation: none; }
           .dock__objcta-badge{ animation: none; box-shadow: 0 0 0 3px rgba(250,93,41,.25); }
         }
       `}</style>
