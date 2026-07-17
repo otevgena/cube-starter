@@ -2508,7 +2508,9 @@ export default function AccountProfilePage() {
       setIsAdmin(admin);
       try { sessionStorage.setItem("auth:isAdmin", admin ? "1" : "0"); } catch {}
       setCity(String(u.city || ""));
-      setTimezone(RU_TIMEZONES.some((z) => z.tz === u.timezone) ? u.timezone : DEFAULT_TZ);
+      { const tz = RU_TIMEZONES.some((z) => z.tz === u.timezone) ? u.timezone : DEFAULT_TZ;
+        setTimezone(tz);
+        try { localStorage.setItem("profile:timezone", tz); } catch {} }
       setAbout(String(u.about || ""));
       setOrg(String(u.org || u.organization || ""));
       setInn(String(u.inn || ""));
@@ -2887,6 +2889,7 @@ export default function AccountProfilePage() {
 
       if (!resp) throw new Error("save_failed");
 
+      try { localStorage.setItem("profile:timezone", timezone); } catch {}
       const updatedUser = resp.user || { name: display.trim(), email: userEmail, group: groupCode };
       if (typeof window.setHeaderUser === "function") {
         window.setHeaderUser(updatedUser, token);

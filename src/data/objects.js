@@ -287,7 +287,8 @@ export function addMessage(objId, { from = "customer", author = "", text = "", a
   const o = findObj(store, objId);
   if (!o) return null;
 
-  const msg = { id: uid("msg"), from, author, text: body, attachments: atts, at: nowIso(), pending: apiEnabled() };
+  const tz = myTimezone();
+  const msg = { id: uid("msg"), from, author, text: body, attachments: atts, tz, at: nowIso(), pending: apiEnabled() };
   o.messages = Array.isArray(o.messages) ? o.messages : [];
   o.messages.push(msg);
   o.threadStatus = from === "customer" ? "awaiting" : "answered";
@@ -299,7 +300,7 @@ export function addMessage(objId, { from = "customer", author = "", text = "", a
   emitChanged(); // оптимистично показываем сообщение
   const promise = api(`/objects/${encodeURIComponent(objId)}/messages`, {
     method: "POST",
-    body: { text: body, attachments: atts },
+    body: { text: body, attachments: atts, tz },
   }).then((res) => {
     const cur = findObj(loadStore(), objId);
     if (cur) {
@@ -332,6 +333,12 @@ let _seq = 0;
 function uid(p = "id") { _seq += 1; return `${p}-${Date.now().toString(36)}-${_seq}`; }
 function today() { const d = new Date(); return d.toISOString().slice(0, 10); }
 function nowIso() { return new Date().toISOString(); }
+// Часовой пояс автора для отметки времени в переписке: сперва выбранный в профиле
+// (кэш profile:timezone), иначе — фактический пояс браузера.
+function myTimezone() {
+  try { const t = localStorage.getItem("profile:timezone"); if (t) return t; } catch {}
+  try { return Intl.DateTimeFormat().resolvedOptions().timeZone || ""; } catch { return ""; }
+}
 export function docUrl(objId, file) { return `/objects/${encodeURIComponent(objId)}/documents/${encodeURIComponent(file)}`; }
 
 /* ===================== Сид данных ===================== */

@@ -1094,6 +1094,31 @@ function DocumentsEditor({ id, obj, onChange }) {
       Демо на localStorage; реальные письма/хранение — при переносе на бэкенд. --- */
 const msgLabel = { display: "block", textAlign: "left", fontSize: 12, fontWeight: 300, textTransform: "uppercase", letterSpacing: ".04em", color: "#a7a7a7", marginBottom: 6 };
 // Вложение в треде: клик → presigned-ссылка (картинки открываем inline, файлы — скачиваем).
+// Города по IANA-поясам РФ — для подписи «во сколько по местному написал автор».
+const RU_TZ_CITY = {
+  "Europe/Kaliningrad": "Калининград", "Europe/Moscow": "Москва", "Europe/Samara": "Самара",
+  "Asia/Yekaterinburg": "Екатеринбург", "Asia/Omsk": "Омск", "Asia/Krasnoyarsk": "Красноярск",
+  "Asia/Irkutsk": "Иркутск", "Asia/Yakutsk": "Якутск", "Asia/Vladivostok": "Владивосток",
+  "Asia/Magadan": "Магадан", "Asia/Kamchatka": "Камчатка",
+};
+// Время сообщения в поясе автора: «17.07, 14:32 · Екатеринбург».
+function fmtMsgTime(m) {
+  const iso = m && m.at;
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "";
+  const tz = m.tz && typeof m.tz === "string" ? m.tz : "";
+  const opts = { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" };
+  try {
+    if (tz) opts.timeZone = tz;
+    const t = new Intl.DateTimeFormat("ru-RU", opts).format(d);
+    const city = RU_TZ_CITY[tz];
+    return city ? `${t} · ${city}` : t;
+  } catch {
+    return new Intl.DateTimeFormat("ru-RU", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }).format(d);
+  }
+}
+
 function MsgAttachment({ att }) {
   const [busy, setBusy] = React.useState(false);
   const isImg = /^image\//.test(att.mime || "") || /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(att.name || "");
@@ -1218,6 +1243,11 @@ function MessagesPanel({ objId, side, authorName, disabled, autoOpen }) {
                 <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: ".04em", textTransform: "uppercase", color: fromCustomer ? MUTED : TEXT }}>
                   {fromCustomer ? "Запрос заказчика" : "Ответ ответственного"}
                 </div>
+                {(m.author || m.at) && (
+                  <div style={{ marginTop: 2, fontSize: 12, color: MUTED }}>
+                    {m.author ? m.author : ""}{m.author && fmtMsgTime(m) ? " · " : ""}{fmtMsgTime(m)}
+                  </div>
+                )}
                 {m.text && <div style={{ marginTop: 5, fontSize: 15, lineHeight: 1.5, color: TEXT, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{m.text}</div>}
                 {mAtts.length > 0 && (
                   <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 8 }}>
