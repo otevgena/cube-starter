@@ -1,5 +1,6 @@
 // src/components/common/StickyDock.jsx
 import React from "react";
+import { getObject, threadStatus, OBJECT_STATUSES } from "@/data/objects.js";
 
 // услуга (страница) → предвыбранный пункт «чем помочь» в форме контактов
 const SERVICE_HELP = {
@@ -52,6 +53,43 @@ export default function StickyDock() {
   const [isAccount, setIsAccount] = React.useState(getIsAccount());
   const [isServiceDetail, setIsServiceDetail] = React.useState(getIsServiceDetail());
   const [objectNumber, setObjectNumber] = React.useState(getObjectNumber());
+
+  /* ---- живой статус объекта в доке (статус, прогресс по этапам, переписка) ---- */
+  const readIsAdmin = () => { try { return sessionStorage.getItem("auth:isAdmin") === "1"; } catch { return false; } };
+  const readObjInfo = (num) => {
+    if (!num) return null;
+    try {
+      const o = getObject(num);
+      const st = o ? (OBJECT_STATUSES.find((s) => s.code === o.status) || null) : null;
+      const stages = (o && o.stages) || [];
+      const total = stages.length;
+      const done = stages.filter((s) => s.status === "done").length;
+      return {
+        id: num,
+        statusLabel: st ? st.label : "",
+        statusTone: st ? st.tone : "#8a8a8a",
+        progress: total ? Math.round((done / total) * 100) : null,
+        thread: threadStatus(num), // 'empty' | 'awaiting' | 'answered'
+      };
+    } catch {
+      return { id: num, statusLabel: "", statusTone: "#8a8a8a", progress: null, thread: "empty" };
+    }
+  };
+  const [isAdminUser, setIsAdminUser] = React.useState(readIsAdmin());
+  const [objInfo, setObjInfo] = React.useState(() => readObjInfo(getObjectNumber()));
+  React.useEffect(() => { setObjInfo(readObjInfo(objectNumber)); }, [objectNumber]);
+  React.useEffect(() => {
+    const on = () => { setObjInfo(readObjInfo(getObjectNumber())); setIsAdminUser(readIsAdmin()); };
+    window.addEventListener("objects:changed", on);
+    window.addEventListener("auth:changed", on);
+    return () => { window.removeEventListener("objects:changed", on); window.removeEventListener("auth:changed", on); };
+  }, []);
+  // «Задать вопрос» / «Запросы» — просим страницу объекта раскрыть переписку и подскроллить.
+  const onObjectMessage = (e) => {
+    if (e) e.preventDefault();
+    try { window.dispatchEvent(new CustomEvent("object:message-open", { detail: { id: objectNumber } })); } catch {}
+  };
+  const inObject = isAccount && !!objectNumber;
 
   // имя профиля для дока (из кэша Header), обновляется на auth:changed
   const readUserName = () => {
@@ -110,12 +148,18 @@ export default function StickyDock() {
         const nextLegal = isLegalPath(nextPath);
         const prevAcc = /^\/account(\/|$)/.test(prevPath || "");
         const nextAcc = /^\/account(\/|$)/.test(nextPath || "");
+        // страница объекта (форма дока «is-object» шире обычного аккаунта)
+        const objRe = /^\/account\/objects\/(?!u(?:[/?#]|$))[^/?#]+/;
+        const prevObj = objRe.test(prevPath || "");
+        const nextObj = objRe.test(nextPath || "");
+        // вход/выход из объекта меняет форму дока → плавно переезжаем, а не дёргаемся
+        const accSame = prevAcc && nextAcc && prevObj === nextObj;
         // компактные сервисные страницы (форма дока одинаковая) — электро/слаботочка/вентиляция/проект/общестрой
         const svcRe = /^\/services\/(electrical|lowcurrent|ventilation|design|construction)(\/|$)/;
         const prevSvc = svcRe.test(prevPath || "");
         const nextSvc = svcRe.test(nextPath || "");
-        // не анимируем док при переходах внутри legal / аккаунта / внутри сервисов (вкладки услуг)
-        allowAnimateRef.current = !((prevLegal && nextLegal) || (prevAcc && nextAcc) || (prevSvc && nextSvc));
+        // не анимируем док при переходах внутри legal / внутри аккаунта (той же формы) / внутри сервисов
+        allowAnimateRef.current = !((prevLegal && nextLegal) || accSame || (prevSvc && nextSvc));
       }
 
       prevPathRef.current = nextPath;
@@ -436,7 +480,7 @@ export default function StickyDock() {
   }, []);
 
   /* =============== classes =============== */
-  const dockClass = `dock${isLegal ? " is-legal" : ""}${isElectro ? " is-electro" : ""}${isContact ? " is-contact" : ""}${isAccount ? " is-account" : ""}`;
+  const dockClass = `dock${isLegal ? " is-legal" : ""}${isElectro ? " is-electro" : ""}${isContact ? " is-contact" : ""}${isAccount ? " is-account" : ""}${inObject ? " is-object" : ""}`;
 
   /* =============== render =============== */
   return (
@@ -531,8 +575,28 @@ export default function StickyDock() {
             ))}
           </div>
 
-          {/* аккаунт: кнопка профиля (иконка + имя с подчёркиванием) */}
-          {isAccount && (
+          {/* аккаунт → объект: живой статус (№ + статус + прогресс по этапам + состояние переписки) */}
+          {inObject ? (
+            <div className="dock__objinfo">
+              <div className="dock__objinfo-top">
+                <span className="dock__objinfo-dot" style={{ background: objInfo?.statusTone || "#8a8a8a" }} />
+                <span className="dock__objinfo-num">№{objInfo?.id || objectNumber}</span>
+                {objInfo?.statusLabel && <span className="dock__objinfo-status">· {objInfo.statusLabel}</span>}
+              </div>
+              <div className="dock__objinfo-row2">
+                {objInfo?.progress != null ? (
+                  <span className="dock__objinfo-bar">
+                    <span className="dock__objinfo-bar-track"><span className="dock__objinfo-bar-fill" style={{ width: `${objInfo.progress}%` }} /></span>
+                    <span className="dock__objinfo-bar-pct">{objInfo.progress}%</span>
+                  </span>
+                ) : (
+                  <span className="dock__objinfo-sub">Этапы не заданы</span>
+                )}
+                {objInfo?.thread === "awaiting" && <span className="dock__thread awaiting">{isAdminUser ? "Новый запрос" : "Ожидание ответа"}</span>}
+                {objInfo?.thread === "answered" && <span className="dock__thread answered">Отвечено</span>}
+              </div>
+            </div>
+          ) : isAccount && (
             <a
               href="/account/profile"
               onClick={(e) => { e.preventDefault(); go("/account/profile"); }}
@@ -540,12 +604,22 @@ export default function StickyDock() {
               title="Профиль"
             >
               <img src="/profile/profile.png" alt="" className="dock__profile-avatar" />
-              <span className="dock__profile-name">{objectNumber || userName || "Профиль"}</span>
+              <span className="dock__profile-name">{userName || "Профиль"}</span>
             </a>
           )}
 
           {/* CTA справа */}
-          {isAccount ? (
+          {inObject ? (
+            <button
+              type="button"
+              className="dock__objcta"
+              onClick={onObjectMessage}
+              title={isAdminUser ? "Открыть переписку по объекту" : "Задать вопрос по объекту"}
+            >
+              {isAdminUser ? "Запросы" : "Задать вопрос"}
+              {objInfo?.thread === "awaiting" && <span className="dock__objcta-badge" aria-hidden="true" />}
+            </button>
+          ) : isAccount ? (
             <a
               href="/account/objects"
               onClick={(e) => { e.preventDefault(); go("/account/objects"); }}
@@ -809,6 +883,69 @@ export default function StickyDock() {
         }
         .dock.is-account .dock__settings:hover{ filter: brightness(0.96); }
         .dock.is-account .dock__settings:active{ filter: brightness(0.92); }
+
+        /* ===== режим объекта: c. (назад) + живой статус + действие ===== */
+        .dock.is-object .dock__inner{
+          grid-template-columns: var(--dock-left-tile) auto auto;  /* назад + инфо + действие */
+          column-gap: 6px;
+          width: auto;
+        }
+        .dock.is-object button.dock__brand{ left: 0; }
+        .dock__objinfo{
+          display: flex; flex-direction: column; justify-content: center; gap: 7px;
+          height: 60px; padding: 0 16px;
+          border-radius: 10px;
+          background: #3E3E3E;            /* графитовая плашка как у профиля */
+          color: #e8e8e8;
+          min-width: 196px;
+        }
+        .dock__objinfo-top{ display: flex; align-items: center; gap: 8px; font-size: 14px; line-height: 1; white-space: nowrap; }
+        .dock__objinfo-dot{ width: 9px; height: 9px; border-radius: 999px; flex: 0 0 auto; }
+        .dock__objinfo-num{ font-weight: 600; color: #fff; }
+        .dock__objinfo-status{ font-weight: 300; color: #c5c5c5; }
+        .dock__objinfo-row2{ display: flex; align-items: center; gap: 10px; line-height: 1; width: 100%; }
+        .dock__objinfo-bar{ display: flex; align-items: center; gap: 8px; flex: 1 1 auto; min-width: 0; }
+        .dock__objinfo-bar-track{
+          position: relative; flex: 1 1 auto; width: auto; min-width: 80px; height: 5px; border-radius: 999px;
+          background: rgba(255,255,255,.16); overflow: hidden;
+        }
+        .dock__objinfo-bar-fill{
+          position: absolute; left: 0; top: 0; bottom: 0; border-radius: 999px;
+          background: #aceec4; transition: width .45s cubic-bezier(.2,.8,.2,1);
+        }
+        .dock__objinfo-bar-pct{ font-size: 11px; font-weight: 600; color: #cfcfcf; }
+        .dock__objinfo-sub{ font-size: 11px; font-weight: 300; color: #9a9a9a; }
+        .dock__thread{ font-size: 11px; font-weight: 600; border-radius: 999px; padding: 2px 9px; white-space: nowrap; }
+        .dock__thread.awaiting{ color: #ffd9c7; background: rgba(250,93,41,.22); animation: dockThreadGlow 2.2s ease-in-out infinite; }
+        .dock__thread.answered{ color: #cdeccf; background: rgba(47,133,90,.30); }
+        @keyframes dockThreadGlow{
+          0%, 100%{ box-shadow: 0 0 0 0 rgba(250,93,41,0); }
+          50%{ box-shadow: 0 0 0 3px rgba(250,93,41,.16); }
+        }
+        @keyframes dockBadgePulse{
+          0%   { box-shadow: 0 0 0 0 rgba(250,93,41,.45); }
+          70%  { box-shadow: 0 0 0 6px rgba(250,93,41,0); }
+          100% { box-shadow: 0 0 0 0 rgba(250,93,41,0); }
+        }
+        .dock__objcta{
+          display: inline-flex; align-items: center; gap: 9px;
+          height: 60px; padding: 0 20px;
+          border-radius: 8px;
+          background: #aceec4; color: #111;
+          border: none; cursor: pointer; white-space: nowrap;
+          font-family: inherit; font-size: 13px; font-weight: 600;
+          transition: filter .18s ease;
+        }
+        .dock__objcta:hover{ filter: brightness(0.96); }
+        .dock__objcta:active{ filter: brightness(0.92); }
+        .dock__objcta-badge{
+          width: 7px; height: 7px; border-radius: 999px; background: #FA5D29; flex: 0 0 auto;
+          animation: dockBadgePulse 1.8s ease-out infinite;
+        }
+        @media (prefers-reduced-motion: reduce){
+          .dock__thread.awaiting{ animation: none; }
+          .dock__objcta-badge{ animation: none; box-shadow: 0 0 0 3px rgba(250,93,41,.25); }
+        }
       `}</style>
     </div>
   );

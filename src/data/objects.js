@@ -232,42 +232,98 @@ export function capsForEmail(email) { const emp = employeeByEmail(email); return
 // совместимость со старым кодом
 export const EMPLOYEES = EMPLOYEES_BASE;
 
-/* ===================== Переписка по объекту (демо, localStorage) =====================
-   Тред «заказчик ↔ ответственный». Пока хранится локально; при переносе на бэкенд —
-   в документе объекта (cube-objects) + письмо ответственному через Postbox. */
-const LS_MSGS = "cube:objmsgs";          // { [objId]: [ {id, from, author, text, at, read} ] }
-const LS_MSGS_OUTBOX = "cube:objmsgs:outbox"; // демо-«отправленные письма» ответственному
-export function getMessages(objId) { const all = lsGet(LS_MSGS, {}); return Array.isArray(all[objId]) ? all[objId] : []; }
-// from: 'customer' | 'staff'. Возвращает { msg, mailedTo } — кому «ушло письмо» (демо).
-export function addMessage(objId, { from = "customer", author = "", text = "" } = {}) {
-  const body = String(text || "").trim(); if (!body) return null;
-  const all = lsGet(LS_MSGS, {});
-  const list = Array.isArray(all[objId]) ? all[objId] : [];
-  const msg = { id: uid("msg"), from, author, text: body, at: nowIso() };
-  list.push(msg); all[objId] = list; lsSet(LS_MSGS, all);
-  let mailedTo = "";
-  if (from === "customer") {
-    // письмо уходит ответственному за объект (fallback — супер-админ)
-    const o = getObject(objId);
-    mailedTo = (o && o.responsibleEmail) || (o && emailOfResponsible(o)) || "info@cube-tech.ru";
-    const ob = lsGet(LS_MSGS_OUTBOX, []); ob.push({ id: uid("mail"), objId, to: mailedTo, at: nowIso(), preview: body.slice(0, 120) }); lsSet(LS_MSGS_OUTBOX, ob);
-  }
-  try { window.dispatchEvent(new CustomEvent("objects:changed")); } catch {}
-  return { msg, mailedTo };
-}
-// e-mail ответственного: сперва из объекта, иначе ищем сотрудника по ФИО.
-function emailOfResponsible(o) {
-  if (!o) return "";
-  if (o.responsibleEmail) return o.responsibleEmail;
-  const emp = getEmployees().find((e) => e.fio && e.fio === o.responsibleName);
-  return (emp && emp.email) || "";
+/* ===================== Переписка по объекту (бэкенд) =====================
+   Тред «заказчик ↔ ответственный» хранится ВНУТРИ объекта (o.messages[]) в
+   cube-objects. Добавление идёт отдельным эндпоинтом POST /objects/{id}/messages
+   (доступен и заказчику: он не может PUT-ить объект целиком). Бэкенд шлёт письмо
+   второй стороне (customer→ответственному, staff→заказчику) через Postbox.
+   В localStorage-режиме (objects:api=0) — тот же o.messages, но без сети/почты. */
+
+// Сообщения читаем прямо из кэша объекта.
+export function getMessages(objId) {
+  const o = findObj(loadStore(), objId);
+  return o && Array.isArray(o.messages) ? o.messages.slice() : [];
 }
 // Состояние треда: 'empty' | 'awaiting' (ждём ответа сотрудника) | 'answered'.
 export function threadStatus(objId) {
-  const list = getMessages(objId); if (!list.length) return "empty";
+  const o = findObj(loadStore(), objId);
+  if (!o) return "empty";
+  if (o.threadStatus) return o.threadStatus;
+  const list = Array.isArray(o.messages) ? o.messages : [];
+  if (!list.length) return "empty";
   return list[list.length - 1].from === "customer" ? "awaiting" : "answered";
 }
-export function outboxForObject(objId) { return lsGet(LS_MSGS_OUTBOX, []).filter((m) => m.objId === objId); }
+// e-mail ответственного (для подсказки в UI; фактическую рассылку делает бэкенд).
+function emailOfResponsible(o) {
+  if (!o) return "";
+  if (o.responsibleEmail) return String(o.responsibleEmail).trim();
+  const emp = getEmployees().find((e) => e.fio && e.fio === o.responsibleName);
+  return (emp && emp.email) || "";
+}
+
+// Загрузка вложения переписки в S3 (browser → presigned PUT, kind:'message').
+// Возвращает { key, name, size, mime } для attachments сообщения.
+export async function uploadMessageAttachment({ objectId, file }) {
+  const { key, uploadUrl } = await api("/files/upload-url", {
+    method: "POST",
+    body: { objectId, kind: "message", filename: file.name, contentType: file.type || "application/octet-stream" },
+  });
+  const put = await fetch(uploadUrl, {
+    method: "PUT", body: file,
+    headers: { "Content-Type": file.type || "application/octet-stream" },
+  });
+  if (!put.ok) throw new Error(`S3 upload failed (${put.status})`);
+  return { key, name: file.name, size: file.size, mime: file.type || "" };
+}
+
+// from: 'customer' | 'staff'. attachments: [{key,name,size,mime}].
+// Оптимистично добавляет сообщение в кэш и шлёт на бэкенд; возвращает
+// { msg, mailedTo, promise }. По ответу сервера согласует тред (id/время).
+export function addMessage(objId, { from = "customer", author = "", text = "", attachments = [] } = {}) {
+  const body = String(text || "").trim();
+  const atts = Array.isArray(attachments) ? attachments : [];
+  if (!body && !atts.length) return null;
+  const store = loadStore();
+  const o = findObj(store, objId);
+  if (!o) return null;
+
+  const msg = { id: uid("msg"), from, author, text: body, attachments: atts, at: nowIso(), pending: apiEnabled() };
+  o.messages = Array.isArray(o.messages) ? o.messages : [];
+  o.messages.push(msg);
+  o.threadStatus = from === "customer" ? "awaiting" : "answered";
+  o.threadUpdatedAt = msg.at;
+  const mailedTo = from === "customer" ? (emailOfResponsible(o) || "info@cube-tech.ru") : "";
+
+  if (!apiEnabled()) { saveStoreLS(store); emitChanged(); return { msg, mailedTo }; }
+
+  emitChanged(); // оптимистично показываем сообщение
+  const promise = api(`/objects/${encodeURIComponent(objId)}/messages`, {
+    method: "POST",
+    body: { text: body, attachments: atts },
+  }).then((res) => {
+    const cur = findObj(loadStore(), objId);
+    if (cur) {
+      const so = res && res.object;
+      if (so && Array.isArray(so.messages)) {
+        // сервер — источник истины по треду
+        cur.messages = so.messages;
+        cur.threadStatus = so.threadStatus || cur.threadStatus;
+        cur.threadUpdatedAt = so.threadUpdatedAt || cur.threadUpdatedAt;
+      } else if (res && res.message) {
+        const i = cur.messages.findIndex((m) => m.id === msg.id);
+        if (i >= 0) cur.messages[i] = res.message; else cur.messages.push(res.message);
+      }
+      emitChanged();
+    }
+    return res;
+  }).catch((e) => {
+    const cur = findObj(loadStore(), objId);
+    if (cur) { const m = (cur.messages || []).find((x) => x.id === msg.id); if (m) { m.pending = false; m.failed = true; } emitChanged(); }
+    reportSyncErr(e);
+    throw e;
+  });
+  return { msg, mailedTo, promise };
+}
 
 /* ===================== Утилиты ===================== */
 function lsGet(key, fallback) { try { const s = localStorage.getItem(key); return s ? JSON.parse(s) : fallback; } catch { return fallback; } }
