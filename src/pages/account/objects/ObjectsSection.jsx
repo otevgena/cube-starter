@@ -1113,10 +1113,11 @@ function CustomerObjectView({ id, preview }) {
 }
 
 /* --- Список объектов заказчика (+ фильтр) --- */
-function CustomerObjectsList({ email }) {
+function CustomerObjectsList({ email, accountId }) {
   const [q, setQ] = React.useState("");
   const [fStatus, setFStatus] = React.useState("");
-  const items = DB.listObjectsForCustomer(email);
+  // Матчим по почте ИЛИ по id учётки — вход по логину без почты тоже видит свои объекты.
+  const items = DB.listObjectsForCustomer(email, accountId);
   const t = q.toLowerCase().trim();
   const list = items.filter((o) => {
     if (fStatus && o.status !== fStatus) return false;
@@ -1417,7 +1418,7 @@ export function TemplatesModule({ backTo }) {
 /* ============================================================= */
 /* ====================== ТОЧКА ВХОДА ========================= */
 /* ============================================================= */
-export default function ObjectsSection({ userEmail, isAdmin }) {
+export default function ObjectsSection({ userEmail, userId, isAdmin }) {
   const force = useForceUpdate();
   React.useEffect(() => {
     const on = () => force();
@@ -1437,5 +1438,5 @@ export default function ObjectsSection({ userEmail, isAdmin }) {
     return <CustomerObjectView id={objId} preview={isAdmin && preview} />;
   }
   if (isAdmin) return <AdminObjectsList />;
-  return <CustomerObjectsList email={userEmail} />;
+  return <CustomerObjectsList email={userEmail} accountId={userId} />;
 }

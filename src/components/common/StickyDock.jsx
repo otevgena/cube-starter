@@ -408,18 +408,24 @@ export default function StickyDock() {
   }, [runDockAnimation, setHiddenInstant]);
 
   /* =============== Toast "Сохранено" =============== */
-  const [toast, setToast] = React.useState({ visible: false, text: "" });
+  const [toast, setToast] = React.useState({ visible: false, text: "", error: false });
   const toastTimerRef = React.useRef(null);
   const toastRef = React.useRef(null);
 
+  // Ошибка/предупреждение определяется по тексту (все вызовы ошибок начинаются так),
+  // либо явно третьим аргументом showDockToast(text, ms, "error").
+  const looksLikeError = (text) =>
+    /^(не удалось|не получилось|нужна|нужен|ошибка|нельзя|сессия отозвана)/i.test(String(text || "").trim());
+
   React.useEffect(() => {
-    window.showDockToast = (text = "Сохранено", ms = 2400) => {
+    window.showDockToast = (text = "Сохранено", ms = 2400, type) => {
       try { if (toastTimerRef.current) clearTimeout(toastTimerRef.current); } catch {}
+      const error = type ? type === "error" || type === "warn" : looksLikeError(text);
       // Ширина — всегда по содержимому, в одну строку (без ужимания, иначе текст переносится).
-      setToast({ visible: true, text });
+      setToast({ visible: true, text, error });
 
       toastTimerRef.current = setTimeout(() => {
-        setToast({ visible: false, text: "" });
+        setToast({ visible: false, text: "", error: false });
         toastTimerRef.current = null;
       }, Number(ms) || 2400);
     };
@@ -458,12 +464,21 @@ export default function StickyDock() {
         aria-atomic="true"
       >
         <span className="dock-toast__icon" aria-hidden="true">
-          {/* круг + галочка (26px) */}
-          <svg viewBox="0 0 24 24" width="26" height="26" focusable="false">
-            <circle cx="12" cy="12" r="10" fill="#ffffff"/>
-            <path d="M7 12.5l3.1 3.1L17 9" fill="none" stroke="#111111" strokeWidth="2.2"
-                  strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
+          {toast.error ? (
+            /* круг + восклицательный знак (ошибка/предупреждение, 26px) */
+            <svg viewBox="0 0 24 24" width="26" height="26" focusable="false">
+              <circle cx="12" cy="12" r="10" fill="#f6c343"/>
+              <line x1="12" y1="7" x2="12" y2="13.5" stroke="#111111" strokeWidth="2.2" strokeLinecap="round"/>
+              <circle cx="12" cy="17" r="1.35" fill="#111111"/>
+            </svg>
+          ) : (
+            /* круг + галочка (успех, 26px) */
+            <svg viewBox="0 0 24 24" width="26" height="26" focusable="false">
+              <circle cx="12" cy="12" r="10" fill="#ffffff"/>
+              <path d="M7 12.5l3.1 3.1L17 9" fill="none" stroke="#111111" strokeWidth="2.2"
+                    strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          )}
         </span>
         <span className="dock-toast__text">{toast.text || "Сохранено"}</span>
       </div>

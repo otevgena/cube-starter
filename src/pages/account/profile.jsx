@@ -1187,6 +1187,15 @@ function SectionButton({ onClick, disabled, children, variant = "solid" }) {
   );
 }
 
+/* Спиннер на месте кнопки секции: занимает тот же бокс (72×277) и центрирует наш круглишок. */
+function SectionBusy() {
+  return (
+    <div className="w-full lg:w-[277px]" style={{ height: 72, display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <Spinner size={30} />
+    </div>
+  );
+}
+
 /* Иконка «корзина» (удаление аккаунта). */
 function TrashIcon({ size = 18, color = "currentColor" }) {
   return (
@@ -2274,6 +2283,7 @@ function OrgSuggest({ value, onChange, onPick, placeholder }) {
 export default function AccountProfilePage() {
   const [token, setToken] = React.useState(null);
   const [userEmail, setUserEmail] = React.useState("");
+  const [userId, setUserId] = React.useState("");   // id учётки (claims.sub) — доступ к объектам по логину без почты
   // Кэшируем флаг админа, чтобы вкладка «Администратор» не «доезжала»
   // после ответа apiMe (иначе виден рывок таб-бара при заходе из поповера).
   const [isAdmin, setIsAdmin] = React.useState(() => {
@@ -2409,9 +2419,13 @@ export default function AccountProfilePage() {
 
       const email = String(u.email || "");
       setUserEmail(email);
+      setUserId(String(u.id || ""));
 
+      // Хэндл (cube-tech.ru/<...>) привязан к личности и не редактируется пользователем:
+      // учётка по логину → сам логин (tss); учётка по почте → часть до «@».
       const fromEmail = email.includes("@") ? email.split("@")[0] : "";
-      setUsername((prev) => (prev || u.username || fromEmail));
+      const handle = String(u.login || "").trim() || fromEmail;
+      setUsername(handle);
       setDisplay((prev) => (prev || u.name || ""));
 
       setPhone(String(u.phone || ""));
@@ -2767,7 +2781,6 @@ export default function AccountProfilePage() {
     }
 
     const next = {};
-    if (!username.trim()) next.username = "Укажите имя пользователя.";
     if (!display.trim()) next.display = "Укажите отображаемое имя.";
     if (!city.trim()) next.city = "Выберите город.";
     if (!groupCode) next.groupCode = "Выберите вариант.";
@@ -2915,15 +2928,18 @@ export default function AccountProfilePage() {
             {/* Save — мобилка: под табами (как awwwards) */}
             {!(tab === "personal" || tab === "objects" || tab === "admin" || (isAdmin && (tab === "partner" || tab === "supplier"))) && (
               <div className="mb-7 mt-2 lg:hidden">
-                <button
-                  type="button"
-                  onClick={handleSave}
-                  disabled={saving}
-                  className="w-full"
-                  style={{ height: 48, borderRadius: 10, background: "#000", color: "#fff", border: "none", fontFamily: UI, fontSize: 14, fontWeight: 400, cursor: saving ? "not-allowed" : "pointer", opacity: saving ? 0.92 : 1 }}
-                >
-                  {saving ? "Сохранение…" : "Сохранить изменения"}
-                </button>
+                {saving ? (
+                  <div className="w-full" style={{ height: 48, display: "flex", alignItems: "center", justifyContent: "center" }}><Spinner size={24} /></div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleSave}
+                    className="w-full"
+                    style={{ height: 48, borderRadius: 10, background: "#000", color: "#fff", border: "none", fontFamily: UI, fontSize: 14, fontWeight: 400, cursor: "pointer" }}
+                  >
+                    Сохранить изменения
+                  </button>
+                )}
                 <div style={{ marginTop: 12, fontSize: 14, fontWeight: 300, color: "#222" }}>
                   Если вы внесли какие-либо изменения, не забудьте сохранить их, прежде чем покинуть эту страницу.
                 </div>
@@ -2944,7 +2960,7 @@ export default function AccountProfilePage() {
 
             {tab === "objects" ? (
               <div className="animate-svcfade" style={isDesktop ? { width: MID_COL + GAP_COL + RIGHT_COL } : undefined}>
-                <ObjectsSection pathname={pathname} userEmail={userEmail} isAdmin={isAdmin} />
+                <ObjectsSection pathname={pathname} userEmail={userEmail} userId={userId} isAdmin={isAdmin} />
               </div>
             ) : tab === "admin" && isAdmin ? (
               <div className="animate-svcfade" style={isDesktop ? { width: MID_COL + GAP_COL + RIGHT_COL } : undefined}>
@@ -2973,15 +2989,17 @@ export default function AccountProfilePage() {
                 {tab === "personal" ? (
                   <div className="animate-svcfade" style={{ marginTop: 44, ...(isDesktop ? { marginLeft: -LEFT_COL, width: LEFT_COL + MID_COL + GAP_COL + RIGHT_COL } : {}) }}>
 
-              {/* ——— Смена почты ——— */}
+              {/* ——— Смена / добавление почты ——— */}
               <SettingsRow
                 first
-                title="Смена почты"
-                desc="Укажите новый адрес и подтвердите текущим паролем."
+                title={userEmail ? "Смена почты" : "Добавление почты"}
+                desc={userEmail ? "Укажите новый адрес и подтвердите текущим паролем." : "Добавьте адрес — на него будут приходить уведомления. Вход при этом остаётся по логину."}
                 action={
-                  <SectionButton onClick={handleChangeEmail} disabled={emailSaving}>
-                    {emailSaving ? "Сохранение…" : "Сменить почту"}
-                  </SectionButton>
+                  emailSaving ? <SectionBusy /> : (
+                    <SectionButton onClick={handleChangeEmail}>
+                      {userEmail ? "Сменить почту" : "Добавить почту"}
+                    </SectionButton>
+                  )
                 }
               >
                 {userEmail && !emailVerified && (
@@ -3011,14 +3029,16 @@ export default function AccountProfilePage() {
                   </div>
                 )}
 
-                <Field label="Текущая почта">
-                  <div style={{ height: FIELD_H, display: "flex", alignItems: "center", padding: "0 12px", background: "#fff", boxShadow: `inset 0 -1px 0 0 ${UNDERLINE}`, color: TEXT, fontSize: 14, fontWeight: 300 }}>
-                    {userEmail || "—"}
-                    {vbadgeMount ? <span style={{ marginLeft: 8, fontSize: 12, fontWeight: 500, color: "#0a7d32", background: "#e7f6ec", borderRadius: 6, padding: "2px 7px", opacity: vbadgeShow ? 1 : 0, transition: "opacity .5s ease", pointerEvents: "none" }}>подтверждена</span> : null}
-                  </div>
-                </Field>
+                {userEmail ? (
+                  <Field label="Текущая почта">
+                    <div style={{ height: FIELD_H, display: "flex", alignItems: "center", padding: "0 12px", background: "#fff", boxShadow: `inset 0 -1px 0 0 ${UNDERLINE}`, color: TEXT, fontSize: 14, fontWeight: 300 }}>
+                      {userEmail}
+                      {vbadgeMount ? <span style={{ marginLeft: 8, fontSize: 12, fontWeight: 500, color: "#0a7d32", background: "#e7f6ec", borderRadius: 6, padding: "2px 7px", opacity: vbadgeShow ? 1 : 0, transition: "opacity .5s ease", pointerEvents: "none" }}>подтверждена</span> : null}
+                    </div>
+                  </Field>
+                ) : null}
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-5" style={{ marginTop: 12 }}>
-                  <Field label="Новая почта" required error={emailErrors.newEmail}>
+                  <Field label={userEmail ? "Новая почта" : "Почта"} required error={emailErrors.newEmail}>
                     <Input type="email" value={newEmail} onChange={(v) => { setNewEmail(v); if (emailErrors.newEmail) setEmailErrors({ ...emailErrors, newEmail: "" }); }} placeholder="you@example.com" error={emailErrors.newEmail} />
                   </Field>
                   <Field label="Текущий пароль" required error={emailErrors.emailPwd}>
@@ -3032,9 +3052,11 @@ export default function AccountProfilePage() {
                 title="Смена пароля"
                 desc="После смены другие сессии завершатся — текущая останется активной."
                 action={
-                  <SectionButton onClick={handleChangePassword} disabled={pwdSaving}>
-                    {pwdSaving ? "Сохранение…" : "Сменить пароль"}
-                  </SectionButton>
+                  pwdSaving ? <SectionBusy /> : (
+                    <SectionButton onClick={handleChangePassword}>
+                      Сменить пароль
+                    </SectionButton>
+                  )
                 }
               >
                 <Field label="Текущий пароль" required error={pwdErrors.curPwd}>
@@ -3055,9 +3077,11 @@ export default function AccountProfilePage() {
                 title="Уведомления"
                 desc="Письма о продуктах и услугах КУБ."
                 action={
-                  <SectionButton onClick={handleSave} disabled={saving}>
-                    {saving ? "Сохранение…" : "Сохранить"}
-                  </SectionButton>
+                  saving ? <SectionBusy /> : (
+                    <SectionButton onClick={handleSave}>
+                      Сохранить
+                    </SectionButton>
+                  )
                 }
               >
                 <div style={{ fontSize: 14, fontWeight: 300, color: "#222", lineHeight: 1.55 }}>
@@ -3077,9 +3101,11 @@ export default function AccountProfilePage() {
                 title="Безопасность"
                 desc="Устройства и браузеры, где выполнен вход в аккаунт."
                 action={
-                  <SectionButton onClick={handleLogoutAll} disabled={logoutAllBusy}>
-                    {logoutAllBusy ? "Выходим…" : "Выйти везде"}
-                  </SectionButton>
+                  logoutAllBusy ? <SectionBusy /> : (
+                    <SectionButton onClick={handleLogoutAll}>
+                      Выйти везде
+                    </SectionButton>
+                  )
                 }
               >
                 {sessionsLoading && sessions.length === 0 ? (
@@ -3249,16 +3275,16 @@ export default function AccountProfilePage() {
                     <form onSubmit={(e) => e.preventDefault()}>
                       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-5">
                         <div>
-                          <Field label="Имя пользователя" required error={errors.username}>
+                          <Field label="Имя пользователя">
                             <div
+                              title="Привязано к логину — изменить нельзя"
                               style={{
                                 display: "flex",
                                 alignItems: "center",
                                 height: FIELD_H,
                                 background: "#fff",
-                                boxShadow: errors.username
-                                  ? `inset 0 -1px 0 0 ${ERR}`
-                                  : `inset 0 -1px 0 0 ${UNDERLINE}`,
+                                boxShadow: `inset 0 -1px 0 0 ${UNDERLINE}`,
+                                cursor: "default",
                               }}
                             >
                               <span
@@ -3274,28 +3300,26 @@ export default function AccountProfilePage() {
                               >
                                 cube-tech.ru/
                               </span>
-                              <input
-                                type="text"
-                                value={username}
-                                onChange={(e) => { setUsername(e.target.value); if (errors.username) setErrors({ ...errors, username: "" }); }}
-                                placeholder={(userEmail || "").split("@")[0] || "yourname"}
-                                className="with-ph"
+                              <span
                                 style={{
                                   flex: 1,
                                   minWidth: 0,
-                                  height: "100%",
-                                  border: "none",
-                                  outline: "none",
-                                  background: "transparent",
                                   color: TEXT,
                                   fontFamily: UI,
                                   fontSize: 14,
-                                  fontWeight: 300,
+                                  fontWeight: 400,
                                   padding: "0 12px 0 2px",
+                                  whiteSpace: "nowrap",
+                                  overflow: "hidden",
+                                  textOverflow: "ellipsis",
+                                  userSelect: "text",
                                 }}
-                              />
+                              >
+                                {username || "—"}
+                              </span>
                             </div>
                           </Field>
+                          <p className="mt-1.5 text-[11px] font-light leading-none text-[#a7a7a7]">Формируется из логина автоматически и не редактируется.</p>
                         </div>
 
                         <div ref={displayAnchorRef}>
@@ -3418,29 +3442,31 @@ export default function AccountProfilePage() {
             <div />
           ) : (
             <aside className="hidden lg:block lg:sticky lg:top-6" style={{ marginTop: isDesktop ? Math.max(0, asideShift) : 0 }}>
-              <button
-                type="button"
-                onClick={handleSave}
-                disabled={saving}
-                className="w-full lg:w-[277px]"
-                style={{
-                  height: 72,
-                  borderRadius: 10,
-                  background: "#000",
-                  color: "#fff",
-                  border: "none",
-                  fontFamily: UI,
-                  fontSize: 18,
-                  fontWeight: 300,
-                  cursor: saving ? "not-allowed" : "pointer",
-                  transition: "filter .15s ease",
-                  opacity: saving ? 0.92 : 1,
-                }}
-                onMouseEnter={(e) => { if (!saving) e.currentTarget.style.filter = "brightness(0.92)"; }}
-                onMouseLeave={(e) => { e.currentTarget.style.filter = "none"; }}
-              >
-                {saving ? "Сохранение…" : "Сохранить изменения"}
-              </button>
+              {saving ? (
+                <div className="w-full lg:w-[277px]" style={{ height: 72, display: "flex", alignItems: "center", justifyContent: "center" }}><Spinner size={30} /></div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleSave}
+                  className="w-full lg:w-[277px]"
+                  style={{
+                    height: 72,
+                    borderRadius: 10,
+                    background: "#000",
+                    color: "#fff",
+                    border: "none",
+                    fontFamily: UI,
+                    fontSize: 18,
+                    fontWeight: 300,
+                    cursor: "pointer",
+                    transition: "filter .15s ease",
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.filter = "brightness(0.92)"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.filter = "none"; }}
+                >
+                  Сохранить изменения
+                </button>
+              )}
               <div className="lg:max-w-[277px]" style={{ marginTop: 14, fontSize: 14, fontWeight: 300, color: "#222" }}>
                 Если вы внесли какие-либо изменения, не забудьте сохранить их, прежде чем покинуть эту страницу.
               </div>
