@@ -1094,14 +1094,17 @@ function DocumentsEditor({ id, obj, onChange }) {
       Демо на localStorage; реальные письма/хранение — при переносе на бэкенд. --- */
 const msgLabel = { display: "block", textAlign: "left", fontSize: 12, fontWeight: 300, textTransform: "uppercase", letterSpacing: ".04em", color: "#a7a7a7", marginBottom: 6 };
 // Вложение в треде: клик → presigned-ссылка (картинки открываем inline, файлы — скачиваем).
-// Города по IANA-поясам РФ — для подписи «во сколько по местному написал автор».
-const RU_TZ_CITY = {
-  "Europe/Kaliningrad": "Калининград", "Europe/Moscow": "Москва", "Europe/Samara": "Самара",
-  "Asia/Yekaterinburg": "Екатеринбург", "Asia/Omsk": "Омск", "Asia/Krasnoyarsk": "Красноярск",
-  "Asia/Irkutsk": "Иркутск", "Asia/Yakutsk": "Якутск", "Asia/Vladivostok": "Владивосток",
-  "Asia/Magadan": "Магадан", "Asia/Kamchatka": "Камчатка",
-};
-// Время сообщения в поясе автора: «17.07, 14:32 · Екатеринбург».
+// Смещение пояса относительно UTC на дату сообщения, напр. "+5" (для скобок у времени).
+function tzOffsetLabel(tz, d) {
+  try {
+    const parts = new Intl.DateTimeFormat("en-US", { timeZone: tz, timeZoneName: "shortOffset" }).formatToParts(d);
+    const p = parts.find((x) => x.type === "timeZoneName");
+    if (!p) return "";
+    const off = p.value.replace(/[^0-9+:\-]/g, ""); // "GMT+5" → "+5", "GMT+5:30" → "+5:30"
+    return /^[+\-]/.test(off) ? off : (off ? `+${off}` : "");
+  } catch { return ""; }
+}
+// Время сообщения в поясе автора: «17.07, 14:32 (+5)».
 function fmtMsgTime(m) {
   const iso = m && m.at;
   if (!iso) return "";
@@ -1112,8 +1115,8 @@ function fmtMsgTime(m) {
   try {
     if (tz) opts.timeZone = tz;
     const t = new Intl.DateTimeFormat("ru-RU", opts).format(d);
-    const city = RU_TZ_CITY[tz];
-    return city ? `${t} · ${city}` : t;
+    const off = tz ? tzOffsetLabel(tz, d) : "";
+    return off ? `${t} (${off})` : t;
   } catch {
     return new Intl.DateTimeFormat("ru-RU", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }).format(d);
   }
@@ -1237,27 +1240,36 @@ function MessagesPanel({ objId, side, authorName, disabled, autoOpen }) {
         <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 16 }}>
           {msgs.map((m) => {
             const fromCustomer = m.from === "customer";
+            const mine = m.from === side; // моё сообщение — слева, собеседника — справа
+            const accent = fromCustomer ? "#e0e0e0" : "#111";
             const mAtts = Array.isArray(m.attachments) ? m.attachments : [];
             return (
-              <div key={m.id} style={{ borderLeft: `2px solid ${fromCustomer ? "#e0e0e0" : "#111"}`, paddingLeft: 14, opacity: m.pending ? 0.6 : 1 }}>
-                <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12 }}>
+              <div key={m.id} style={{ display: "flex", justifyContent: mine ? "flex-start" : "flex-end" }}>
+                <div style={{
+                  maxWidth: "82%",
+                  borderLeft: mine ? `2px solid ${accent}` : "none",
+                  borderRight: mine ? "none" : `2px solid ${accent}`,
+                  paddingLeft: mine ? 14 : 0,
+                  paddingRight: mine ? 0 : 14,
+                  opacity: m.pending ? 0.6 : 1,
+                }}>
                   <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: ".04em", textTransform: "uppercase", color: fromCustomer ? MUTED : TEXT }}>
                     {fromCustomer ? "Запрос заказчика" : "Ответ ответственного"}
                   </div>
                   {(m.author || m.at) && (
-                    <div style={{ flexShrink: 0, maxWidth: "60%", textAlign: "right", fontSize: 12, color: MUTED }}>
+                    <div style={{ marginTop: 2, fontSize: 12, color: MUTED }}>
                       {m.author ? m.author : ""}{m.author && fmtMsgTime(m) ? " · " : ""}{fmtMsgTime(m)}
                     </div>
                   )}
+                  {m.text && <div style={{ marginTop: 5, fontSize: 15, lineHeight: 1.5, color: TEXT, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{m.text}</div>}
+                  {mAtts.length > 0 && (
+                    <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 8 }}>
+                      {mAtts.map((att, i) => <MsgAttachment key={att.key || i} att={att} />)}
+                    </div>
+                  )}
+                  {m.pending && <div style={{ marginTop: 4, fontSize: 11, color: MUTED }}>Отправляется…</div>}
+                  {m.failed && <div style={{ marginTop: 4, fontSize: 11, color: "#b0451f" }}>Не отправлено — попробуйте ещё раз.</div>}
                 </div>
-                {m.text && <div style={{ marginTop: 5, fontSize: 15, lineHeight: 1.5, color: TEXT, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{m.text}</div>}
-                {mAtts.length > 0 && (
-                  <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 8 }}>
-                    {mAtts.map((att, i) => <MsgAttachment key={att.key || i} att={att} />)}
-                  </div>
-                )}
-                {m.pending && <div style={{ marginTop: 4, fontSize: 11, color: MUTED }}>Отправляется…</div>}
-                {m.failed && <div style={{ marginTop: 4, fontSize: 11, color: "#b0451f" }}>Не отправлено — попробуйте ещё раз.</div>}
               </div>
             );
           })}
