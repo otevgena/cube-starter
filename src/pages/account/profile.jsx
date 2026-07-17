@@ -993,6 +993,79 @@ function CitySelect({ value, onChange, error, offset = 0 }) {
   );
 }
 
+/* часовые пояса РФ (IANA ↔ подпись + смещение). Дефолт — Екатеринбург (UTC+5),
+   он же пояс Ноябрьска/ЯНАО, где находится офис КУБ. */
+const RU_TIMEZONES = [
+  { tz: "Europe/Kaliningrad",  city: "Калининград",  utc: "+2" },
+  { tz: "Europe/Moscow",       city: "Москва",       utc: "+3" },
+  { tz: "Europe/Samara",       city: "Самара",       utc: "+4" },
+  { tz: "Asia/Yekaterinburg",  city: "Екатеринбург", utc: "+5" },
+  { tz: "Asia/Omsk",           city: "Омск",         utc: "+6" },
+  { tz: "Asia/Krasnoyarsk",    city: "Красноярск",   utc: "+7" },
+  { tz: "Asia/Irkutsk",        city: "Иркутск",      utc: "+8" },
+  { tz: "Asia/Yakutsk",        city: "Якутск",       utc: "+9" },
+  { tz: "Asia/Vladivostok",    city: "Владивосток",  utc: "+10" },
+  { tz: "Asia/Magadan",        city: "Магадан",      utc: "+11" },
+  { tz: "Asia/Kamchatka",      city: "Камчатка",     utc: "+12" },
+];
+const DEFAULT_TZ = "Asia/Yekaterinburg";
+const tzLabel = (tz) => {
+  const z = RU_TIMEZONES.find((z) => z.tz === tz);
+  return z ? `${z.city} · UTC${z.utc}` : "";
+};
+
+function TimezoneSelect({ value, onChange }) {
+  const [open, setOpen] = React.useState(false);
+  const ref = React.useRef(null);
+  React.useEffect(() => {
+    const onDoc = (e) => { if (!ref.current?.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, []);
+  const current = RU_TIMEZONES.find((z) => z.tz === value) ? value : DEFAULT_TZ;
+  return (
+    <Field label="Часовой пояс">
+      <div ref={ref} style={{ position: "relative" }}>
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className="with-ph"
+          style={{ ...baseFieldStyle(false), display: "grid", gridTemplateColumns: "1fr 24px", alignItems: "center", textAlign: "left", cursor: "pointer" }}
+          aria-haspopup="listbox"
+          aria-expanded={open}
+        >
+          <span style={{ color: TEXT }}>{tzLabel(current)}</span>
+          <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" style={{ color: "#b1b1b1" }}>
+            {open ? <path d="M5 15L12 8l7 7" fill="none" stroke="currentColor" strokeWidth="2" />
+                  : <path d="M5 9l7 7 7-7" fill="none" stroke="currentColor" strokeWidth="2" />}
+          </svg>
+        </button>
+        {open && (
+          <div
+            style={{ position: "absolute", left: 0, right: 0, top: FIELD_H, zIndex: 70, background: "#fff", boxShadow: "0 14px 40px rgba(0,0,0,.08)", maxHeight: 320, overflowY: "auto" }}
+            role="listbox"
+          >
+            {RU_TIMEZONES.map((z) => (
+              <button
+                key={z.tz}
+                type="button"
+                onClick={() => { onChange(z.tz); setOpen(false); }}
+                style={{ width: "100%", textAlign: "left", padding: "12px 14px", border: "none", background: "#fff", cursor: "pointer", fontFamily: UI, fontSize: 16, fontWeight: 300, color: TEXT }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = "#f8f8f8"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = "#fff"; }}
+                role="option"
+                aria-selected={current === z.tz}
+              >
+                {z.city} · UTC{z.utc}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </Field>
+  );
+}
+
 /* аватар */
 function AvatarPicker({ fileName, onPick, error }) {
   const inputRef = React.useRef(null);
@@ -2298,6 +2371,7 @@ export default function AccountProfilePage() {
   const [phone, setPhone] = React.useState("");
   const [groupCode, setGroupCode] = React.useState("");
   const [city, setCity] = React.useState("");
+  const [timezone, setTimezone] = React.useState(DEFAULT_TZ);
   const [about, setAbout] = React.useState("");
   const [org, setOrg] = React.useState("");
   const [inn, setInn] = React.useState("");
@@ -2434,6 +2508,7 @@ export default function AccountProfilePage() {
       setIsAdmin(admin);
       try { sessionStorage.setItem("auth:isAdmin", admin ? "1" : "0"); } catch {}
       setCity(String(u.city || ""));
+      setTimezone(RU_TIMEZONES.some((z) => z.tz === u.timezone) ? u.timezone : DEFAULT_TZ);
       setAbout(String(u.about || ""));
       setOrg(String(u.org || u.organization || ""));
       setInn(String(u.inn || ""));
@@ -2800,6 +2875,7 @@ export default function AccountProfilePage() {
         phone: phone.trim(),
         group: groupCode,
         city,
+        timezone,
         about,
         org: org.trim(),
         inn: inn.trim(),
@@ -3382,13 +3458,14 @@ export default function AccountProfilePage() {
                         </Field>
                       </div>
 
-                      <div style={{ marginTop: 12 }}>
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-5" style={{ marginTop: 12 }}>
                         <CitySelect
                           value={city}
                           onChange={(v) => { setCity(v); if (errors.city) setErrors({ ...errors, city: "" }); }}
                           error={errors.city}
                           offset={0}
                         />
+                        <TimezoneSelect value={timezone} onChange={setTimezone} />
                       </div>
 
                       <div style={{ marginTop: 12 }}>
