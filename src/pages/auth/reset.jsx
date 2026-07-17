@@ -1,28 +1,33 @@
 // src/pages/auth/reset.jsx
 // Страница установки нового пароля по ссылке из письма: /reset?token=...
-// Раскладка awwwards-референса: одна колонка, заголовок в общем стиле сайта
-// (26px semibold, как verify.jsx), широкие поля-боксы, тёмная кнопка.
-// Ошибки/успех — всплывающим тостом.
+// Разметка 1-в-1 со страницы «Контакты» (src/components/blocks/Contact.jsx):
+// центральный заголовок как «КОНТАКТЫ» (текст над и под), две колонки,
+// поля-подчёркивания без контура, ошибки — морковным текстом под полем.
 import React from "react";
 import { resetPassword } from "@/lib/auth";
-import { toast } from "@/components/common/Toast.jsx";
 
-// Тёмная кнопка как в референсе awwwards: почти квадратный бокс, лёгкое скругление.
-const BTN =
-  "inline-flex h-[64px] items-center justify-center rounded-[6px] bg-[#1a1a1a] px-9 text-[16px] font-semibold text-white transition-colors hover:bg-[#2f2f2f] active:translate-y-px disabled:opacity-60";
+// ==== стили, скопированные из Contact.jsx (чтобы НЕ отличались) ====
+const LABEL_CLASS = "block text-left text-xs font-light uppercase tracking-[0.04em] text-[#a7a7a7]";
+const fieldClass = (err) =>
+  `block h-12 w-[683px] max-w-full border-0 border-b bg-white px-3.5 text-sm font-normal leading-6 text-black outline-none transition-colors duration-500 ${
+    err ? "border-[#fa5d29]" : "border-line focus:border-[#999]"
+  }`;
 
-// Поле-бокс как в референсе: белый прямоугольник во всю ширину, КВАДРАТНЫЕ углы,
-// едва заметная рамка + мягкая тень (приподнятый белый блок на сером фоне).
-const inputCls =
-  "h-[64px] w-full rounded-[2px] border border-[#ececec] bg-white px-5 text-[16px] font-light text-[#111] shadow-[0_1px_2px_rgba(0,0,0,.04)] outline-none transition-colors placeholder:font-light placeholder:text-[#c2c2c2] hover:border-[#dcdcdc] focus:border-[#999]";
-
-// Метка как в референсе: серая, капсом, с «(*)» тем же цветом.
-const labelCls =
-  "mb-3 block text-[13px] font-medium uppercase leading-none tracking-[.06em] text-[#9a9a9a]";
+/* Слот ошибки под полем (фикс. высота, вёрстка не прыгает) — как в Contact */
+function ErrorSlot({ text }) {
+  return (
+    <div className="relative h-[22px]">
+      {text ? (
+        <span className="absolute left-0 top-[11px] text-[11px] font-light leading-[11px] text-[#fa5d29]">{text}</span>
+      ) : null}
+    </div>
+  );
+}
 
 // Клиентская проверка (зеркалит серверную политику: ≥6, заглавная, спецсимвол)
 function policyError(pwd) {
   const s = String(pwd || "");
+  if (!s) return "Введите пароль.";
   if (s.length < 6) return "Минимум 6 символов.";
   if (!/[A-ZА-ЯЁ]/.test(s)) return "Нужна хотя бы одна заглавная буква.";
   if (!/[^A-Za-zА-Яа-яЁё0-9]/.test(s)) return "Нужен хотя бы один спецсимвол.";
@@ -44,31 +49,41 @@ export default function ResetPasswordPage() {
   const [token] = React.useState(getToken);
   const [pass, setPass] = React.useState("");
   const [pass2, setPass2] = React.useState("");
+  const [errors, setErrors] = React.useState({});   // { pass, pass2 }
+  const [formErr, setFormErr] = React.useState("");  // общая ошибка под кнопкой
   const [busy, setBusy] = React.useState(false);
   const [done, setDone] = React.useState(false);
+
+  const clearErr = (field) => setErrors((e) => (e[field] ? { ...e, [field]: "" } : e));
 
   const onSubmit = async (e) => {
     e.preventDefault();
     if (busy) return;
-    if (!token) { toast("Ссылка недействительна или устарела. Запросите сброс заново.", { tone: "error" }); return; }
+    setFormErr("");
+
+    const next = {};
     const pe = policyError(pass);
-    if (pe) { toast(pe, { tone: "error" }); return; }
-    if (pass !== pass2) { toast("Пароли не совпадают.", { tone: "error" }); return; }
+    if (pe) next.pass = pe;
+    if (!pass2) next.pass2 = "Повторите пароль.";
+    else if (pass !== pass2) next.pass2 = "Пароли не совпадают.";
+    if (!token) setFormErr("Ссылка недействительна или устарела. Запросите сброс заново.");
+    setErrors(next);
+    if (Object.keys(next).length || !token) return;
+
     try {
       setBusy(true);
       await resetPassword({ token, newPassword: pass });
       setDone(true);
-      toast("Пароль изменён — теперь войдите с новым паролем.");
     } catch (e2) {
-      if (e2.status === 400) {
-        const p = (e2.payload && e2.payload.error) || "";
-        if (/token/i.test(p)) toast("Ссылка недействительна или устарела. Запросите сброс заново.", { tone: "error" });
-        else if (/short/i.test(p)) toast("Минимум 6 символов.", { tone: "error" });
-        else if (/uppercase/i.test(p)) toast("Нужна хотя бы одна заглавная буква.", { tone: "error" });
-        else if (/symbol/i.test(p)) toast("Нужен хотя бы один спецсимвол.", { tone: "error" });
-        else toast("Не удалось изменить пароль. Проверьте данные.", { tone: "error" });
+      const p = (e2 && e2.payload && e2.payload.error) || "";
+      if (e2 && e2.status === 400) {
+        if (/token/i.test(p)) setFormErr("Ссылка недействительна или устарела. Запросите сброс заново.");
+        else if (/short/i.test(p)) setErrors((x) => ({ ...x, pass: "Минимум 6 символов." }));
+        else if (/uppercase/i.test(p)) setErrors((x) => ({ ...x, pass: "Нужна хотя бы одна заглавная буква." }));
+        else if (/symbol/i.test(p)) setErrors((x) => ({ ...x, pass: "Нужен хотя бы один спецсимвол." }));
+        else setFormErr("Не удалось изменить пароль. Проверьте данные.");
       } else {
-        toast("Что-то пошло не так. Попробуйте позже.", { tone: "error" });
+        setFormErr("Что-то пошло не так. Попробуйте позже.");
       }
     } finally {
       setBusy(false);
@@ -76,41 +91,94 @@ export default function ResetPasswordPage() {
   };
 
   return (
-    <div className="font-tight">
-      <div className="mx-auto w-full max-w-[1180px] px-6 py-14 md:px-10 md:py-20">
-        {done ? (
-          <>
-            <h1 className="text-[26px] font-semibold leading-[1.2] text-[#111]">
-              Пароль изменён
-            </h1>
-            <div className="mt-9 max-w-[1080px]">
-              <button className={BTN} onClick={goLogin}>Войти</button>
-            </div>
-          </>
-        ) : (
-          <>
-            <h1 className="text-[26px] font-semibold leading-[1.2] text-[#111]">
-              Новый пароль
-            </h1>
+    <section className="bg-page font-tight text-ink pt-14" aria-label="Новый пароль">
+      {/* Шапка — как «Напишите нам» / «КОНТАКТЫ» */}
+      <div className="text-center text-sm font-light leading-7">Восстановление доступа</div>
+      <div className="mt-[26px] text-center">
+        <h2 className="font-semibold uppercase leading-none h-hero">
+          {done ? "ПАРОЛЬ ИЗМЕНЁН" : "НОВЫЙ ПАРОЛЬ"}
+        </h2>
+      </div>
 
-            <form className="mt-9 flex max-w-[1080px] flex-col gap-8" onSubmit={onSubmit} noValidate>
-              <div>
-                <label className={labelCls}>Пароль (*)</label>
-                <input className={inputCls} type="password" value={pass} autoFocus autoComplete="new-password"
-                  onChange={(e) => setPass(e.target.value)} placeholder="Новый пароль" />
-              </div>
-              <div>
-                <label className={labelCls}>Повтор (*)</label>
-                <input className={inputCls} type="password" value={pass2} autoComplete="new-password"
-                  onChange={(e) => setPass2(e.target.value)} placeholder="Повторите пароль" />
-              </div>
-              <div className="mt-2">
-                <button className={BTN} type="submit" disabled={busy}>{busy ? "Сохраняем…" : "Сохранить пароль"}</button>
-              </div>
-            </form>
-          </>
+      {/* Колонки: слева текст, справа форма */}
+      <div className="mx-4 mt-12 grid grid-cols-1 items-start gap-10 md:grid-cols-2 lg:mx-[52px] lg:mt-20 xl:grid-cols-[1fr_auto]">
+        {/* Левый текст */}
+        <div className="max-w-[760px] text-left">
+          {done ? (
+            <>
+              <p className="text-[21px] font-semibold leading-7">Готово!</p>
+              <p className="mt-2 text-[21px] font-semibold leading-7">Пароль обновлён.</p>
+              <p className="mt-[18px] text-sm font-light leading-6">
+                Теперь войдите с новым паролем.
+              </p>
+              <p className="mt-1.5 text-sm font-light leading-6">
+                Все прежние сессии на других устройствах завершены.
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="text-[21px] font-semibold leading-7">Придумайте новый пароль</p>
+              <p className="mt-2 text-[21px] font-semibold leading-7">для входа на cube-tech.ru.</p>
+              <p className="mt-[18px] text-sm font-light leading-6">
+                Минимум 6 символов, хотя бы одна заглавная буква и один спецсимвол.
+              </p>
+              <p className="mt-1.5 text-sm font-light leading-6">
+                После сохранения все прежние сессии на других устройствах завершатся.
+              </p>
+            </>
+          )}
+        </div>
+
+        {/* Правая колонка: форма или кнопка входа */}
+        {done ? (
+          <div className="w-[683px] max-w-full text-left">
+            <button
+              type="button"
+              onClick={goLogin}
+              className="block h-[60px] w-[210px] rounded-[10px] bg-black text-sm font-semibold uppercase tracking-[0.02em] text-white transition-colors hover:bg-neutral-800"
+            >
+              Войти
+            </button>
+          </div>
+        ) : (
+          <form onSubmit={onSubmit} noValidate className="w-[683px] max-w-full text-left">
+            {/* Пароль */}
+            <div>
+              <label className={LABEL_CLASS}>пароль (*)</label>
+              <input
+                type="password" value={pass} autoFocus autoComplete="new-password"
+                onChange={(e) => { setPass(e.target.value); clearErr("pass"); }}
+                className={fieldClass(!!errors.pass)}
+              />
+              <ErrorSlot text={errors.pass} />
+            </div>
+
+            {/* Повтор */}
+            <div className="mt-3">
+              <label className={LABEL_CLASS}>повтор (*)</label>
+              <input
+                type="password" value={pass2} autoComplete="new-password"
+                onChange={(e) => { setPass2(e.target.value); clearErr("pass2"); }}
+                className={fieldClass(!!errors.pass2)}
+              />
+              <ErrorSlot text={errors.pass2} />
+            </div>
+
+            {/* Кнопка — как «Оставить заявку» */}
+            <button
+              type="submit"
+              disabled={busy}
+              aria-busy={busy ? "true" : "false"}
+              className="mt-[22px] block h-[60px] w-[210px] rounded-[10px] bg-black text-sm font-semibold uppercase tracking-[0.02em] text-white transition-colors hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-85"
+            >
+              {busy ? "Сохранение..." : "Сохранить пароль"}
+            </button>
+            <ErrorSlot text={formErr} />
+          </form>
         )}
       </div>
-    </div>
+
+      <div className="h-0 lg:h-[58px]" />
+    </section>
   );
 }
