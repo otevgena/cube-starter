@@ -91,7 +91,7 @@ export default function ResetPasswordPage() {
   };
 
   return (
-    <section className="bg-page font-tight text-ink pt-14" aria-label="Новый пароль">
+    <section className="bg-page font-tight text-ink -mt-8" aria-label="Новый пароль">
       {/* Шапка — как «Напишите нам» / «КОНТАКТЫ» */}
       <div className="text-center text-sm font-light leading-7">Восстановление доступа</div>
       <div className="mt-[26px] text-center">
