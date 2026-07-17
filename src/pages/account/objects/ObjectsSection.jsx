@@ -337,7 +337,8 @@ function DownloadBtn({ doc, label = "Скачать", preview = false }) {
       else { const a = document.createElement("a"); a.href = doc.url; a.download = doc.file || doc.title || "file"; document.body.appendChild(a); a.click(); a.remove(); }
     } else { window.showDockToast?.("Файл не прикреплён", 3000, "error"); }
   };
-  return <FillBtn tiny onClick={go}>{busy ? <Spinner size={15} color="currentColor" /> : label}</FillBtn>;
+  if (busy) return <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", height: 34, minWidth: 44, flexShrink: 0 }}><Spinner size={18} /></span>;
+  return <FillBtn tiny onClick={go}>{label}</FillBtn>;
 }
 
 const EXT_COLORS = { pdf: "#e5484d", docx: "#2b6cb0", doc: "#2b6cb0", xlsx: "#2f855a", xls: "#2f855a", pptx: "#c05621", zip: "#5b6472", dwg: "#b7791f" };
@@ -890,7 +891,9 @@ function DocCategory({ id, cat, docs, uploadDoc, onChange }) {
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: docs.length ? 10 : 0 }}>
           <div style={{ fontSize: 12, letterSpacing: ".08em", textTransform: "uppercase", color: "#a7a7a7", fontWeight: 300 }}>{cat}<span style={{ marginLeft: 8, fontVariantNumeric: "tabular-nums" }}>{String(docs.length).padStart(2, "0")}</span></div>
           <input ref={inputRef} type="file" onChange={onFile} style={{ display: "none" }} />
-          <FillBtn onClick={() => { if (!uploading) inputRef.current?.click(); }}>{uploading ? <Spinner size={16} color="currentColor" /> : "+ Добавить"}</FillBtn>
+          {uploading
+            ? <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", height: 42, minWidth: 116, flexShrink: 0 }}><Spinner size={22} /></span>
+            : <FillBtn onClick={() => inputRef.current?.click()}>+ Добавить</FillBtn>}
         </div>
         {docs.length === 0 ? <div style={{ fontSize: 13, fontWeight: 300, color: MUTED }}>Нет документов</div> : (
           <div style={{ border: `1px solid ${LINE}`, borderRadius: 12, overflow: "hidden", background: "#fff" }}>
