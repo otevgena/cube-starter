@@ -450,9 +450,10 @@ export async function uploadFile({ objectId, docId, file }) {
   if (!put.ok) throw new Error(`S3 upload failed (${put.status})`);
   return { key, name: file.name, type: extOf(file.name), size: file.size };
 }
-// Получить временную ссылку на скачивание (проверка доступа — на бэкенде).
-export async function downloadUrl(key, name) {
-  const q = `key=${encodeURIComponent(key)}${name ? `&name=${encodeURIComponent(name)}` : ""}`;
+// Получить временную ссылку на файл (проверка доступа — на бэкенде).
+// inline=true — ссылка для просмотра в браузере (PDF/картинки/текст), иначе — скачивание.
+export async function downloadUrl(key, name, { inline = false } = {}) {
+  const q = `key=${encodeURIComponent(key)}${name ? `&name=${encodeURIComponent(name)}` : ""}${inline ? "&disposition=inline" : ""}`;
   const { url } = await api(`/files/download-url?${q}`, { method: "GET" });
   return url;
 }

@@ -5,7 +5,7 @@
 import React from "react";
 import { createPortal } from "react-dom";
 import * as DB from "@/data/objects.js";
-import { CenterSpinner } from "@/components/common/Spinner.jsx";
+import Spinner, { CenterSpinner } from "@/components/common/Spinner.jsx";
 import {
   OBJECT_STATUSES, STAGE_STATUSES, DOC_CATEGORIES, STAGE_PRESETS, OBJECT_TEMPLATES,
   toneOf, labelOf, extOf, getEmployees, addEmployee, removeEmployee,
@@ -316,19 +316,28 @@ function IconAction({ onClick, children, prompt }) {
   );
 }
 
-/* ---- кнопка «Скачать/Открыть»: presigned-ссылка (key) или legacy base64 (url) ---- */
-function DownloadBtn({ doc, label = "Скачать" }) {
+/* ---- кнопка «Скачать/Открыть»: presigned-ссылка (key) или legacy base64 (url) ----
+   preview=true — просмотр в браузере (inline), иначе — скачивание (attachment). ---- */
+function DownloadBtn({ doc, label = "Скачать", preview = false }) {
   const [busy, setBusy] = React.useState(false);
   const go = async () => {
+    if (busy) return;
     if (doc.key) {
-      try { setBusy(true); const url = await DB.downloadUrl(doc.key, doc.file || doc.title); window.open(url, "_blank", "noopener"); }
-      catch (e) { alert("Не удалось получить файл: " + ((e && e.message) || e)); }
+      try {
+        setBusy(true);
+        const url = await DB.downloadUrl(doc.key, doc.file || doc.title, { inline: preview });
+        if (preview) window.open(url, "_blank", "noopener");
+        else { const a = document.createElement("a"); a.href = url; a.download = doc.file || doc.title || "file"; document.body.appendChild(a); a.click(); a.remove(); }
+      }
+      catch (e) { window.showDockToast?.("Не удалось получить файл", 3000, "error"); }
       finally { setBusy(false); }
     } else if (doc.url) {
-      const a = document.createElement("a"); a.href = doc.url; a.download = doc.file || doc.title || "file"; document.body.appendChild(a); a.click(); a.remove();
-    } else { alert("Файл не прикреплён."); }
+      // legacy base64: preview — в новой вкладке, иначе скачиванием
+      if (preview) window.open(doc.url, "_blank", "noopener");
+      else { const a = document.createElement("a"); a.href = doc.url; a.download = doc.file || doc.title || "file"; document.body.appendChild(a); a.click(); a.remove(); }
+    } else { window.showDockToast?.("Файл не прикреплён", 3000, "error"); }
   };
-  return <FillBtn tiny onClick={go}>{busy ? "…" : label}</FillBtn>;
+  return <FillBtn tiny onClick={go}>{busy ? <Spinner size={15} color="currentColor" /> : label}</FillBtn>;
 }
 
 const EXT_COLORS = { pdf: "#e5484d", docx: "#2b6cb0", doc: "#2b6cb0", xlsx: "#2f855a", xls: "#2f855a", pptx: "#c05621", zip: "#5b6472", dwg: "#b7791f" };
@@ -881,7 +890,7 @@ function DocCategory({ id, cat, docs, uploadDoc, onChange }) {
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: docs.length ? 10 : 0 }}>
           <div style={{ fontSize: 12, letterSpacing: ".08em", textTransform: "uppercase", color: "#a7a7a7", fontWeight: 300 }}>{cat}<span style={{ marginLeft: 8, fontVariantNumeric: "tabular-nums" }}>{String(docs.length).padStart(2, "0")}</span></div>
           <input ref={inputRef} type="file" onChange={onFile} style={{ display: "none" }} />
-          <FillBtn onClick={() => { if (!uploading) inputRef.current?.click(); }}>{uploading ? "Загрузка…" : "+ Добавить"}</FillBtn>
+          <FillBtn onClick={() => { if (!uploading) inputRef.current?.click(); }}>{uploading ? <Spinner size={16} color="currentColor" /> : "+ Добавить"}</FillBtn>
         </div>
         {docs.length === 0 ? <div style={{ fontSize: 13, fontWeight: 300, color: MUTED }}>Нет документов</div> : (
           <div style={{ border: `1px solid ${LINE}`, borderRadius: 12, overflow: "hidden", background: "#fff" }}>
@@ -893,7 +902,7 @@ function DocCategory({ id, cat, docs, uploadDoc, onChange }) {
                   <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", background: hidden ? "#fbfbfb" : "#fff" }}>
                     <ExtBadge ext={d.type || d.file} />
                     <div style={{ minWidth: 0, flex: 1, fontSize: 14, fontWeight: 500, color: TEXT, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{d.title}{hidden && <span style={{ marginLeft: 8 }}><Badge label="Скрыто" tone="#c05621" /></span>}</div>
-                    <DownloadBtn doc={d} label="Открыть" />
+                    <DownloadBtn doc={d} label="Открыть" preview />
                     <DownloadBtn doc={d} label="Скачать" />
                     <FillBtn tiny onClick={() => { DB.updateDocument(id, d.id, { status: hidden ? "published" : "hidden" }); onChange(); }}>{hidden ? "Показать" : "Скрыть"}</FillBtn>
                     <FillBtn tiny fill={CARROT} onClick={() => { if (window.confirm(`Удалить «${d.title}»?`)) { if (d.key) DB.deleteFile(d.key); DB.removeDocument(id, d.id); onChange(); } }}>Удалить</FillBtn>
@@ -1092,7 +1101,7 @@ function CustomerObjectView({ id, preview }) {
                       <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px" }}>
                         <ExtBadge ext={d.type || d.file} />
                         <div style={{ minWidth: 0, flex: 1, fontSize: 14, fontWeight: 500, color: TEXT, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{d.title}</div>
-                        <DownloadBtn doc={d} label="Открыть" />
+                        <DownloadBtn doc={d} label="Открыть" preview />
                         <DownloadBtn doc={d} label="Скачать" />
                       </div>
                     </React.Fragment>
