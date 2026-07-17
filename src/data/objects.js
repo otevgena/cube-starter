@@ -341,6 +341,74 @@ function myTimezone() {
 }
 export function docUrl(objId, file) { return `/objects/${encodeURIComponent(objId)}/documents/${encodeURIComponent(file)}`; }
 
+/* ===================== Маркеры «новое» (seen-state, v1 — localStorage) ===================== */
+// Per-user отметки «видел объект» хранятся локально (без сервера). Логика:
+// у объекта есть «сигнал новизны» — максимум времени последнего изменения
+// (lastUpdatedAt), переписки (threadUpdatedAt / messages[].at) и событий ленты
+// (events[].createdAt). Если сигнал новее отметки «видел» — показываем морковный
+// бейдж «новое». Открытие объекта ставит отметку на текущий момент.
+const SEEN_KEY = "objects:seen";
+const SEEN_BASELINE_KEY = "objects:seenBaseline";
+
+// Разбор разных форматов времени в epoch-мс: ISO, "YYYY-MM-DD HH:MM", "YYYY-MM-DD".
+function parseTs(v) {
+  if (!v) return 0;
+  if (typeof v === "number") return v;
+  let s = String(v).trim();
+  if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}/.test(s)) s = s.replace(" ", "T");
+  const t = Date.parse(s);
+  return isNaN(t) ? 0 : t;
+}
+
+// Сигнал новизны объекта — максимум всех «времён изменения».
+export function objectSignal(o) {
+  if (!o) return 0;
+  let max = 0;
+  const bump = (v) => { const t = parseTs(v); if (t > max) max = t; };
+  bump(o.lastUpdatedAt);
+  bump(o.threadUpdatedAt);
+  (o.events || []).forEach((e) => bump(e.createdAt));
+  (o.messages || []).forEach((m) => bump(m.at));
+  return max;
+}
+
+function loadSeen() {
+  try { return JSON.parse(localStorage.getItem(SEEN_KEY) || "{}") || {}; } catch { return {}; }
+}
+// Базовая линия первого визита: объекты, которые пользователь ещё ни разу не
+// открывал, считаются «новыми» только если изменились ПОСЛЕ первого захода —
+// иначе при первом входе бейджами покрылся бы весь список.
+function seenBaseline() {
+  try {
+    let b = localStorage.getItem(SEEN_BASELINE_KEY);
+    if (!b) { b = String(Date.now()); localStorage.setItem(SEEN_BASELINE_KEY, b); }
+    return Number(b) || 0;
+  } catch { return 0; }
+}
+
+export function isObjectUnseen(o) {
+  if (!o) return false;
+  const seen = loadSeen();
+  const ref = o.id in seen ? seen[o.id] : seenBaseline();
+  return objectSignal(o) > ref + 1000; // +1с допуск против дребезга
+}
+
+export function markObjectSeen(id) {
+  if (!id) return;
+  try {
+    const seen = loadSeen();
+    seen[id] = Date.now();
+    localStorage.setItem(SEEN_KEY, JSON.stringify(seen));
+    try { window.dispatchEvent(new Event("objects:seen")); } catch {}
+  } catch {}
+}
+
+// Есть ли хоть один непросмотренный объект (для бейджа «новое» в меню аккаунта).
+export function anyObjectUnseen(list) {
+  const arr = Array.isArray(list) ? list : listObjects();
+  return arr.some((o) => isObjectUnseen(o));
+}
+
 /* ===================== Сид данных ===================== */
 const DEFAULT_OBJECTS = [
   {

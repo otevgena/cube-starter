@@ -7,6 +7,7 @@ import React from "react";
 import { createPortal } from "react-dom";
 import { ChevronDown, Search, Menu, X, UserRound } from "lucide-react";
 import { search } from "@/data/search-index";
+import * as DB from "@/data/objects.js";
 
 /* === API base === */
 const API_BASE =
@@ -546,13 +547,25 @@ function MobileAccountMenu({ onClose, user, onLogout }) {
     catch { window.location.href = to; }
   };
 
-  const Item = ({ children, onClick, strong }) => (
+  // Есть ли непросмотренные изменения по объектам (для морковного бейджа «New»).
+  const objectsUnseen = React.useMemo(() => {
+    if (!user) return false;
+    try {
+      const list = isAdmin
+        ? DB.listObjects()
+        : DB.listObjectsForCustomer(user?.email, user?.id || user?.accountId || "");
+      return DB.anyObjectUnseen(list);
+    } catch { return false; }
+  }, [user, isAdmin]);
+
+  const Item = ({ children, onClick, strong, right }) => (
     <button
       type="button"
       onClick={onClick}
-      className={`block w-full rounded-lg px-3 py-1.5 text-left text-[15px] ${strong ? "font-medium" : "font-normal"} text-white active:bg-white/10`}
+      className={`flex w-full items-center justify-between gap-2 rounded-lg px-3 py-1.5 text-left text-[15px] ${strong ? "font-medium" : "font-normal"} text-white active:bg-white/10`}
     >
-      {children}
+      <span className="truncate">{children}</span>
+      {right}
     </button>
   );
   const Divider = () => <div className="-mx-2 my-1.5 h-px bg-white/10" />;
@@ -571,7 +584,12 @@ function MobileAccountMenu({ onClose, user, onLogout }) {
             </div>
             <Divider />
             <Item onClick={() => go("/account/profile")}>Профиль</Item>
-            <Item onClick={() => go("/account/objects")}>Объекты</Item>
+            <Item
+              onClick={() => go("/account/objects")}
+              right={objectsUnseen ? <span className="shrink-0 rounded bg-carrot px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white">New</span> : null}
+            >
+              Объекты
+            </Item>
             {(isAdmin || grp === "partner") && <Item onClick={() => go("/account/partner")}>Партнёр</Item>}
             {(isAdmin || grp === "supplier") && <Item onClick={() => go("/account/supplier")}>Поставщик</Item>}
             <Item onClick={() => go("/account/personal")}>Настройки</Item>

@@ -612,6 +612,7 @@ function AdminObjectsList() {
                 <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                   <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: ".05em", color: MUTED, textTransform: "uppercase" }}>№ {o.id}</span>
                   <Badge label={st.label || o.status} tone={st.tone} />
+                  {DB.isObjectUnseen(o) && <NewBadge />}
                 </div>
                 <div style={{ marginTop: 6, fontSize: 17, fontWeight: 500, color: TEXT, lineHeight: 1.3 }}>{o.customerName} — {o.title}</div>
                 <div style={{ marginTop: 3, fontSize: 13, fontWeight: 300, color: MUTED }}>{o.address || o.city}{o.responsibleName ? ` · ${o.responsibleName}` : ""} · {(o.documents || []).length} док.</div>
@@ -861,6 +862,7 @@ function SectionRule() {
 function AdminObjectEditor({ id, autoOpenMessages }) {
   const force = useForceUpdate();
   const obj = DB.getObject(id);
+  React.useEffect(() => { DB.markObjectSeen(id); }, [id]);
   if (!obj) return <div style={{ fontFamily: UI, marginTop: 8 }}><button style={backBtn} onClick={() => navigate("/account/objects")}>← К объектам</button><div style={{ marginTop: 20, color: MUTED }}>Объект не найден.</div></div>;
   const save = (patch) => { DB.updateObject(id, patch); force(); };
   const respId = respIdOf(obj);
@@ -1340,6 +1342,17 @@ function TrackIcon() {
 }
 
 // Кнопка + выезжающая справа панель «История изменений» (таймлайн событий объекта).
+// Морковный бейдж «новое» — маркер непросмотренных изменений (мягкая пульсация).
+function NewBadge({ compact = false, style }) {
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 5, flexShrink: 0, ...style }}>
+      <style>{`@keyframes newPulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.55);opacity:.5}}`}</style>
+      <span style={{ width: 6, height: 6, borderRadius: 999, background: CARROT, animation: "newPulse 1.6s ease-in-out infinite" }} />
+      {!compact && <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: ".06em", textTransform: "uppercase", color: CARROT }}>новое</span>}
+    </span>
+  );
+}
+
 function ChangeLogButton({ events }) {
   const [open, setOpen] = React.useState(false);
   const list = Array.isArray(events) ? events : [];
@@ -1398,6 +1411,10 @@ function ChangeLogButton({ events }) {
 
 function CustomerObjectView({ id, preview, autoOpenMessages }) {
   const o = DB.getCustomerView(id);
+  // Непросмотренность фиксируем на момент захода (до отметки «видел»), чтобы этот
+  // визит показал «новое», а следующий — уже нет. В предпросмотре не трогаем.
+  const unseen = React.useMemo(() => (!preview && o ? DB.isObjectUnseen(o) : false), [id, preview]);
+  React.useEffect(() => { if (!preview) DB.markObjectSeen(id); }, [id, preview]);
   if (!o) return <div style={{ fontFamily: UI, marginTop: 8 }}><button style={backBtn} onClick={() => navigate("/account/objects")}>← Назад</button><div style={{ marginTop: 20, color: MUTED }}>Объект недоступен.</div></div>;
   const st = OBJECT_STATUSES.find((s) => s.code === o.status) || {};
   const byCat = {}; DOC_CATEGORIES.forEach((c) => (byCat[c] = [])); (o.documents || []).forEach((d) => (byCat[d.category] || byCat["Прочее"]).push(d));
@@ -1415,7 +1432,10 @@ function CustomerObjectView({ id, preview, autoOpenMessages }) {
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16 }}>
         <div>
         <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: ".04em", color: MUTED, textTransform: "uppercase" }}>№ {o.id}</div>
-        <div style={{ marginTop: 4, fontSize: 26, fontWeight: 600, color: TEXT }}>{o.customerName} — {o.title}</div>
+        <div style={{ marginTop: 4, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          <span style={{ fontSize: 26, fontWeight: 600, color: TEXT }}>{o.customerName} — {o.title}</span>
+          {unseen && <NewBadge />}
+        </div>
         <div style={{ marginTop: 6, display: "flex", flexWrap: "wrap", gap: "6px 18px", fontSize: 14, fontWeight: 300, color: "#444", alignItems: "center" }}>
           {o.address && <span>{o.address}</span>}
           {o.inn && <span>ИНН {o.inn}</span>}
@@ -1520,6 +1540,7 @@ function CustomerObjectsList({ email, accountId }) {
                 <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                   <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: ".05em", color: MUTED, textTransform: "uppercase" }}>№ {o.id}</span>
                   <Badge label={st.label || o.status} tone={st.tone} />
+                  {DB.isObjectUnseen(o) && <NewBadge />}
                 </div>
                 <div style={{ marginTop: 6, fontSize: 17, fontWeight: 500, color: TEXT, lineHeight: 1.3 }}>{o.customerName} — {o.title}</div>
                 <div style={{ marginTop: 3, fontSize: 13, fontWeight: 300, color: MUTED }}>{o.address || o.city}{o.responsibleName ? ` · ${o.responsibleName}` : ""} · {(o.documents || []).length} док.</div>
