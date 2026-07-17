@@ -5,6 +5,23 @@ import { createPortal } from "react-dom";
 import { registerUser, loginUser, verifyTwoFactor, requestPasswordReset, auth } from "@/lib/auth";
 import { CenterSpinner } from "@/components/common/Spinner.jsx";
 
+/* После входа: если сохранён returnTo (напр. из ссылки в письме), возвращаем туда. */
+function returnToAfterLogin() {
+  let back = "";
+  try {
+    back = sessionStorage.getItem("auth:returnTo") || "";
+    sessionStorage.removeItem("auth:returnTo");
+  } catch {}
+  if (back && back.startsWith("/account")) {
+    setTimeout(() => {
+      try {
+        window.history.pushState({}, "", back);
+        window.dispatchEvent(new PopStateEvent("popstate"));
+      } catch { window.location.href = back; }
+    }, 60);
+  }
+}
+
 /* ===== Хост модалок (API: window.openModal("register"|"login"|"forgot"|"custom", props)) ===== */
 export default function ModalsHost() {
   const [view, setView] = React.useState(null);
@@ -48,7 +65,11 @@ export default function ModalsHost() {
 /* ===== Общие классы ===== */
 export const BTN =
   "h-[72px] rounded-[10px] bg-black px-[18px] text-[18px] font-semibold tracking-[.02em] text-white transition-colors hover:bg-[#2f2f2f] active:translate-y-px disabled:opacity-60";
-export const LINK = "font-semibold text-[#111] underline underline-offset-2 hover:opacity-80";
+// подчёркивание как у «Генеральный директор»: серая база + выезжающая тёмная линия
+export const LINK =
+  "relative inline-block pb-0.5 font-semibold text-[#111] no-underline " +
+  "before:absolute before:inset-x-0 before:bottom-0 before:h-0.5 before:bg-neutral-300 before:content-[''] " +
+  "after:absolute after:bottom-0 after:left-0 after:h-0.5 after:w-0 after:bg-[#111] after:transition-[width] after:duration-300 after:content-[''] hover:after:w-full";
 const MUTED_LINK = "font-semibold text-[#111]";
 export const inputCls = (err) =>
   "h-[42px] border-0 border-b bg-transparent px-0.5 font-light text-[#111] outline-none transition-colors placeholder:font-light placeholder:text-[#c7c7c7] " +
@@ -331,6 +352,7 @@ function LoginForm() {
       }
       if (window.setHeaderUser) window.setHeaderUser(res.user, res.accessToken);
       if (window.closeModal) window.closeModal();
+      returnToAfterLogin();
     } catch (err) {
       if (err.status === 400) setErrors({ ...es, id: "Укажите e-mail или логин и пароль." });
       else if (err.status === 401) setErrors({ id: "Неверный e-mail/логин или пароль.", pass: "Проверьте пароль." });
@@ -351,6 +373,7 @@ function LoginForm() {
       const { user, accessToken } = await verifyTwoFactor({ challenge: twofa.challenge, code: c, remember: twofa.remember });
       if (window.setHeaderUser) window.setHeaderUser(user, accessToken);
       if (window.closeModal) window.closeModal();
+      returnToAfterLogin();
     } catch (err) {
       if (err.status === 401) {
         // просроченный challenge — на первый шаг; неверный код — остаёмся

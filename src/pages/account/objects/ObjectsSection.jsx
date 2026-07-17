@@ -341,7 +341,10 @@ function DownloadBtn({ doc, label = "Скачать", preview = false }) {
         const url = await DB.downloadUrl(doc.key, doc.file || doc.title, { inline: false });
         const a = document.createElement("a"); a.href = url; a.download = doc.file || doc.title || "file"; document.body.appendChild(a); a.click(); a.remove();
       }
-      catch (e) { window.showDockToast?.("Не удалось получить файл", 3000, "error"); }
+      catch (e) {
+        const msg = e && e.status === 403 ? "Нет доступа к файлу" : e && e.status ? `Не удалось получить файл (${e.status})` : "Не удалось получить файл";
+        window.showDockToast?.(msg, 3200, "error");
+      }
       finally { setBusy(false); }
     } else if (doc.url) {
       const a = document.createElement("a"); a.href = doc.url; a.download = doc.file || doc.title || "file"; document.body.appendChild(a); a.click(); a.remove();
@@ -382,12 +385,13 @@ function DocViewer({ doc, onClose }) {
       try {
         const src = doc.key ? await DB.downloadUrl(doc.key, name, { inline: true }) : (doc.url || "");
         if (!src) throw new Error("нет ссылки на файл");
-        const getBuffer = async () => (doc.key ? (await fetch(src)).arrayBuffer() : dataUrlToArrayBuffer(src));
+        const fetchOk = async () => { const r = await fetch(src); if (!r.ok) throw new Error(`файл недоступен в хранилище (${r.status})`); return r; };
+        const getBuffer = async () => (doc.key ? (await fetchOk()).arrayBuffer() : dataUrlToArrayBuffer(src));
 
         if (ext === "pdf") { set({ loading: false, kind: "pdf", url: src }); return; }
         if (["png", "jpg", "jpeg", "gif", "webp", "svg", "bmp", "avif"].includes(ext)) { set({ loading: false, kind: "image", url: src }); return; }
         if (["txt", "log", "json", "md", "xml", "yml", "yaml"].includes(ext)) {
-          const text = doc.key ? await (await fetch(src)).text() : new TextDecoder().decode(dataUrlToArrayBuffer(src));
+          const text = doc.key ? await (await fetchOk()).text() : new TextDecoder().decode(dataUrlToArrayBuffer(src));
           set({ loading: false, kind: "text", text }); return;
         }
         if (ext === "docx") {
@@ -406,7 +410,8 @@ function DocViewer({ doc, onClose }) {
         // остальное (doc, pptx, dwg, zip…) — предпросмотр невозможен
         set({ loading: false, kind: "unsupported" });
       } catch (e) {
-        set({ loading: false, error: (e && e.message) || String(e) });
+        const msg = e && e.status === 403 ? "Нет доступа к файлу (объект не привязан к учётке или документ снят с публикации)" : (e && e.message) || String(e);
+        set({ loading: false, error: msg });
       }
     })();
     return () => { alive = false; };
@@ -853,7 +858,7 @@ export function CreateObjectForm({ onCancel, onCreated, fixedCustomer = null, em
 function SectionRule() {
   return <div style={{ marginTop: 34, borderTop: `1px solid ${LINE}` }} />;
 }
-function AdminObjectEditor({ id }) {
+function AdminObjectEditor({ id, autoOpenMessages }) {
   const force = useForceUpdate();
   const obj = DB.getObject(id);
   if (!obj) return <div style={{ fontFamily: UI, marginTop: 8 }}><button style={backBtn} onClick={() => navigate("/account/objects")}>← К объектам</button><div style={{ marginTop: 20, color: MUTED }}>Объект не найден.</div></div>;
@@ -903,7 +908,7 @@ function AdminObjectEditor({ id }) {
 
       {/* Переписка с заказчиком (внизу; кнопка «Ответить» → раскрывается поле) */}
       <SectionRule />
-      <MessagesPanel objId={id} side="staff" authorName={obj.responsibleName || "Ответственный"} />
+      <MessagesPanel objId={id} side="staff" authorName={obj.responsibleName || "Ответственный"} autoOpen={autoOpenMessages} />
 
       {/* Опасная зона — как «Удалить аккаунт» в Настройках */}
       <ObjectDangerZone id={id} title={obj.title} />
@@ -1088,27 +1093,114 @@ function DocumentsEditor({ id, obj, onChange }) {
       Это НЕ чат: внизу секция; по кнопке раскрывается поле-запрос → «Ожидание ответа».
       Демо на localStorage; реальные письма/хранение — при переносе на бэкенд. --- */
 const msgLabel = { display: "block", textAlign: "left", fontSize: 12, fontWeight: 300, textTransform: "uppercase", letterSpacing: ".04em", color: "#a7a7a7", marginBottom: 6 };
-function MessagesPanel({ objId, side, authorName, disabled }) {
+// Вложение в треде: клик → presigned-ссылка (картинки открываем inline, файлы — скачиваем).
+function MsgAttachment({ att }) {
+  const [busy, setBusy] = React.useState(false);
+  const isImg = /^image\//.test(att.mime || "") || /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(att.name || "");
+  const onClick = async () => {
+    if (busy || !att.key) return;
+    try {
+      setBusy(true);
+      const url = await DB.downloadUrl(att.key, att.name, { inline: isImg });
+      if (isImg) window.open(url, "_blank", "noopener");
+      else { const a = document.createElement("a"); a.href = url; a.download = att.name || "file"; document.body.appendChild(a); a.click(); a.remove(); }
+    } catch (e) {
+      window.showDockToast?.(e && e.status === 403 ? "Нет доступа к файлу" : "Не удалось получить файл", 3200, "error");
+    } finally { setBusy(false); }
+  };
+  return (
+    <button type="button" onClick={onClick} title={att.name} disabled={!att.key}
+      style={{ display: "inline-flex", alignItems: "center", gap: 8, maxWidth: 260, height: 34, padding: "0 12px", borderRadius: 8, border: `1px solid ${LINE}`, background: "#fff", cursor: att.key ? "pointer" : "default", fontFamily: UI, fontSize: 13, color: TEXT, transition: "border-color .15s ease" }}
+      onMouseEnter={(e) => { if (att.key) e.currentTarget.style.borderColor = "#bbb"; }}
+      onMouseLeave={(e) => { e.currentTarget.style.borderColor = LINE; }}>
+      {busy ? <Spinner size={14} /> : <span aria-hidden style={{ fontSize: 14, lineHeight: 1 }}>{isImg ? "🖼" : "📎"}</span>}
+      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{att.name || "файл"}</span>
+    </button>
+  );
+}
+
+function MessagesPanel({ objId, side, authorName, disabled, autoOpen }) {
   const force = useForceUpdate();
   const [open, setOpen] = React.useState(false);
   const [text, setText] = React.useState("");
   const [sentNote, setSentNote] = React.useState("");
+  const [atts, setAtts] = React.useState([]); // черновик вложений: {id,name,size,mime,key?,uploading,error,isImage}
   const msgs = getMessages(objId);
   const status = threadStatus(objId);
   const isCustomer = side === "customer";
+  const rootRef = React.useRef(null);
+  const fileRef = React.useRef(null);
+  // Перерисовка при обновлении треда (оптимистичное добавление + ответ сервера).
+  React.useEffect(() => {
+    const on = () => force();
+    window.addEventListener("objects:changed", on);
+    return () => window.removeEventListener("objects:changed", on);
+  }, []);
+  // Клик по «Задать вопрос» / «Запросы» в StickyDock → подскроллить сюда (и заказчику раскрыть поле).
+  React.useEffect(() => {
+    const onOpen = () => {
+      try { rootRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }); } catch {}
+      // заказчику — всегда; сотруднику — если заказчик уже что-то написал
+      const canOpen = isCustomer ? !disabled : getMessages(objId).length > 0;
+      if (canOpen) { setSentNote(""); setOpen(true); }
+    };
+    window.addEventListener("object:message-open", onOpen);
+    return () => window.removeEventListener("object:message-open", onOpen);
+  }, [isCustomer, disabled, objId]);
+  // Диплинк из письма (?msg=1) → раскрыть переписку сразу. Ждём гидрацию: для
+  // сотрудника открываем, когда сообщения заказчика подгрузились; заказчику — всегда.
+  const autoOpenedRef = React.useRef(false);
+  React.useEffect(() => {
+    if (!autoOpen || autoOpenedRef.current) return;
+    const canOpen = isCustomer ? !disabled : getMessages(objId).length > 0;
+    if (!canOpen) return;
+    autoOpenedRef.current = true;
+    setSentNote(""); setOpen(true);
+    setTimeout(() => { try { rootRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }); } catch {} }, 80);
+  }, [autoOpen, disabled, isCustomer, objId, msgs.length]);
+
+  // Загрузка выбранных/вставленных файлов в S3 (presigned PUT).
+  const addFiles = (fileList) => {
+    const files = Array.from(fileList || []);
+    files.forEach((file) => {
+      const localId = `a-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+      const isImage = /^image\//.test(file.type || "");
+      const name = file.name || (isImage ? "Скриншот.png" : "файл");
+      setAtts((a) => [...a, { id: localId, name, size: file.size, mime: file.type || "", uploading: true, error: "", isImage }]);
+      DB.uploadMessageAttachment({ objectId: objId, file })
+        .then((up) => setAtts((a) => a.map((x) => (x.id === localId ? { ...x, key: up.key, uploading: false } : x))))
+        .catch((e) => setAtts((a) => a.map((x) => (x.id === localId ? { ...x, uploading: false, error: e && e.status === 403 ? "нет доступа" : "ошибка загрузки" } : x))));
+    });
+  };
+  const onPaste = (e) => {
+    const items = (e.clipboardData && e.clipboardData.items) || [];
+    const imgs = [];
+    for (const it of items) { if (it.kind === "file" && /^image\//.test(it.type)) { const f = it.getAsFile(); if (f) imgs.push(f); } }
+    if (imgs.length) { e.preventDefault(); addFiles(imgs); }
+  };
+  const removeAtt = (id) => setAtts((a) => a.filter((x) => x.id !== id));
+  const resetComposer = () => { setText(""); setAtts([]); setOpen(false); };
+
+  const uploadingAny = atts.some((x) => x.uploading);
+  const readyAtts = atts.filter((x) => x.key && !x.error);
+  const hasContent = !!text.trim() || readyAtts.length > 0;
+  const canSend = hasContent && !uploadingAny && !disabled;
+
   const send = () => {
-    const body = text.trim(); if (!body || disabled) return;
-    const res = addMessage(objId, { from: side, author: authorName || (isCustomer ? "Заказчик" : "Ответственный"), text: body });
-    setText(""); setOpen(false);
+    if (!canSend) return;
+    const attachments = readyAtts.map((x) => ({ key: x.key, name: x.name, size: x.size, mime: x.mime }));
+    const res = addMessage(objId, { from: side, author: authorName || (isCustomer ? "Заказчик" : "Ответственный"), text: text.trim(), attachments });
+    resetComposer();
     setSentNote(isCustomer
       ? `Запрос отправлен — ожидайте ответа.${res && res.mailedTo ? ` Уведомление ушло ответственному: ${res.mailedTo}` : ""}`
-      : "Ответ отправлен заказчику.");
+      : "Ответ отправлен заказчику — уведомление ушло на почту.");
+    if (res && res.promise) res.promise.catch(() => window.showDockToast?.("Не удалось отправить сообщение — попробуйте ещё раз", 3600, "error"));
     force();
   };
   const openBtnLabel = isCustomer ? "Отправить сообщение" : "Ответить заказчику";
 
   return (
-    <div style={{ marginTop: 34 }}>
+    <div ref={rootRef} style={{ marginTop: 34, scrollMarginTop: 90 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
         <div style={secLabel}>{isCustomer ? "Сообщение по объекту" : "Запросы заказчика"}</div>
         {status === "awaiting" && <span style={{ fontSize: 11, fontWeight: 600, color: "#b0451f", background: "#fff4ef", border: "1px solid #f6c9b6", borderRadius: 999, padding: "3px 9px" }}>Ожидание ответа</span>}
@@ -1120,12 +1212,20 @@ function MessagesPanel({ objId, side, authorName, disabled }) {
         <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 16 }}>
           {msgs.map((m) => {
             const fromCustomer = m.from === "customer";
+            const mAtts = Array.isArray(m.attachments) ? m.attachments : [];
             return (
-              <div key={m.id} style={{ borderLeft: `2px solid ${fromCustomer ? "#e0e0e0" : "#111"}`, paddingLeft: 14 }}>
+              <div key={m.id} style={{ borderLeft: `2px solid ${fromCustomer ? "#e0e0e0" : "#111"}`, paddingLeft: 14, opacity: m.pending ? 0.6 : 1 }}>
                 <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: ".04em", textTransform: "uppercase", color: fromCustomer ? MUTED : TEXT }}>
                   {fromCustomer ? "Запрос заказчика" : "Ответ ответственного"}
                 </div>
-                <div style={{ marginTop: 5, fontSize: 15, lineHeight: 1.5, color: TEXT, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{m.text}</div>
+                {m.text && <div style={{ marginTop: 5, fontSize: 15, lineHeight: 1.5, color: TEXT, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{m.text}</div>}
+                {mAtts.length > 0 && (
+                  <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 8 }}>
+                    {mAtts.map((att, i) => <MsgAttachment key={att.key || i} att={att} />)}
+                  </div>
+                )}
+                {m.pending && <div style={{ marginTop: 4, fontSize: 11, color: MUTED }}>Отправляется…</div>}
+                {m.failed && <div style={{ marginTop: 4, fontSize: 11, color: "#b0451f" }}>Не отправлено — попробуйте ещё раз.</div>}
               </div>
             );
           })}
@@ -1134,9 +1234,9 @@ function MessagesPanel({ objId, side, authorName, disabled }) {
 
       {sentNote && <div style={{ marginTop: 14, fontSize: 13, fontWeight: 300, color: "#2f7d32" }}>{sentNote}</div>}
 
-      {/* Ответ заказчику НЕ из редактирования: у сотрудника панель только для чтения */}
-      {!isCustomer ? (
-        msgs.length === 0 && <div style={{ marginTop: 14, fontSize: 14, fontWeight: 300, color: MUTED }}>Заказчик пока не оставлял сообщений по объекту.</div>
+      {/* Сотрудник до первого сообщения заказчика — только заметка; дальше обе стороны отвечают */}
+      {!isCustomer && msgs.length === 0 ? (
+        <div style={{ marginTop: 14, fontSize: 14, fontWeight: 300, color: MUTED }}>Заказчик пока не оставлял сообщений по объекту.</div>
       ) : !open ? (
         <button type="button" onClick={() => { setSentNote(""); setOpen(true); }} disabled={disabled}
           style={{ marginTop: 18, height: 52, minWidth: 240, padding: "0 26px", borderRadius: 10, border: "none", background: disabled ? "#c9c9c9" : "#111", color: "#fff", fontFamily: UI, fontSize: 13, fontWeight: 600, textTransform: "uppercase", letterSpacing: ".02em", cursor: disabled ? "not-allowed" : "pointer", transition: "background-color .2s ease" }}
@@ -1145,29 +1245,56 @@ function MessagesPanel({ objId, side, authorName, disabled }) {
           {disabled ? "Недоступно в предпросмотре" : openBtnLabel}
         </button>
       ) : (
-        <div style={{ marginTop: 18, maxWidth: 620 }}>
+        <div className="animate-msgin" style={{ marginTop: 18, maxWidth: 620 }}>
           <label style={msgLabel}>{isCustomer ? "Ваше сообщение" : "Ответ заказчику"}</label>
-          <textarea autoFocus value={text} onChange={(e) => setText(e.target.value)}
+          <textarea autoFocus value={text} onChange={(e) => setText(e.target.value)} onPaste={onPaste}
             onFocus={(e) => { e.currentTarget.style.borderColor = "#999"; }}
             onBlur={(e) => { e.currentTarget.style.borderColor = LINE; }}
             placeholder={isCustomer ? "Опишите вопрос по объекту…" : "Напишите ответ заказчику…"}
             style={{ display: "block", width: "100%", height: 150, resize: "none", border: `1px solid ${LINE}`, borderRadius: 12, background: "#fff", padding: "12px 14px", fontFamily: UI, fontSize: 14, fontWeight: 400, lineHeight: 1.5, color: TEXT, outline: "none", transition: "border-color .3s ease" }} />
-          <div style={{ marginTop: 16, display: "flex", gap: 12 }}>
-            <button type="button" onClick={send} disabled={!text.trim()}
-              style={{ height: 52, minWidth: 210, padding: "0 26px", borderRadius: 10, border: "none", background: !text.trim() ? "#c9c9c9" : "#111", color: "#fff", fontFamily: UI, fontSize: 13, fontWeight: 600, textTransform: "uppercase", letterSpacing: ".02em", cursor: !text.trim() ? "not-allowed" : "pointer", transition: "background-color .2s ease" }}
-              onMouseEnter={(e) => { if (text.trim()) e.currentTarget.style.background = "#262626"; }}
-              onMouseLeave={(e) => { if (text.trim()) e.currentTarget.style.background = "#111"; }}>
-              {isCustomer ? "Отправить запрос" : "Отправить ответ"}
+
+          {/* Черновик вложений */}
+          {atts.length > 0 && (
+            <div style={{ marginTop: 12, display: "flex", flexWrap: "wrap", gap: 8 }}>
+              {atts.map((a) => (
+                <span key={a.id} style={{ display: "inline-flex", alignItems: "center", gap: 8, height: 32, padding: "0 6px 0 10px", borderRadius: 8, border: `1px solid ${a.error ? "#f0b4a4" : LINE}`, background: a.error ? "#fff4ef" : "#fafafa", fontSize: 12.5, color: a.error ? "#b0451f" : TEXT, maxWidth: 240 }}>
+                  {a.uploading ? <Spinner size={13} /> : <span aria-hidden style={{ lineHeight: 1 }}>{a.error ? "⚠" : a.isImage ? "🖼" : "📎"}</span>}
+                  <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.error ? `${a.name} — ${a.error}` : a.name}</span>
+                  <button type="button" onClick={() => removeAtt(a.id)} aria-label="Убрать" style={{ border: "none", background: "none", cursor: "pointer", color: MUTED, fontSize: 16, lineHeight: 1, padding: "0 2px" }}>×</button>
+                </span>
+              ))}
+            </div>
+          )}
+
+          <input ref={fileRef} type="file" multiple style={{ display: "none" }}
+            onChange={(e) => { addFiles(e.target.files); e.target.value = ""; }} />
+
+          <div style={{ marginTop: 16, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            <button type="button" onClick={send} disabled={!canSend}
+              style={{ height: 52, minWidth: 210, padding: "0 26px", borderRadius: 10, border: "none", background: !canSend ? "#c9c9c9" : "#111", color: "#fff", fontFamily: UI, fontSize: 13, fontWeight: 600, textTransform: "uppercase", letterSpacing: ".02em", cursor: !canSend ? "not-allowed" : "pointer", transition: "background-color .2s ease" }}
+              onMouseEnter={(e) => { if (canSend) e.currentTarget.style.background = "#262626"; }}
+              onMouseLeave={(e) => { if (canSend) e.currentTarget.style.background = "#111"; }}>
+              {uploadingAny ? "Загрузка файла…" : isCustomer ? "Отправить запрос" : "Отправить ответ"}
             </button>
-            <FillBtn big onClick={() => { setOpen(false); setText(""); }}>Отмена</FillBtn>
+            <button type="button" onClick={() => fileRef.current?.click()} title="Прикрепить файл или скриншот"
+              style={{ height: 52, width: 52, display: "grid", placeItems: "center", borderRadius: 10, border: `1px solid ${LINE}`, background: "#fff", color: "#555", fontSize: 18, cursor: "pointer", transition: "border-color .16s ease" }}
+              onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#999"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.borderColor = LINE; }}>📎</button>
+            <button type="button" onClick={resetComposer}
+              style={{ height: 52, padding: "0 24px", borderRadius: 10, border: `1px solid ${LINE}`, background: "#fff", color: TEXT, fontFamily: UI, fontSize: 14, fontWeight: 400, cursor: "pointer", transition: "border-color .16s ease, background-color .16s ease" }}
+              onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#999"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.borderColor = LINE; }}>
+              Отмена
+            </button>
           </div>
+          <div style={{ marginTop: 10, fontSize: 12, fontWeight: 300, color: MUTED }}>Можно приложить файл или вставить скриншот (Ctrl+V) прямо в поле.</div>
         </div>
       )}
     </div>
   );
 }
 
-function CustomerObjectView({ id, preview }) {
+function CustomerObjectView({ id, preview, autoOpenMessages }) {
   const o = DB.getCustomerView(id);
   if (!o) return <div style={{ fontFamily: UI, marginTop: 8 }}><button style={backBtn} onClick={() => navigate("/account/objects")}>← Назад</button><div style={{ marginTop: 20, color: MUTED }}>Объект недоступен.</div></div>;
   const st = OBJECT_STATUSES.find((s) => s.code === o.status) || {};
@@ -1249,7 +1376,7 @@ function CustomerObjectView({ id, preview }) {
 
       {/* Сообщение по объекту — внизу, не «чат»: кнопка → раскрывается поле-запрос */}
       <SectionRule />
-      <MessagesPanel objId={o.id} side="customer" authorName={o.customerName || "Заказчик"} disabled={preview} />
+      <MessagesPanel objId={o.id} side="customer" authorName={o.customerName || "Заказчик"} disabled={preview} autoOpen={autoOpenMessages} />
       </div>
     </div>
   );
@@ -1573,12 +1700,13 @@ export default function ObjectsSection({ userEmail, userId, isAdmin }) {
   const p = typeof window !== "undefined" ? window.location.pathname : "";
   const search = typeof window !== "undefined" ? window.location.search : "";
   const preview = /(?:\?|&)preview=customer/.test(search);
+  const openMsg = /(?:\?|&)msg=1(?:&|$)/.test(search); // диплинк из письма-уведомления
   const mObj = p.match(/\/account\/objects\/([^/?#]+)/);
   const objId = mObj ? decodeURIComponent(mObj[1]) : null;
 
   if (objId) {
-    if (isAdmin && !preview) return <AdminObjectEditor id={objId} />;
-    return <CustomerObjectView id={objId} preview={isAdmin && preview} />;
+    if (isAdmin && !preview) return <AdminObjectEditor id={objId} autoOpenMessages={openMsg} />;
+    return <CustomerObjectView id={objId} preview={isAdmin && preview} autoOpenMessages={openMsg} />;
   }
   if (isAdmin) return <AdminObjectsList />;
   return <CustomerObjectsList email={userEmail} accountId={userId} />;

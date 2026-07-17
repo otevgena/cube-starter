@@ -136,6 +136,12 @@ export default function App(){
     let authed = false
     try { authed = !!sessionStorage.getItem('auth:lastUser') } catch {}
     if (!authed) {
+      // запоминаем, куда вёл диплинк (например, из письма /account/objects/{id}?msg=1),
+      // чтобы вернуть сюда сразу после входа
+      try {
+        const back = window.location.pathname + window.location.search + window.location.hash
+        if (back.startsWith('/account')) sessionStorage.setItem('auth:returnTo', back)
+      } catch {}
       window.history.replaceState({}, '', '/')
       window.dispatchEvent(new PopStateEvent('popstate'))
       setTimeout(() => { try { window.openModal?.('login') } catch {} }, 50)
