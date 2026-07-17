@@ -317,28 +317,147 @@ function IconAction({ onClick, children, prompt }) {
 }
 
 /* ---- кнопка «Скачать/Открыть»: presigned-ссылка (key) или legacy base64 (url) ----
-   preview=true — просмотр в браузере (inline), иначе — скачивание (attachment). ---- */
+   preview=true — открыть просмотрщик в модалке, иначе — скачивание (attachment). ---- */
 function DownloadBtn({ doc, label = "Скачать", preview = false }) {
   const [busy, setBusy] = React.useState(false);
-  const go = async () => {
+  const [viewing, setViewing] = React.useState(false);
+  const download = async () => {
     if (busy) return;
     if (doc.key) {
       try {
         setBusy(true);
-        const url = await DB.downloadUrl(doc.key, doc.file || doc.title, { inline: preview });
-        if (preview) window.open(url, "_blank", "noopener");
-        else { const a = document.createElement("a"); a.href = url; a.download = doc.file || doc.title || "file"; document.body.appendChild(a); a.click(); a.remove(); }
+        const url = await DB.downloadUrl(doc.key, doc.file || doc.title, { inline: false });
+        const a = document.createElement("a"); a.href = url; a.download = doc.file || doc.title || "file"; document.body.appendChild(a); a.click(); a.remove();
       }
       catch (e) { window.showDockToast?.("Не удалось получить файл", 3000, "error"); }
       finally { setBusy(false); }
     } else if (doc.url) {
-      // legacy base64: preview — в новой вкладке, иначе скачиванием
-      if (preview) window.open(doc.url, "_blank", "noopener");
-      else { const a = document.createElement("a"); a.href = doc.url; a.download = doc.file || doc.title || "file"; document.body.appendChild(a); a.click(); a.remove(); }
+      const a = document.createElement("a"); a.href = doc.url; a.download = doc.file || doc.title || "file"; document.body.appendChild(a); a.click(); a.remove();
     } else { window.showDockToast?.("Файл не прикреплён", 3000, "error"); }
   };
+  const onClick = () => {
+    if (preview) { if (doc.key || doc.url) setViewing(true); else window.showDockToast?.("Файл не прикреплён", 3000, "error"); }
+    else download();
+  };
   if (busy) return <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", height: 34, minWidth: 44, flexShrink: 0 }}><Spinner size={18} /></span>;
-  return <FillBtn tiny onClick={go}>{label}</FillBtn>;
+  return (
+    <>
+      <FillBtn tiny onClick={onClick}>{label}</FillBtn>
+      {viewing && <DocViewer doc={doc} onClose={() => setViewing(false)} />}
+    </>
+  );
+}
+
+/* ---- Просмотрщик документов (клиентский): pdf/картинки/текст — нативно,
+   docx — mammoth, xlsx/csv — SheetJS; тяжёлые либы грузятся лениво import(). ---- */
+function dataUrlToArrayBuffer(dataUrl) {
+  const base64 = String(dataUrl).split(",")[1] || "";
+  const bin = atob(base64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return bytes.buffer;
+}
+function DocViewer({ doc, onClose }) {
+  const ext = extOf(doc.type || doc.file || doc.title);
+  const name = doc.file || doc.title || "Документ";
+  const [st, setSt] = React.useState({ loading: true, error: "", kind: "", url: "", html: "", text: "", sheets: null });
+  const [sheet, setSheet] = React.useState(0);
+
+  React.useEffect(() => {
+    let alive = true;
+    const set = (patch) => { if (alive) setSt((s) => ({ ...s, ...patch })); };
+    (async () => {
+      try {
+        const src = doc.key ? await DB.downloadUrl(doc.key, name, { inline: true }) : (doc.url || "");
+        if (!src) throw new Error("нет ссылки на файл");
+        const getBuffer = async () => (doc.key ? (await fetch(src)).arrayBuffer() : dataUrlToArrayBuffer(src));
+
+        if (ext === "pdf") { set({ loading: false, kind: "pdf", url: src }); return; }
+        if (["png", "jpg", "jpeg", "gif", "webp", "svg", "bmp", "avif"].includes(ext)) { set({ loading: false, kind: "image", url: src }); return; }
+        if (["txt", "log", "json", "md", "xml", "yml", "yaml"].includes(ext)) {
+          const text = doc.key ? await (await fetch(src)).text() : new TextDecoder().decode(dataUrlToArrayBuffer(src));
+          set({ loading: false, kind: "text", text }); return;
+        }
+        if (ext === "docx") {
+          const arrayBuffer = await getBuffer();
+          const mammoth = await import("mammoth/mammoth.browser.js");
+          const res = await (mammoth.default || mammoth).convertToHtml({ arrayBuffer });
+          set({ loading: false, kind: "html", html: res.value || "<p>Пустой документ.</p>" }); return;
+        }
+        if (["xlsx", "xls", "csv"].includes(ext)) {
+          const arrayBuffer = await getBuffer();
+          const XLSX = await import("xlsx");
+          const wb = XLSX.read(arrayBuffer, { type: "array" });
+          const sheets = wb.SheetNames.map((n) => ({ name: n, html: XLSX.utils.sheet_to_html(wb.Sheets[n], { editable: false }) }));
+          set({ loading: false, kind: "sheets", sheets: sheets.length ? sheets : [{ name: "—", html: "<p>Пустая книга.</p>" }] }); return;
+        }
+        // остальное (doc, pptx, dwg, zip…) — предпросмотр невозможен
+        set({ loading: false, kind: "unsupported" });
+      } catch (e) {
+        set({ loading: false, error: (e && e.message) || String(e) });
+      }
+    })();
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const downloadFallback = async () => {
+    try {
+      const url = doc.key ? await DB.downloadUrl(doc.key, name, { inline: false }) : doc.url;
+      const a = document.createElement("a"); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+    } catch { window.showDockToast?.("Не удалось скачать файл", 3000, "error"); }
+  };
+
+  const frame = { border: `1px solid ${LINE}`, borderRadius: 10, background: "#fff", width: "100%", height: "72vh" };
+  return (
+    <Modal title={name} onClose={onClose} width={960}>
+      <style>{`
+        .doc-view img{ max-width:100%; height:auto; }
+        .doc-view table{ border-collapse:collapse; width:100%; }
+        .doc-view td,.doc-view th{ border:1px solid ${LINE}; padding:6px 8px; }
+        .doc-view h1,.doc-view h2,.doc-view h3{ margin:.6em 0 .3em; font-weight:600; }
+        .doc-view p{ margin:.4em 0; }
+        .doc-sheet table{ border-collapse:collapse; font-size:13px; }
+        .doc-sheet td,.doc-sheet th{ border:1px solid ${LINE}; padding:4px 8px; white-space:nowrap; color:${TEXT}; }
+        .doc-sheet tr:first-child td{ background:#f6f6f6; font-weight:600; }
+      `}</style>
+      {st.loading ? (
+        <CenterSpinner minHeight={320} label="Открываем документ…" />
+      ) : st.error ? (
+        <div style={{ minHeight: 200, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14, textAlign: "center" }}>
+          <div style={{ fontSize: 14, fontWeight: 300, color: MUTED }}>Не удалось открыть файл в браузере.</div>
+          <FillBtn onClick={downloadFallback}>Скачать файл</FillBtn>
+        </div>
+      ) : st.kind === "pdf" ? (
+        <iframe title={name} src={st.url} style={frame} />
+      ) : st.kind === "image" ? (
+        <div style={{ display: "flex", justifyContent: "center", background: "#f6f6f6", borderRadius: 10, padding: 12 }}>
+          <img src={st.url} alt={name} style={{ maxWidth: "100%", maxHeight: "72vh", objectFit: "contain" }} />
+        </div>
+      ) : st.kind === "text" ? (
+        <pre style={{ ...frame, height: "auto", maxHeight: "72vh", overflow: "auto", margin: 0, padding: 16, fontSize: 13, lineHeight: 1.5, whiteSpace: "pre-wrap", wordBreak: "break-word", fontFamily: "ui-monospace,Menlo,Consolas,monospace", color: TEXT }}>{st.text}</pre>
+      ) : st.kind === "html" ? (
+        <div className="doc-view" style={{ ...frame, height: "auto", maxHeight: "72vh", overflow: "auto", padding: "24px 28px", fontSize: 14, lineHeight: 1.6, color: TEXT }} dangerouslySetInnerHTML={{ __html: st.html }} />
+      ) : st.kind === "sheets" ? (
+        <div>
+          {st.sheets.length > 1 && (
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
+              {st.sheets.map((s, i) => (
+                <button key={i} type="button" onClick={() => setSheet(i)}
+                  style={{ height: 30, padding: "0 12px", borderRadius: 8, border: `1px solid ${i === sheet ? TEXT : LINE}`, background: i === sheet ? TEXT : "#fff", color: i === sheet ? "#fff" : TEXT, fontFamily: UI, fontSize: 13, cursor: "pointer", whiteSpace: "nowrap" }}>{s.name}</button>
+              ))}
+            </div>
+          )}
+          <div className="doc-sheet" style={{ ...frame, height: "auto", maxHeight: "72vh", overflow: "auto", padding: 0 }} dangerouslySetInnerHTML={{ __html: st.sheets[sheet].html }} />
+        </div>
+      ) : (
+        <div style={{ minHeight: 200, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14, textAlign: "center" }}>
+          <div style={{ fontSize: 14, fontWeight: 300, color: MUTED }}>Для формата <b style={{ fontWeight: 600, color: TEXT }}>.{ext || "?"}</b> предпросмотр в браузере недоступен.</div>
+          <FillBtn onClick={downloadFallback}>Скачать файл</FillBtn>
+        </div>
+      )}
+    </Modal>
+  );
 }
 
 const EXT_COLORS = { pdf: "#e5484d", docx: "#2b6cb0", doc: "#2b6cb0", xlsx: "#2f855a", xls: "#2f855a", pptx: "#c05621", zip: "#5b6472", dwg: "#b7791f" };
