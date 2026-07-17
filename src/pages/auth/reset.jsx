@@ -6,21 +6,18 @@ import React from "react";
 import { resetPassword } from "@/lib/auth";
 import { toast } from "@/components/common/Toast.jsx";
 
+// Тёмная кнопка как в референсе awwwards: почти квадратный бокс, лёгкое скругление.
 const BTN =
-  "inline-flex h-[58px] items-center justify-center rounded-[12px] bg-black px-9 text-[16px] font-semibold tracking-[.02em] text-white transition-colors hover:bg-[#2f2f2f] active:translate-y-px disabled:opacity-60";
+  "inline-flex h-[64px] items-center justify-center rounded-[6px] bg-[#1a1a1a] px-9 text-[16px] font-semibold text-white transition-colors hover:bg-[#2f2f2f] active:translate-y-px disabled:opacity-60";
 
-// Slide-подчёркивание как у ссылок в модалках/«Генеральный директор»: серая база + выезжающая тёмная.
-const LINK =
-  "relative inline-block pb-0.5 font-semibold text-[#111] no-underline " +
-  "before:absolute before:inset-x-0 before:bottom-0 before:h-0.5 before:bg-neutral-300 before:content-[''] " +
-  "after:absolute after:bottom-0 after:left-0 after:h-0.5 after:w-0 after:bg-[#111] after:transition-[width] after:duration-300 after:content-[''] hover:after:w-full";
-
-// Широкое поле во всю ширину (референс): почти белый бар, едва заметная рамка.
+// Поле-бокс как в референсе: белый прямоугольник во всю ширину, КВАДРАТНЫЕ углы,
+// едва заметная рамка + мягкая тень (приподнятый белый блок на сером фоне).
 const inputCls =
-  "h-[62px] w-full rounded-[12px] border border-[#e8e8e8] bg-white px-5 text-[16px] font-light text-[#111] outline-none transition-colors placeholder:font-light placeholder:text-[#bdbdbd] hover:border-[#d6d6d6] focus:border-[#999]";
+  "h-[64px] w-full rounded-[2px] border border-[#ececec] bg-white px-5 text-[16px] font-light text-[#111] shadow-[0_1px_2px_rgba(0,0,0,.04)] outline-none transition-colors placeholder:font-light placeholder:text-[#c2c2c2] hover:border-[#dcdcdc] focus:border-[#999]";
 
+// Метка как в референсе: серая, капсом, с «(*)» тем же цветом.
 const labelCls =
-  "mb-2 block text-[12px] font-medium uppercase leading-none tracking-[.08em] text-[#8a8a8a]";
+  "mb-3 block text-[13px] font-medium uppercase leading-none tracking-[.06em] text-[#9a9a9a]";
 
 // Клиентская проверка (зеркалит серверную политику: ≥6, заглавная, спецсимвол)
 function policyError(pwd) {
@@ -80,17 +77,12 @@ export default function ResetPasswordPage() {
   return (
     <div className="font-tight">
       <div className="mx-auto w-full max-w-[1180px] px-6 py-14 md:px-10 md:py-20">
-        <span className="mb-10 block text-[38px] font-black leading-none tracking-[.02em] text-[#111]">c.</span>
-
         {done ? (
           <>
             <h1 className="text-[44px] font-black leading-[1.02] tracking-[-.01em] text-[#111] md:text-[64px]">
               Пароль изменён
             </h1>
-            <p className="mt-5 max-w-[560px] text-[16px] font-light leading-7 text-[#666]">
-              Теперь войдите с новым паролем. Все прежние сессии на других устройствах завершены.
-            </p>
-            <div className="mt-10">
+            <div className="mt-14 max-w-[1080px]">
               <button className={BTN} onClick={goLogin}>Войти</button>
             </div>
           </>
@@ -99,24 +91,20 @@ export default function ResetPasswordPage() {
             <h1 className="text-[44px] font-black leading-[1.02] tracking-[-.01em] text-[#111] md:text-[64px]">
               Новый пароль
             </h1>
-            <p className="mt-5 max-w-[560px] text-[16px] font-light leading-7 text-[#666]">
-              Придумайте новый пароль для аккаунта на cube-tech.ru — минимум 6 символов, с заглавной буквой и спецсимволом.
-            </p>
 
-            <form className="mt-12 flex max-w-[1080px] flex-col gap-7" onSubmit={onSubmit} noValidate>
+            <form className="mt-14 flex max-w-[1080px] flex-col gap-8" onSubmit={onSubmit} noValidate>
               <div>
-                <label className={labelCls}>Пароль <span className="text-carrot">*</span></label>
+                <label className={labelCls}>Пароль (*)</label>
                 <input className={inputCls} type="password" value={pass} autoFocus autoComplete="new-password"
                   onChange={(e) => setPass(e.target.value)} placeholder="Новый пароль" />
               </div>
               <div>
-                <label className={labelCls}>Повтор <span className="text-carrot">*</span></label>
+                <label className={labelCls}>Повтор (*)</label>
                 <input className={inputCls} type="password" value={pass2} autoComplete="new-password"
-                  onChange={(e) => setPass2(e.target.value)} placeholder="Ещё раз" />
+                  onChange={(e) => setPass2(e.target.value)} placeholder="Повторите пароль" />
               </div>
-              <div className="mt-2 flex flex-wrap items-center gap-x-8 gap-y-4">
+              <div className="mt-2">
                 <button className={BTN} type="submit" disabled={busy}>{busy ? "Сохраняем…" : "Сохранить пароль"}</button>
-                <a href="/" className={LINK} onClick={(e) => { e.preventDefault(); goLogin(); }}>Вернуться ко входу</a>
               </div>
             </form>
           </>
