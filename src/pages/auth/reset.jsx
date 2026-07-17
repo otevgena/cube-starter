@@ -1,7 +1,8 @@
 // src/pages/auth/reset.jsx
 // Страница установки нового пароля по ссылке из письма: /reset?token=...
-// Раскладка awwwards-референса: одна колонка, крупный заголовок сверху,
-// широкие поля во всю ширину, тёмная кнопка. Ошибки/успех — всплывающим тостом.
+// Раскладка awwwards-референса: одна колонка, заголовок в общем стиле сайта
+// (26px semibold, как verify.jsx), широкие поля-боксы, тёмная кнопка.
+// Ошибки/успех — всплывающим тостом.
 import React from "react";
 import { resetPassword } from "@/lib/auth";
 import { toast } from "@/components/common/Toast.jsx";
@@ -79,20 +80,20 @@ export default function ResetPasswordPage() {
       <div className="mx-auto w-full max-w-[1180px] px-6 py-14 md:px-10 md:py-20">
         {done ? (
           <>
-            <h1 className="text-[44px] font-black leading-[1.02] tracking-[-.01em] text-[#111] md:text-[64px]">
+            <h1 className="text-[26px] font-semibold leading-[1.2] text-[#111]">
               Пароль изменён
             </h1>
-            <div className="mt-14 max-w-[1080px]">
+            <div className="mt-9 max-w-[1080px]">
               <button className={BTN} onClick={goLogin}>Войти</button>
             </div>
           </>
         ) : (
           <>
-            <h1 className="text-[44px] font-black leading-[1.02] tracking-[-.01em] text-[#111] md:text-[64px]">
+            <h1 className="text-[26px] font-semibold leading-[1.2] text-[#111]">
               Новый пароль
             </h1>
 
-            <form className="mt-14 flex max-w-[1080px] flex-col gap-8" onSubmit={onSubmit} noValidate>
+            <form className="mt-9 flex max-w-[1080px] flex-col gap-8" onSubmit={onSubmit} noValidate>
               <div>
                 <label className={labelCls}>Пароль (*)</label>
                 <input className={inputCls} type="password" value={pass} autoFocus autoComplete="new-password"
