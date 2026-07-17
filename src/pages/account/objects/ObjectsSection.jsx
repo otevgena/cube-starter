@@ -316,6 +316,18 @@ function IconAction({ onClick, children, prompt }) {
   );
 }
 
+/* Форматы, которые просмотрщик умеет показывать в браузере. Архивы (zip/rar/7z…),
+   pptx, dwg, старый .doc и т.п. — только скачивание, кнопку «Открыть» не показываем. */
+const PREVIEWABLE_EXT = new Set([
+  "pdf",
+  "png", "jpg", "jpeg", "gif", "webp", "svg", "bmp", "avif",
+  "txt", "log", "json", "md", "xml", "yml", "yaml",
+  "docx", "xlsx", "xls", "csv",
+]);
+function canPreview(doc) {
+  return PREVIEWABLE_EXT.has(extOf(doc.type || doc.file || doc.title));
+}
+
 /* ---- кнопка «Скачать/Открыть»: presigned-ссылка (key) или legacy base64 (url) ----
    preview=true — открыть просмотрщик в модалке, иначе — скачивание (attachment). ---- */
 function DownloadBtn({ doc, label = "Скачать", preview = false }) {
@@ -1024,7 +1036,7 @@ function DocCategory({ id, cat, docs, uploadDoc, onChange }) {
                   <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", background: hidden ? "#fbfbfb" : "#fff" }}>
                     <ExtBadge ext={d.type || d.file} />
                     <div style={{ minWidth: 0, flex: 1, fontSize: 14, fontWeight: 500, color: TEXT, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{d.title}{hidden && <span style={{ marginLeft: 8 }}><Badge label="Скрыто" tone="#c05621" /></span>}</div>
-                    <DownloadBtn doc={d} label="Открыть" preview />
+                    {canPreview(d) && <DownloadBtn doc={d} label="Открыть" preview />}
                     <DownloadBtn doc={d} label="Скачать" />
                     <FillBtn tiny onClick={() => { DB.updateDocument(id, d.id, { status: hidden ? "published" : "hidden" }); onChange(); }}>{hidden ? "Показать" : "Скрыть"}</FillBtn>
                     <FillBtn tiny fill={CARROT} onClick={() => { if (window.confirm(`Удалить «${d.title}»?`)) { if (d.key) DB.deleteFile(d.key); DB.removeDocument(id, d.id); onChange(); } }}>Удалить</FillBtn>
@@ -1223,7 +1235,7 @@ function CustomerObjectView({ id, preview }) {
                       <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px" }}>
                         <ExtBadge ext={d.type || d.file} />
                         <div style={{ minWidth: 0, flex: 1, fontSize: 14, fontWeight: 500, color: TEXT, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{d.title}</div>
-                        <DownloadBtn doc={d} label="Открыть" preview />
+                        {canPreview(d) && <DownloadBtn doc={d} label="Открыть" preview />}
                         <DownloadBtn doc={d} label="Скачать" />
                       </div>
                     </React.Fragment>
