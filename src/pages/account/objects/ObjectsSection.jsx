@@ -1327,6 +1327,75 @@ function MessagesPanel({ objId, side, authorName, disabled, autoOpen }) {
   );
 }
 
+// Иконка «отследить изменения»: линия с тремя кружками.
+function TrackIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true">
+      <line x1="3" y1="12" x2="21" y2="12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <circle cx="6" cy="12" r="2.3" fill="#fff" stroke="currentColor" strokeWidth="1.5" />
+      <circle cx="12" cy="12" r="2.3" fill="#fff" stroke="currentColor" strokeWidth="1.5" />
+      <circle cx="18" cy="12" r="2.3" fill="#fff" stroke="currentColor" strokeWidth="1.5" />
+    </svg>
+  );
+}
+
+// Кнопка + выезжающая справа панель «История изменений» (таймлайн событий объекта).
+function ChangeLogButton({ events }) {
+  const [open, setOpen] = React.useState(false);
+  const list = Array.isArray(events) ? events : [];
+  React.useEffect(() => {
+    if (!open) return;
+    const onKey = (e) => { if (e.key === "Escape") setOpen(false); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open]);
+  return (
+    <>
+      <button type="button" onClick={() => setOpen(true)} title="История изменений по объекту"
+        style={{ flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 8, height: 38, padding: "0 14px", borderRadius: 10, border: `1px solid ${LINE}`, background: "#fff", cursor: "pointer", fontFamily: UI, fontSize: 13, fontWeight: 500, color: TEXT, whiteSpace: "nowrap", transition: "border-color .15s ease" }}
+        onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#bbb"; }}
+        onMouseLeave={(e) => { e.currentTarget.style.borderColor = LINE; }}>
+        <TrackIcon />
+        Изменения
+      </button>
+      {open && (
+        <div onClick={() => setOpen(false)}
+          style={{ position: "fixed", inset: 0, zIndex: 2147483000, background: "rgba(17,17,17,.28)", animation: "clFade .2s ease" }}>
+          <style>{`@keyframes clFade{from{opacity:0}to{opacity:1}}@keyframes clSlide{from{transform:translateX(100%)}to{transform:translateX(0)}}`}</style>
+          <div onClick={(e) => e.stopPropagation()}
+            style={{ position: "absolute", top: 0, right: 0, height: "100%", width: "min(440px, 100%)", background: "#fff", boxShadow: "-12px 0 40px rgba(0,0,0,.18)", display: "flex", flexDirection: "column", animation: "clSlide .28s cubic-bezier(.2,.8,.2,1)" }}>
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, padding: "20px 22px", borderBottom: `1px solid ${LINE}` }}>
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: ".05em", textTransform: "uppercase", color: MUTED }}>История изменений</div>
+                <div style={{ marginTop: 3, fontSize: 18, fontWeight: 600, color: TEXT }}>Что менялось по объекту</div>
+              </div>
+              <button type="button" onClick={() => setOpen(false)} aria-label="Закрыть"
+                style={{ border: "none", background: "none", cursor: "pointer", fontSize: 26, lineHeight: 1, color: MUTED, padding: 4 }}>×</button>
+            </div>
+            <div style={{ flex: 1, overflowY: "auto", padding: "20px 22px" }}>
+              {list.length === 0 ? (
+                <div style={{ fontSize: 14, fontWeight: 300, color: MUTED }}>Изменений пока нет.</div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+                  {list.map((e, i) => (
+                    <div key={e.id || i} style={{ position: "relative", paddingLeft: 22 }}>
+                      <span style={{ position: "absolute", left: 3, top: 4, width: 9, height: 9, borderRadius: 999, background: "#fff", border: `2px solid ${CARROT}`, zIndex: 1 }} />
+                      {i < list.length - 1 && <span style={{ position: "absolute", left: 7, top: 15, bottom: -18, width: 1, background: LINE }} />}
+                      <div style={{ fontSize: 14, fontWeight: 600, color: TEXT }}>{e.title || "Изменение"}</div>
+                      {e.description && <div style={{ marginTop: 2, fontSize: 13.5, fontWeight: 300, lineHeight: 1.45, color: "#444", wordBreak: "break-word" }}>{e.description}</div>}
+                      <div style={{ marginTop: 4, fontSize: 12, color: MUTED }}>{e.author ? e.author : ""}{e.author && e.createdAt ? " · " : ""}{e.createdAt || ""}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 function CustomerObjectView({ id, preview, autoOpenMessages }) {
   const o = DB.getCustomerView(id);
   if (!o) return <div style={{ fontFamily: UI, marginTop: 8 }}><button style={backBtn} onClick={() => navigate("/account/objects")}>← Назад</button><div style={{ marginTop: 20, color: MUTED }}>Объект недоступен.</div></div>;
@@ -1343,6 +1412,7 @@ function CustomerObjectView({ id, preview, autoOpenMessages }) {
       {!preview && <button style={backBtn} onClick={() => navigate("/account/objects")}>← К объектам</button>}
 
       <div style={{ marginTop: preview ? 0 : 14, maxWidth: 820 }}>
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16 }}>
         <div>
         <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: ".04em", color: MUTED, textTransform: "uppercase" }}>№ {o.id}</div>
         <div style={{ marginTop: 4, fontSize: 26, fontWeight: 600, color: TEXT }}>{o.customerName} — {o.title}</div>
@@ -1353,6 +1423,8 @@ function CustomerObjectView({ id, preview, autoOpenMessages }) {
           {o.contractNumber && <span>Договор: {o.contractNumber}</span>}
           <Badge label={st.label} tone={st.tone} />
         </div>
+      </div>
+        <ChangeLogButton events={o.events} />
       </div>
 
       {/* Ответственный */}
