@@ -280,6 +280,10 @@ export async function verifyTwoFactor({ challenge, code, remember }) {
 export async function requestPasswordReset(email) {
   return api('/auth/request-reset', { method: 'POST', authRequired: false, body: { email } });
 }
+// Проверка ссылки сброса ПРИ ЗАГРУЗКЕ страницы (жив ли токен, не сжигая его).
+export async function checkResetToken(token) {
+  return api('/auth/check-reset', { method: 'POST', authRequired: false, body: { token } });
+}
 // Установка нового пароля по одноразовому токену из письма.
 export async function resetPassword({ token, newPassword }) {
   return api('/auth/reset', { method: 'POST', authRequired: false, body: { token, newPassword } });

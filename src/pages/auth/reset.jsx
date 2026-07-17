@@ -4,7 +4,7 @@
 // центральный заголовок как «КОНТАКТЫ» (текст над и под), две колонки,
 // поля-подчёркивания без контура, ошибки — морковным текстом под полем.
 import React from "react";
-import { resetPassword } from "@/lib/auth";
+import { resetPassword, checkResetToken } from "@/lib/auth";
 
 // ==== стили, скопированные из Contact.jsx (чтобы НЕ отличались) ====
 const LABEL_CLASS = "block text-left text-xs font-light uppercase tracking-[0.04em] text-[#a7a7a7]";
@@ -39,11 +39,13 @@ function getToken() {
   catch { return ""; }
 }
 
-function goLogin() {
+function goModal(name) {
   window.history.pushState({}, "", "/");
   window.dispatchEvent(new PopStateEvent("popstate"));
-  setTimeout(() => { try { window.openModal?.("login"); } catch {} }, 60);
+  setTimeout(() => { try { window.openModal?.(name); } catch {} }, 60);
 }
+const goLogin = () => goModal("login");
+const goForgot = () => goModal("forgot");
 
 export default function ResetPasswordPage() {
   const [token] = React.useState(getToken);
@@ -53,6 +55,24 @@ export default function ResetPasswordPage() {
   const [formErr, setFormErr] = React.useState("");  // общая ошибка под кнопкой
   const [busy, setBusy] = React.useState(false);
   const [done, setDone] = React.useState(false);
+  // Проверка ссылки ПРИ ЗАГРУЗКЕ: "checking" | "valid" | "invalid".
+  // Мёртвую/протухшую ссылку не даём даже открыть — сразу «ссылка устарела».
+  const [tokenState, setTokenState] = React.useState(token ? "checking" : "invalid");
+
+  React.useEffect(() => {
+    if (!token) return;
+    let alive = true;
+    (async () => {
+      try {
+        const r = await checkResetToken(token);
+        if (alive) setTokenState(r && r.valid ? "valid" : "invalid");
+      } catch {
+        // сеть/сервер недоступны — не блокируем, пусть проверится на сабмите
+        if (alive) setTokenState("valid");
+      }
+    })();
+    return () => { alive = false; };
+  }, [token]);
 
   const clearErr = (field) => setErrors((e) => (e[field] ? { ...e, [field]: "" } : e));
 
@@ -77,7 +97,7 @@ export default function ResetPasswordPage() {
     } catch (e2) {
       const p = (e2 && e2.payload && e2.payload.error) || "";
       if (e2 && e2.status === 400) {
-        if (/token/i.test(p)) setFormErr("Ссылка недействительна или устарела. Запросите сброс заново.");
+        if (/token/i.test(p)) setTokenState("invalid");
         else if (/short/i.test(p)) setErrors((x) => ({ ...x, pass: "Минимум 6 символов." }));
         else if (/uppercase/i.test(p)) setErrors((x) => ({ ...x, pass: "Нужна хотя бы одна заглавная буква." }));
         else if (/symbol/i.test(p)) setErrors((x) => ({ ...x, pass: "Нужен хотя бы один спецсимвол." }));
@@ -90,21 +110,22 @@ export default function ResetPasswordPage() {
     }
   };
 
+  const phase = done ? "done" : tokenState === "invalid" ? "invalid" : tokenState === "checking" ? "checking" : "form";
+  const heading = phase === "done" ? "ПАРОЛЬ ИЗМЕНЁН" : phase === "invalid" ? "ССЫЛКА УСТАРЕЛА" : "НОВЫЙ ПАРОЛЬ";
+
   return (
     <section className="bg-page font-tight text-ink -mt-8" aria-label="Новый пароль">
       {/* Шапка — как «Напишите нам» / «КОНТАКТЫ» */}
       <div className="text-center text-sm font-light leading-7">Восстановление доступа</div>
       <div className="mt-[26px] text-center">
-        <h2 className="font-semibold uppercase leading-none h-hero">
-          {done ? "ПАРОЛЬ ИЗМЕНЁН" : "НОВЫЙ ПАРОЛЬ"}
-        </h2>
+        <h2 className="font-semibold uppercase leading-none h-hero">{heading}</h2>
       </div>
 
       {/* Колонки: слева текст, справа форма */}
       <div className="mx-4 mt-12 grid grid-cols-1 items-start gap-10 md:grid-cols-2 lg:mx-[52px] lg:mt-20 xl:grid-cols-[1fr_auto]">
         {/* Левый текст */}
         <div className="max-w-[760px] text-left">
-          {done ? (
+          {phase === "done" ? (
             <>
               <p className="text-[21px] font-semibold leading-7">Готово!</p>
               <p className="mt-2 text-[21px] font-semibold leading-7">Пароль обновлён.</p>
@@ -114,6 +135,22 @@ export default function ResetPasswordPage() {
               <p className="mt-1.5 text-sm font-light leading-6">
                 Все прежние сессии на других устройствах завершены.
               </p>
+            </>
+          ) : phase === "invalid" ? (
+            <>
+              <p className="text-[21px] font-semibold leading-7">Ссылка недействительна</p>
+              <p className="mt-2 text-[21px] font-semibold leading-7">или уже использована.</p>
+              <p className="mt-[18px] text-sm font-light leading-6">
+                Ссылка для сброса пароля действует 30 минут и срабатывает один раз.
+              </p>
+              <p className="mt-1.5 text-sm font-light leading-6">
+                Запросите новую — на почту придёт свежее письмо со ссылкой.
+              </p>
+            </>
+          ) : phase === "checking" ? (
+            <>
+              <p className="text-[21px] font-semibold leading-7">Проверяем ссылку…</p>
+              <p className="mt-[18px] text-sm font-light leading-6">Одну секунду.</p>
             </>
           ) : (
             <>
@@ -129,8 +166,8 @@ export default function ResetPasswordPage() {
           )}
         </div>
 
-        {/* Правая колонка: форма или кнопка входа */}
-        {done ? (
+        {/* Правая колонка: форма / кнопка входа / запрос новой ссылки */}
+        {phase === "done" ? (
           <div className="w-[683px] max-w-full text-left">
             <button
               type="button"
@@ -139,6 +176,20 @@ export default function ResetPasswordPage() {
             >
               Войти
             </button>
+          </div>
+        ) : phase === "invalid" ? (
+          <div className="w-[683px] max-w-full text-left">
+            <button
+              type="button"
+              onClick={goForgot}
+              className="block h-[60px] w-[240px] rounded-[10px] bg-black text-sm font-semibold uppercase tracking-[0.02em] text-white transition-colors hover:bg-neutral-800"
+            >
+              Запросить новую ссылку
+            </button>
+          </div>
+        ) : phase === "checking" ? (
+          <div className="w-[683px] max-w-full text-left text-sm font-light text-[#a7a7a7]">
+            Проверяем ссылку…
           </div>
         ) : (
           <form onSubmit={onSubmit} noValidate className="w-[683px] max-w-full text-left">

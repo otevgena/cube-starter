@@ -35,6 +35,8 @@ export default function StickyDock() {
   const getIsDesign       = () => { try { return /^\/services\/design(\/|$)/.test(window.location.pathname || "/"); } catch { return false; } };
   const getIsConstruction = () => { try { return /^\/services\/construction(\/|$)/.test(window.location.pathname || "/"); } catch { return false; } };
   const getIsContact      = () => { try { return /^\/contact(\/|$)/.test(window.location.pathname || "/"); } catch { return false; } };
+  // auth-страницы (сброс/подтверждение пароля): док как на «Контактах» — только плитка «c.»
+  const getIsAuthPage     = () => { try { return /^\/(reset|verify-email)(\/|$)/.test(window.location.pathname || "/"); } catch { return false; } };
   const getIsAccount      = () => { try { return /^\/account(\/|$)/.test(window.location.pathname || "/"); } catch { return false; } };
   // детальная страница услуги: /services/<направление>/<услуга> — в доке «c.» становится стрелкой «назад»
   const getIsServiceDetail = () => { try { return /^\/services\/[^/]+\/[^/]+/.test(window.location.pathname || "/"); } catch { return false; } };
@@ -50,6 +52,7 @@ export default function StickyDock() {
     getIsElectroOnly() || getIsLow() || getIsVent() || getIsDesign() || getIsConstruction()
   );
   const [isContact, setIsContact] = React.useState(getIsContact());
+  const [isAuthPage, setIsAuthPage] = React.useState(getIsAuthPage());
   const [isAccount, setIsAccount] = React.useState(getIsAccount());
   const [isServiceDetail, setIsServiceDetail] = React.useState(getIsServiceDetail());
   const [objectNumber, setObjectNumber] = React.useState(getObjectNumber());
@@ -171,6 +174,7 @@ export default function StickyDock() {
       setIsLegal(legal);
       setIsElectro(compactService);
       setIsContact(getIsContact());
+      setIsAuthPage(getIsAuthPage());
       setIsAccount(getIsAccount());
       setIsServiceDetail(getIsServiceDetail());
       setObjectNumber(getObjectNumber());
@@ -378,7 +382,7 @@ export default function StickyDock() {
     "--pill-h": "48px",
     "--pill-gap": "6px",
   };
-  const dockVars = isAccount ? accountVars : isContact ? contactVars : isLegal ? legalVars : isElectro ? electroVars : defaultVars;
+  const dockVars = isAccount ? accountVars : (isContact || isAuthPage) ? contactVars : isLegal ? legalVars : isElectro ? electroVars : defaultVars;
 
   /* =============== анимация (инлайн с !important) =============== */
   const panelRef = React.useRef(null);
@@ -481,7 +485,7 @@ export default function StickyDock() {
   }, []);
 
   /* =============== classes =============== */
-  const dockClass = `dock${isLegal ? " is-legal" : ""}${isElectro ? " is-electro" : ""}${isContact ? " is-contact" : ""}${isAccount ? " is-account" : ""}${inObject ? " is-object" : ""}`;
+  const dockClass = `dock${isLegal ? " is-legal" : ""}${isElectro ? " is-electro" : ""}${(isContact || isAuthPage) ? " is-contact" : ""}${isAccount ? " is-account" : ""}${inObject ? " is-object" : ""}`;
 
   /* =============== render =============== */
   return (
@@ -561,7 +565,7 @@ export default function StickyDock() {
           )}
 
           {/* центр — скрыт в компактных сервисах и аккаунте */}
-          <div className="dock__group" role="tablist" aria-label="Dock" style={(isElectro || isContact || isAccount) ? { display: "none" } : undefined}>
+          <div className="dock__group" role="tablist" aria-label="Dock" style={(isElectro || isContact || isAccount || isAuthPage) ? { display: "none" } : undefined}>
             {pills.map((t, i) => (
               <button
                 key={t}
@@ -627,7 +631,7 @@ export default function StickyDock() {
             >
               Объекты
             </a>
-          ) : (!isLegal && !isContact && (
+          ) : (!isLegal && !isContact && !isAuthPage && (
             isElectro ? (
               <a
                 href="/contact"
