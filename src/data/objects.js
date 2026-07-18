@@ -24,7 +24,7 @@ export const ATTENTION_STATUSES = [
 ];
 export const STAGE_STATUSES = [
   { code: "not_started",      label: "Не начат",          tone: "#cfcfcf" },
-  { code: "in_progress",      label: "В работе",          tone: "#FA5D29" },
+  { code: "in_progress",      label: "В работе",          tone: "#2b6cb0" },
   { code: "done",             label: "Завершён",          tone: "#2f855a" },
   { code: "paused",           label: "На паузе",          tone: "#b7791f" },
   { code: "waiting_customer", label: "Ожидает заказчика", tone: "#c05621" },
@@ -474,6 +474,15 @@ export function anyObjectUnseen(list) {
   return arr.some((o) => isObjectUnseen(o));
 }
 
+// Есть ли объект с непрочитанными сообщениями от другой стороны. Для сотрудника
+// (mySide='staff') это единственный сигнал «новое»: собственные изменения по
+// объекту (документы, смена статуса) администратора НЕ уведомляют — только
+// сообщения заказчика. См. hasUnreadMessages.
+export function anyUnreadMessages(list, mySide) {
+  const arr = Array.isArray(list) ? list : listObjects();
+  return arr.some((o) => hasUnreadMessages(o.id, mySide));
+}
+
 /* --- Маркеры «новое» на уровне сообщений переписки --- */
 // Отдельный seen-state для треда объекта: точка у «Задать вопрос»/«Запросы» и у
 // нового сообщения гаснет, когда собеседник долистал переписку (не при открытии
@@ -849,6 +858,9 @@ export function updateStage(id, stageId, patch, author = "Администрат
     const s = o.stages.find((x) => x.id === stageId); if (!s) return;
     if (patch.status && patch.status !== s.status) {
       pushEvent(o, { type: "stage_status", title: "Изменён статус этапа", description: `${s.title}: ${labelOf(STAGE_STATUSES, s.status)} → ${labelOf(STAGE_STATUSES, patch.status)}`, author, visibility: "public" });
+      // Отметка времени смены статуса этапа — по ней заказчику подсвечиваем
+      // морковную точку «обновилось» у конкретного этапа (гаснет при просмотре).
+      patch.statusTs = Date.now();
       if (patch.status === "done" && !s.actualFinishDate && !patch.actualFinishDate) patch.actualFinishDate = today();
     }
     Object.assign(s, patch); touch(o);

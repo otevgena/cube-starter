@@ -559,9 +559,10 @@ function MobileAccountMenu({ onClose, user, onLogout }) {
   const objectsUnseen = React.useMemo(() => {
     if (!user) return false;
     try {
-      const list = isAdmin
-        ? DB.listObjects()
-        : DB.listObjectsForCustomer(user?.email, user?.id || user?.accountId || "");
+      // Сотруднику вкладку подсвечивают только новые сообщения заказчика,
+      // не его собственные правки по объектам (документы/статус).
+      if (isAdmin) return DB.anyUnreadMessages(DB.listObjects(), "staff");
+      const list = DB.listObjectsForCustomer(user?.email, user?.id || user?.accountId || "");
       return DB.anyObjectUnseen(list);
     } catch { return false; }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -862,7 +863,10 @@ function AvatarMenu({ user, onLogout }) {
   const objectsUnseen = React.useMemo(() => {
     if (!user) return false;
     try {
-      const list = isAdmin ? DB.listObjects() : DB.listObjectsForCustomer(user?.email, user?.id || user?.accountId || "");
+      // Сотруднику вкладку подсвечивают только новые сообщения заказчика,
+      // не его собственные правки по объектам (документы/статус).
+      if (isAdmin) return DB.anyUnreadMessages(DB.listObjects(), "staff");
+      const list = DB.listObjectsForCustomer(user?.email, user?.id || user?.accountId || "");
       return DB.anyObjectUnseen(list);
     } catch { return false; }
     // eslint-disable-next-line react-hooks/exhaustive-deps

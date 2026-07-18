@@ -118,7 +118,11 @@ async function refreshOnce({ force = false } = {}) {
   _refreshInflight = (async () => {
     const base = await getAPIBase();
     const ctrl = new AbortController();
-    const TIMEOUT_MS = 1500;
+    // Раньше было 1500 мс: на холодном старте Cloud Function рефреш не
+    // успевал завершиться и рвался ПОСЛЕ ротации refresh-token на сервере —
+    // новый cookie не фиксировался, старый rt уже недействителен → 401 →
+    // logout → объекты пропадали. Даём запросу дожить до ответа.
+    const TIMEOUT_MS = 8000;
     const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
 
     if (debug()) console.log('[auth] POST /auth/refresh …');

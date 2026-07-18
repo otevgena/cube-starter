@@ -611,11 +611,12 @@ function AdminObjectsList() {
               <div style={{ minWidth: 0, flex: 1 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                   <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: ".05em", color: MUTED, textTransform: "uppercase" }}>№ {o.id}</span>
-                  <Badge label={st.label || o.status} tone={DB.isObjectUnseen(o) ? "#8a8a8a" : st.tone} />
+                  <Badge label={st.label || o.status} tone={st.tone} />
                 </div>
                 <div style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 9 }}>
                   <span style={{ fontSize: 17, fontWeight: 500, color: TEXT, lineHeight: 1.3 }}>{o.customerName} — {o.title}</span>
-                  {DB.isObjectUnseen(o) && <NewBadge />}
+                  {/* Сотрудника уведомляют ТОЛЬКО новые сообщения заказчика, а не собственные правки (документы/статус). */}
+                  {DB.hasUnreadMessages(o.id, "staff") && <NewBadge />}
                 </div>
                 <div style={{ marginTop: 3, fontSize: 13, fontWeight: 300, color: MUTED }}>{o.address || o.city}{o.responsibleName ? ` · ${o.responsibleName}` : ""} · {(o.documents || []).length} док.</div>
               </div>
@@ -865,7 +866,16 @@ function AdminObjectEditor({ id, autoOpenMessages }) {
   const force = useForceUpdate();
   const obj = DB.getObject(id);
   React.useEffect(() => { DB.markObjectSeen(id); }, [id]);
-  if (!obj) return <div style={{ fontFamily: UI, marginTop: 8 }}><button style={backBtn} onClick={() => navigate("/account/objects")}>← К объектам</button><div style={{ marginTop: 20, color: MUTED }}>Объект не найден.</div></div>;
+  // Пока объекты подгружаются с бэкенда (в т.ч. при переходе по ссылке из письма)
+  // не мигаем «Объект не найден», а показываем кружок-загрузчик.
+  if (!obj) return (
+    <div style={{ fontFamily: UI, marginTop: 8 }}>
+      <button style={backBtn} onClick={() => navigate("/account/objects")}>← К объектам</button>
+      {DB.isObjectsLoading()
+        ? <CenterSpinner minHeight={220} label="Загружаем объект…" />
+        : <div style={{ marginTop: 20, color: MUTED }}>Объект не найден.</div>}
+    </div>
+  );
   const save = (patch) => { DB.updateObject(id, patch); force(); };
   const respId = respIdOf(obj);
 
@@ -1145,6 +1155,15 @@ function ImageIcon({ size = 16 }) {
     </svg>
   );
 }
+// Иконка загрузки-в-облако — как в анкете «Ищу работу» (единый стиль по сайту).
+function UploadIcon({ size = 18 }) {
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M7 18a5 5 0 010-10 6 6 0 0111.7 1.7A4 4 0 1119 18H7z" />
+      <path d="M12 14V8m0 0l-3 3m3-3l3 3" />
+    </svg>
+  );
+}
 function ArrowRightIcon({ size = 16 }) {
   return (
     <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -1183,6 +1202,7 @@ function MessagesPanel({ objId, side, authorName, disabled, autoOpen }) {
   const [open, setOpen] = React.useState(false);
   const [text, setText] = React.useState("");
   const [sentNote, setSentNote] = React.useState("");
+  const [earlierExtra, setEarlierExtra] = React.useState(0); // сколько «более ранних» блоков раскрыто
   const [atts, setAtts] = React.useState([]); // черновик вложений: {id,name,size,mime,key?,uploading,error,isImage}
   const msgs = getMessages(objId);
   const status = threadStatus(objId);
@@ -1243,7 +1263,12 @@ function MessagesPanel({ objId, side, authorName, disabled, autoOpen }) {
     if (!canOpen) return;
     autoOpenedRef.current = true;
     setSentNote(""); setOpen(true);
-    setTimeout(() => { try { rootRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }); } catch {} }, 80);
+    // Верстка ещё «плывёт» (спиннер сменяется контентом, грузятся вложения),
+    // поэтому одиночный скролл промахивается вверх — повторяем по мере оседания
+    // и наводимся на конец переписки (где как раз новое сообщение).
+    const scrollToThread = () => { try { rootRef.current?.scrollIntoView({ behavior: "smooth", block: "end" }); } catch {} };
+    const timers = [120, 400, 800].map((d) => setTimeout(scrollToThread, d));
+    return () => timers.forEach(clearTimeout);
   }, [autoOpen, disabled, isCustomer, objId, msgs.length]);
 
   // Загрузка выбранных/вставленных файлов в S3 (presigned PUT).
@@ -1298,6 +1323,21 @@ function MessagesPanel({ objId, side, authorName, disabled, autoOpen }) {
   groups.forEach((g) => { if (g.from === "customer") g.no = ++custNo; });
   const groupIsNew = (g) => g.items.some((m) => m.from !== side && DB.msgTs(m) > seenUpTo + 1000);
 
+  // Свёртка старой переписки: по умолчанию показываем блоки за последние ~3 дня
+  // (но не меньше двух последних). Более старое скрыто под бледным превью вверху;
+  // клик раскрывает их порциями по 2-3 с анимацией — чтобы длинный тред не заставлял
+  // каждый раз листать от самого первого сообщения.
+  const groupTs = (g) => g.items.reduce((mx, m) => Math.max(mx, DB.msgTs(m) || 0), 0);
+  const DAY_MS = 86400000;
+  // По умолчанию видны блоки за последние сутки (от «сейчас»); более старое — под «Показать ранее».
+  let baseVisible = groups.filter((g) => groupTs(g) >= Date.now() - DAY_MS).length;
+  baseVisible = Math.min(groups.length, Math.max(2, baseVisible));
+  const baseFloor = groups.length - baseVisible; // индексы < baseFloor — «более ранние»
+  const shownStart = Math.max(0, baseFloor - earlierExtra);
+  const shownGroups = groups.slice(shownStart);
+  const hiddenCount = shownStart;
+  const revealEarlier = () => setEarlierExtra((n) => n + Math.min(3, hiddenCount));
+
   return (
     <div ref={rootRef} style={{ marginTop: 34, scrollMarginTop: 90 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
@@ -1308,10 +1348,46 @@ function MessagesPanel({ objId, side, authorName, disabled, autoOpen }) {
         {status === "answered" && <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: ".08em", textTransform: "uppercase", color: "#2f7d32", border: "1px solid #cfe6cf", borderRadius: 6, padding: "3px 8px" }}>Отвечено</span>}
       </div>
 
-      {/* Протокол диалога: реестр запросов заказчика с ответами CUBE под ними */}
+      {/* Протокол диалога: реестр запросов заказчика с ответами CUBE под ними.
+          Вся область переписки очерчена пунктиром (теми же точками, что и разделители) со скруглёнными углами. */}
       {msgs.length > 0 && (
-        <div style={{ marginTop: 16 }}>
-          {groups.map((g, gi) => {
+        <div style={{ position: "relative", marginTop: 16, padding: "22px 24px" }}>
+          {/* Пунктирная рамка: SVG, чтобы скруглить углы (backgroundImage их не скругляет). Точки #000, период 9px — как <DottedLine/>. */}
+          <svg width="100%" height="100%" aria-hidden="true" style={{ position: "absolute", inset: 0, pointerEvents: "none", display: "block", overflow: "visible" }}>
+            <rect x="0.5" y="0.5" width="calc(100% - 1px)" height="calc(100% - 1px)" rx="12" ry="12" fill="none" stroke="#000" strokeWidth="1" strokeDasharray="1 8" />
+          </svg>
+          <style>{`@keyframes cubeEarlierIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}.cube-earlier-in{animation:cubeEarlierIn .32s ease}`}</style>
+
+          {/* Бледное превью более ранней переписки — клик по кнопке «...» раскрывает 2-3 блока выше */}
+          {hiddenCount > 0 && (
+            <div style={{ marginBottom: 18 }}>
+              <div style={{ opacity: 0.38, WebkitMaskImage: "linear-gradient(to bottom,transparent,#000 85%)", maskImage: "linear-gradient(to bottom,transparent,#000 85%)", pointerEvents: "none", paddingTop: 2 }}>
+                {(() => {
+                  const prev = groups[shownStart - 1];
+                  const isC = prev.from === "customer";
+                  const line = ((prev.items.find((m) => m.text) || {}).text || "Вложение").replace(/\s+/g, " ").trim();
+                  return (
+                    <>
+                      <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".08em", textTransform: "uppercase", color: TEXT }}>{isC ? "Заказчик" : "Ответ CUBE"}</div>
+                      <div style={{ marginTop: 6, fontSize: 15, lineHeight: 1.55, color: TEXT, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{line}</div>
+                    </>
+                  );
+                })()}
+              </div>
+              <div style={{ marginTop: 8, display: "flex", justifyContent: "center" }}>
+                <button type="button" onClick={revealEarlier} title={`Показать ранее — ещё ${hiddenCount}`}
+                  style={{ display: "inline-flex", alignItems: "center", gap: 5, height: 34, padding: "0 18px", borderRadius: 999, border: "1px solid #d4d4d4", background: "transparent", cursor: "pointer", transition: "border-color .18s ease" }}
+                  onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#111"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.borderColor = "#d4d4d4"; }}>
+                  {[0, 1, 2].map((i) => <span key={i} style={{ width: 4, height: 4, borderRadius: 999, background: "#111", display: "block" }} />)}
+                </button>
+              </div>
+              <div style={{ marginTop: 16 }}><Dotted /></div>
+            </div>
+          )}
+
+          {shownGroups.map((g, si) => {
+            const gi = groups.indexOf(g);
             const isCust = g.from === "customer";
             const head = g.items[0];
             const headAuthor = head.author || (isCust ? "Заказчик" : "CUBE");
@@ -1349,11 +1425,11 @@ function MessagesPanel({ objId, side, authorName, disabled, autoOpen }) {
               </>
             );
             return (
-              <div key={g.items[0].id}>
-                {/* пунктирный разделитель — перед каждым новым запросом заказчика (кроме первого) */}
-                {gi > 0 && isCust && <div style={{ margin: "18px 0" }}><Dotted /></div>}
+              <div key={g.items[0].id} className={gi < baseFloor ? "cube-earlier-in" : undefined}>
+                {/* пунктирный разделитель — перед каждым новым запросом заказчика (кроме самого верхнего в списке) */}
+                {si > 0 && isCust && <div style={{ margin: "18px 0" }}><Dotted /></div>}
                 {isCust
-                  ? <div style={{ marginTop: gi > 0 ? 0 : 0 }}>{rows}</div>
+                  ? <div>{rows}</div>
                   : <div style={{ marginTop: 14, marginLeft: 2, paddingLeft: 20, borderLeft: "2px solid #111" }}>{rows}</div>}
               </div>
             );
@@ -1406,13 +1482,13 @@ function MessagesPanel({ objId, side, authorName, disabled, autoOpen }) {
               {uploadingAny ? "Загрузка файла…" : (<span style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>{isCustomer ? "Отправить" : "Отправить ответ"}<ArrowRightIcon size={16} /></span>)}
             </button>
             <button type="button" onClick={() => fileRef.current?.click()} title="Прикрепить файл или скриншот"
-              style={{ height: 52, padding: "0 18px", display: "inline-flex", alignItems: "center", gap: 9, borderRadius: 10, border: `1px solid ${LINE}`, background: "#fff", color: "#555", fontFamily: UI, fontSize: 13, fontWeight: 500, cursor: "pointer", transition: "border-color .16s ease, color .16s ease" }}
+              style={{ height: 52, padding: "0 18px", display: "inline-flex", alignItems: "center", gap: 9, borderRadius: 10, border: `1px solid ${LINE}`, background: CTRL_REST, color: "#555", fontFamily: UI, fontSize: 13, fontWeight: 500, cursor: "pointer", transition: "border-color .16s ease, color .16s ease" }}
               onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#999"; e.currentTarget.style.color = TEXT; }}
               onMouseLeave={(e) => { e.currentTarget.style.borderColor = LINE; e.currentTarget.style.color = "#555"; }}>
-              <PaperclipIcon size={16} /> Прикрепить файл
+              <UploadIcon size={18} /> Прикрепить файл
             </button>
             <button type="button" onClick={resetComposer}
-              style={{ height: 52, padding: "0 24px", borderRadius: 10, border: `1px solid ${LINE}`, background: "#fff", color: TEXT, fontFamily: UI, fontSize: 14, fontWeight: 400, cursor: "pointer", transition: "border-color .16s ease, background-color .16s ease" }}
+              style={{ height: 52, padding: "0 24px", borderRadius: 10, border: `1px solid ${LINE}`, background: CTRL_REST, color: TEXT, fontFamily: UI, fontSize: 14, fontWeight: 400, cursor: "pointer", transition: "border-color .16s ease, background-color .16s ease" }}
               onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#999"; }}
               onMouseLeave={(e) => { e.currentTarget.style.borderColor = LINE; }}>
               Отмена
@@ -1455,11 +1531,11 @@ const iconBtnStyle = { flexShrink: 0, display: "inline-flex", alignItems: "cente
 // Кнопка + выезжающая справа панель «История изменений» (таймлайн событий объекта).
 // Морковная пульсирующая точка «новое» — тот же индикатор, что у «Запросы» в
 // StickyDock (расходящееся кольцо). Ставится после названия объекта.
-function NewBadge({ size = 8, style, fading }) {
+function NewBadge({ size = 8, style, fading, pulse = true }) {
   return (
     <span aria-hidden="true" title="Есть новое"
       style={{ display: "inline-block", width: size, height: size, borderRadius: 999, background: CARROT, flexShrink: 0,
-        animation: fading ? "none" : "cubeNewPulse 1.8s ease-out infinite",
+        animation: (fading || !pulse) ? "none" : "cubeNewPulse 1.8s ease-out infinite",
         transform: fading ? "scale(0)" : "scale(1)", opacity: fading ? 0 : 1,
         transition: "transform .5s ease, opacity .5s ease", ...style }}>
       <style>{`@keyframes cubeNewPulse{0%{box-shadow:0 0 0 0 rgba(250,93,41,.5)}70%{box-shadow:0 0 0 6px rgba(250,93,41,0)}100%{box-shadow:0 0 0 0 rgba(250,93,41,0)}}`}</style>
@@ -1593,6 +1669,41 @@ function SubscribeButton({ objId, userEmail }) {
   );
 }
 
+/* Категория документов у заказчика — визуально как реестр в админ-редакторе
+   (DocCategory): uppercase-заголовок с счётчиком «01», наведение подсвечивает
+   весь блок, строки в белой карточке с пунктиром. Только чтение; ширина берётся
+   от контейнера заказчика (уже, чем у админа) — намеренно не трогаем. */
+function CustDocCategory({ cat, docs, refAtOpen }) {
+  const [hover, setHover] = React.useState(false);
+  return (
+    <>
+      <div onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
+        style={{ padding: "18px 8px", margin: "0 -8px", background: hover ? "rgba(0,0,0,.02)" : "transparent", transition: "background-color .14s ease" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: docs.length ? 10 : 0 }}>
+          <div style={{ fontSize: 12, letterSpacing: ".08em", textTransform: "uppercase", color: "#a7a7a7", fontWeight: 300 }}>{cat}<span style={{ marginLeft: 8, fontVariantNumeric: "tabular-nums" }}>{String(docs.length).padStart(2, "0")}</span></div>
+        </div>
+        <div style={{ border: `1px solid ${LINE}`, borderRadius: 12, overflow: "hidden", background: "#fff" }}>
+          {docs.map((d, i) => (
+            <React.Fragment key={d.id}>
+              {i > 0 && <Dotted />}
+              <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px" }}>
+                <ExtBadge ext={d.type || d.file} />
+                <div style={{ minWidth: 0, flex: 1, display: "flex", alignItems: "center", gap: 8, overflow: "hidden" }}>
+                  <span style={{ minWidth: 0, fontSize: 14, fontWeight: 500, color: TEXT, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{d.title}</span>
+                  {(d.publishedTs || 0) > refAtOpen + 1000 && <NewPill />}
+                </div>
+                {canPreview(d) && <DownloadBtn doc={d} label="Открыть" preview />}
+                <DownloadBtn doc={d} label="Скачать" />
+              </div>
+            </React.Fragment>
+          ))}
+        </div>
+      </div>
+      <DottedLine />
+    </>
+  );
+}
+
 function CustomerObjectView({ id, preview, autoOpenMessages, userEmail }) {
   const o = DB.getCustomerView(id);
   // Снимок отметки «просмотрено» ДО того, как откроем объект (ниже markObjectSeen
@@ -1602,7 +1713,26 @@ function CustomerObjectView({ id, preview, autoOpenMessages, userEmail }) {
   // Открытие объекта помечает его просмотренным (гасит кружочек в списке/меню).
   React.useEffect(() => { if (!preview) DB.markObjectSeen(id); }, [id, preview]);
   const statusUnseen = React.useMemo(() => (o ? DB.hasUnseenStatus(o, refAtOpen) : false), [o, refAtOpen]);
-  if (!o) return <div style={{ fontFamily: UI, marginTop: 8 }}><button style={backBtn} onClick={() => navigate("/account/objects")}>← Назад</button><div style={{ marginTop: 20, color: MUTED }}>Объект недоступен.</div></div>;
+  // Какие этапы сменили статус после прошлого просмотра — по ним морковная метка
+  // «обновилось» у конкретного этапа.
+  const stageUnseen = React.useMemo(() => {
+    const m = {};
+    (o?.stages || []).forEach((s) => { if ((s.statusTs || 0) > refAtOpen + 1000) m[s.id] = true; });
+    return m;
+  }, [o, refAtOpen]);
+  // Морковная точка у статуса/этапа при смене держится всё время, пока заказчик
+  // в объекте (как пилюля New у документов) — гаснет только в следующий визит,
+  // когда снимок refAtOpen уже поднимется markObjectSeen.
+  // При перезагрузке страницы объекта данные ещё грузятся с бэкенда — не мигаем
+  // «Объект недоступен», а показываем наш кружок-загрузчик, пока идёт гидрация.
+  if (!o) return (
+    <div style={{ fontFamily: UI, marginTop: 8 }}>
+      <button style={backBtn} onClick={() => navigate("/account/objects")}>← Назад</button>
+      {DB.isObjectsLoading()
+        ? <CenterSpinner minHeight={220} label="Загружаем объект…" />
+        : <div style={{ marginTop: 20, color: MUTED }}>Объект недоступен.</div>}
+    </div>
+  );
   const st = OBJECT_STATUSES.find((s) => s.code === o.status) || {};
   const byCat = {}; DOC_CATEGORIES.forEach((c) => (byCat[c] = [])); (o.documents || []).forEach((d) => (byCat[d.category] || byCat["Прочее"]).push(d));
   const cats = DOC_CATEGORIES.filter((c) => byCat[c].length);
@@ -1657,6 +1787,7 @@ function CustomerObjectView({ id, preview, autoOpenMessages, userEmail }) {
               <span style={{ width: 12, height: 12, borderRadius: 999, flexShrink: 0, background: s.status === "not_started" ? "#fff" : sst.tone, border: `2px solid ${sst.tone}` }} />
               <span style={{ fontSize: 15, fontWeight: s.status === "in_progress" ? 600 : 400, color: s.status === "not_started" ? MUTED : TEXT }}>{s.title}</span>
               <Badge label={sst.label} tone={sst.tone} />
+              {stageUnseen[s.id] && <NewBadge size={8} />}
             </div>
           ); })}
           {(o.stages || []).length === 0 && <div style={{ color: MUTED, fontSize: 14, fontWeight: 300 }}>Этапы не заданы.</div>}
@@ -1668,27 +1799,10 @@ function CustomerObjectView({ id, preview, autoOpenMessages, userEmail }) {
       <div style={{ marginTop: 30 }}>
         <div style={secLabel}>Документы</div>
         {cats.length === 0 ? <div style={{ marginTop: 12, color: MUTED, fontSize: 14, fontWeight: 300 }}>Документов пока нет.</div> : (
-          <div style={{ marginTop: 14, display: "grid", gap: 20 }}>
+          <div style={{ marginTop: 14 }}>
+            <DottedLine />
             {cats.map((cat) => (
-              <div key={cat}>
-                <div style={{ fontSize: 14, fontWeight: 600, color: TEXT, marginBottom: 8 }}>{cat}</div>
-                <div style={{ border: `1px solid ${LINE}`, borderRadius: 12, overflow: "hidden" }}>
-                  {byCat[cat].map((d, i) => (
-                    <React.Fragment key={d.id}>
-                      {i > 0 && <Dotted />}
-                      <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px" }}>
-                        <ExtBadge ext={d.type || d.file} />
-                        <div style={{ minWidth: 0, flex: 1, display: "flex", alignItems: "center", gap: 8, overflow: "hidden" }}>
-                          <span style={{ minWidth: 0, fontSize: 14, fontWeight: 500, color: TEXT, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{d.title}</span>
-                          {(d.publishedTs || 0) > refAtOpen + 1000 && <NewPill />}
-                        </div>
-                        {canPreview(d) && <DownloadBtn doc={d} label="Открыть" preview />}
-                        <DownloadBtn doc={d} label="Скачать" />
-                      </div>
-                    </React.Fragment>
-                  ))}
-                </div>
-              </div>
+              <CustDocCategory key={cat} cat={cat} docs={byCat[cat]} refAtOpen={refAtOpen} />
             ))}
           </div>
         )}
