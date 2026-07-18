@@ -615,7 +615,7 @@ function AdminObjectsList() {
                 </div>
                 <div style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 9 }}>
                   <span style={{ fontSize: 17, fontWeight: 500, color: TEXT, lineHeight: 1.3 }}>{o.customerName} — {o.title}</span>
-                  {DB.isObjectUnseen(o) && <NewPill />}
+                  {DB.isObjectUnseen(o) && <NewBadge />}
                 </div>
                 <div style={{ marginTop: 3, fontSize: 13, fontWeight: 300, color: MUTED }}>{o.address || o.city}{o.responsibleName ? ` · ${o.responsibleName}` : ""} · {(o.documents || []).length} док.</div>
               </div>
@@ -1113,6 +1113,45 @@ function fmtMsgTime(m) {
     return new Intl.DateTimeFormat("ru-RU", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }).format(d);
   }
 }
+// Дата+время для шапки блока диалога: «17 июля, 15:10» (в поясе автора).
+function fmtMsgFull(m) {
+  const d = m && m.at ? new Date(m.at) : null;
+  if (!d || isNaN(d.getTime())) return "";
+  const opts = { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" };
+  try { if (m.tz) opts.timeZone = m.tz; return new Intl.DateTimeFormat("ru-RU", opts).format(d).replace(" в ", ", "); }
+  catch { return new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" }).format(d); }
+}
+// Только время: «15:10».
+function fmtMsgClock(m) {
+  const d = m && m.at ? new Date(m.at) : null;
+  if (!d || isNaN(d.getTime())) return "";
+  const opts = { hour: "2-digit", minute: "2-digit" };
+  try { if (m.tz) opts.timeZone = m.tz; return new Intl.DateTimeFormat("ru-RU", opts).format(d); }
+  catch { return new Intl.DateTimeFormat("ru-RU", { hour: "2-digit", minute: "2-digit" }).format(d); }
+}
+
+// Контурные иконки Lucide вместо эмодзи — в едином аккуратном стиле сайта.
+function PaperclipIcon({ size = 16 }) {
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+    </svg>
+  );
+}
+function ImageIcon({ size = 16 }) {
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="9" cy="9" r="1.6" /><path d="M21 15l-5-5L5 21" />
+    </svg>
+  );
+}
+function ArrowRightIcon({ size = 16 }) {
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M5 12h14M13 6l6 6-6 6" />
+    </svg>
+  );
+}
 
 function MsgAttachment({ att }) {
   const [busy, setBusy] = React.useState(false);
@@ -1133,7 +1172,7 @@ function MsgAttachment({ att }) {
       style={{ display: "inline-flex", alignItems: "center", gap: 8, maxWidth: 260, height: 34, padding: "0 12px", borderRadius: 8, border: `1px solid ${LINE}`, background: "#fff", cursor: att.key ? "pointer" : "default", fontFamily: UI, fontSize: 13, color: TEXT, transition: "border-color .15s ease" }}
       onMouseEnter={(e) => { if (att.key) e.currentTarget.style.borderColor = "#bbb"; }}
       onMouseLeave={(e) => { e.currentTarget.style.borderColor = LINE; }}>
-      {busy ? <Spinner size={14} /> : <span aria-hidden style={{ fontSize: 14, lineHeight: 1 }}>{isImg ? "🖼" : "📎"}</span>}
+      {busy ? <Spinner size={14} /> : <span aria-hidden style={{ display: "inline-flex", color: MUTED, lineHeight: 0 }}>{isImg ? <ImageIcon size={15} /> : <PaperclipIcon size={15} />}</span>}
       <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{att.name || "файл"}</span>
     </button>
   );
@@ -1247,52 +1286,75 @@ function MessagesPanel({ objId, side, authorName, disabled, autoOpen }) {
   };
   const openBtnLabel = isCustomer ? "Отправить сообщение" : "Ответить заказчику";
 
+  // «Протокол диалога»: подряд идущие сообщения одного автора — в один блок.
+  // Заказчик нумеруется (01, 02…), ответы CUBE идут под запросом с отступом.
+  const groups = [];
+  let custNo = 0;
+  for (const m of msgs) {
+    const last = groups[groups.length - 1];
+    if (last && last.from === m.from) last.items.push(m);
+    else groups.push({ from: m.from, items: [m], no: 0 });
+  }
+  groups.forEach((g) => { if (g.from === "customer") g.no = ++custNo; });
+  const groupIsNew = (g) => g.items.some((m) => m.from !== side && DB.msgTs(m) > seenUpTo + 1000);
+
   return (
     <div ref={rootRef} style={{ marginTop: 34, scrollMarginTop: 90 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        <div style={secLabel}>{isCustomer ? "Сообщение по объекту" : "Запросы заказчика"}</div>
-        {status === "awaiting" && <span style={{ fontSize: 11, fontWeight: 600, color: "#b0451f", background: "#fff4ef", border: "1px solid #f6c9b6", borderRadius: 999, padding: "3px 9px" }}>Ожидание ответа</span>}
-        {status === "answered" && <span style={{ fontSize: 11, fontWeight: 600, color: "#2f7d32", background: "#eef7ee", border: "1px solid #cfe6cf", borderRadius: 999, padding: "3px 9px" }}>Отвечено</span>}
+      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+        <div style={secLabel}>Коммуникация по объекту</div>
+        {custNo > 0 && <span style={{ fontSize: 12, fontWeight: 700, color: "#bdbdbd", fontVariantNumeric: "tabular-nums", letterSpacing: ".02em" }}>{String(custNo).padStart(2, "0")}</span>}
+        <span style={{ flex: 1 }} />
+        {status === "awaiting" && <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: ".08em", textTransform: "uppercase", color: CARROT, border: `1px solid ${CARROT}`, borderRadius: 6, padding: "3px 8px" }}>Ожидает ответа</span>}
+        {status === "answered" && <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: ".08em", textTransform: "uppercase", color: "#2f7d32", border: "1px solid #cfe6cf", borderRadius: 6, padding: "3px 8px" }}>Отвечено</span>}
       </div>
 
-      {/* История: запрос / ответ — обычными строками, не «чатом» */}
+      {/* Протокол диалога: реестр запросов заказчика с ответами CUBE под ними */}
       {msgs.length > 0 && (
-        <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 16 }}>
-          {msgs.map((m) => {
-            const fromCustomer = m.from === "customer";
-            const mine = m.from === side; // моё сообщение — слева, собеседника — справа
-            const accent = fromCustomer ? "#e0e0e0" : "#111";
-            const mAtts = Array.isArray(m.attachments) ? m.attachments : [];
-            const isNew = !mine && DB.msgTs(m) > seenUpTo + 1000; // новое от собеседника
-            return (
-              <div key={m.id} style={{ display: "flex", justifyContent: mine ? "flex-start" : "flex-end" }}>
-                <div style={{
-                  maxWidth: "82%",
-                  borderLeft: mine ? `2px solid ${accent}` : "none",
-                  borderRight: mine ? "none" : `2px solid ${accent}`,
-                  paddingLeft: mine ? 14 : 0,
-                  paddingRight: mine ? 0 : 14,
-                  textAlign: mine ? "left" : "right",
-                  opacity: m.pending ? 0.6 : 1,
-                }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: mine ? "flex-start" : "flex-end", fontSize: 11, fontWeight: 600, letterSpacing: ".04em", textTransform: "uppercase", color: fromCustomer ? MUTED : TEXT }}>
-                    {isNew && <NewBadge size={7} fading={fading} />}
-                    <span>{fromCustomer ? "Запрос заказчика" : "Ответ ответственного"}</span>
-                  </div>
-                  {(m.author || m.at) && (
-                    <div style={{ marginTop: 2, fontSize: 12, color: MUTED }}>
-                      {m.author ? m.author : ""}{m.author && fmtMsgTime(m) ? " · " : ""}{fmtMsgTime(m)}
-                    </div>
-                  )}
-                  {m.text && <div style={{ marginTop: 5, fontSize: 15, lineHeight: 1.5, color: TEXT, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{m.text}</div>}
-                  {mAtts.length > 0 && (
-                    <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 8, justifyContent: mine ? "flex-start" : "flex-end" }}>
-                      {mAtts.map((att, i) => <MsgAttachment key={att.key || i} att={att} />)}
-                    </div>
-                  )}
-                  {m.pending && <div style={{ marginTop: 4, fontSize: 11, color: MUTED }}>Отправляется…</div>}
-                  {m.failed && <div style={{ marginTop: 4, fontSize: 11, color: "#b0451f" }}>Не отправлено — попробуйте ещё раз.</div>}
+        <div style={{ marginTop: 16 }}>
+          {groups.map((g, gi) => {
+            const isCust = g.from === "customer";
+            const head = g.items[0];
+            const headAuthor = head.author || (isCust ? "Заказчик" : "CUBE");
+            const gNew = groupIsNew(g);
+            const rows = (
+              <>
+                <div style={{ display: "flex", alignItems: "center", gap: 9, flexWrap: "wrap" }}>
+                  {isCust && <span style={{ fontSize: 12, fontWeight: 700, color: "#bdbdbd", fontVariantNumeric: "tabular-nums", letterSpacing: ".02em" }}>{String(g.no).padStart(2, "0")}</span>}
+                  <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".08em", textTransform: "uppercase", color: TEXT }}>{isCust ? "Заказчик" : "Ответ CUBE"}</span>
+                  {gNew && <NewBadge size={7} fading={fading} />}
                 </div>
+                <div style={{ marginTop: 3, fontSize: 12, color: MUTED }}>{headAuthor}{fmtMsgFull(head) ? ` · ${fmtMsgFull(head)}` : ""}</div>
+                <div style={{ marginTop: 9, display: "flex", flexDirection: "column", gap: 7 }}>
+                  {g.items.map((m, idx) => {
+                    const mAtts = Array.isArray(m.attachments) ? m.attachments : [];
+                    return (
+                      <div key={m.id} style={{ opacity: m.pending ? 0.55 : 1 }}>
+                        {m.text && (
+                          <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
+                            <div style={{ flex: 1, minWidth: 0, fontSize: 15, lineHeight: 1.55, color: TEXT, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{m.text}</div>
+                            {idx > 0 && <span style={{ flexShrink: 0, fontSize: 11, color: "#b6b6b6", fontVariantNumeric: "tabular-nums" }}>{fmtMsgClock(m)}</span>}
+                          </div>
+                        )}
+                        {mAtts.length > 0 && (
+                          <div style={{ marginTop: m.text ? 8 : 0, display: "flex", flexWrap: "wrap", gap: 8 }}>
+                            {mAtts.map((att, i) => <MsgAttachment key={att.key || i} att={att} />)}
+                          </div>
+                        )}
+                        {m.pending && <div style={{ marginTop: 4, fontSize: 11, color: MUTED }}>Отправляется…</div>}
+                        {m.failed && <div style={{ marginTop: 4, fontSize: 11, color: "#b0451f" }}>Не отправлено — попробуйте ещё раз.</div>}
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            );
+            return (
+              <div key={g.items[0].id}>
+                {/* пунктирный разделитель — перед каждым новым запросом заказчика (кроме первого) */}
+                {gi > 0 && isCust && <div style={{ margin: "18px 0" }}><Dotted /></div>}
+                {isCust
+                  ? <div style={{ marginTop: gi > 0 ? 0 : 0 }}>{rows}</div>
+                  : <div style={{ marginTop: 14, marginLeft: 2, paddingLeft: 20, borderLeft: "2px solid #111" }}>{rows}</div>}
               </div>
             );
           })}
@@ -1315,17 +1377,17 @@ function MessagesPanel({ objId, side, authorName, disabled, autoOpen }) {
         <div className="animate-msgin" style={{ marginTop: 18, maxWidth: 620 }}>
           <label style={msgLabel}>{isCustomer ? "Ваше сообщение" : "Ответ заказчику"}</label>
           <textarea autoFocus value={text} onChange={(e) => setText(e.target.value)} onPaste={onPaste}
-            onFocus={(e) => { e.currentTarget.style.borderColor = "#999"; }}
-            onBlur={(e) => { e.currentTarget.style.borderColor = LINE; }}
-            placeholder={isCustomer ? "Опишите вопрос по объекту…" : "Напишите ответ заказчику…"}
-            style={{ display: "block", width: "100%", height: 150, resize: "none", border: `1px solid ${LINE}`, borderRadius: 12, background: "#fff", padding: "12px 14px", fontFamily: UI, fontSize: 14, fontWeight: 400, lineHeight: 1.5, color: TEXT, outline: "none", transition: "border-color .3s ease" }} />
+            onFocus={(e) => { e.currentTarget.style.borderBottomColor = UNDER_FOCUS; }}
+            onBlur={(e) => { e.currentTarget.style.borderBottomColor = LINE; }}
+            placeholder={isCustomer ? "Напишите сообщение…" : "Напишите ответ заказчику…"}
+            style={{ display: "block", width: "100%", height: 120, resize: "none", border: "none", borderBottom: `1px solid ${LINE}`, borderRadius: 0, background: "#fff", padding: "10px 2px", fontFamily: UI, fontSize: 15, fontWeight: 400, lineHeight: 1.55, color: TEXT, outline: "none", transition: "border-color .25s ease" }} />
 
           {/* Черновик вложений */}
           {atts.length > 0 && (
             <div style={{ marginTop: 12, display: "flex", flexWrap: "wrap", gap: 8 }}>
               {atts.map((a) => (
                 <span key={a.id} style={{ display: "inline-flex", alignItems: "center", gap: 8, height: 32, padding: "0 6px 0 10px", borderRadius: 8, border: `1px solid ${a.error ? "#f0b4a4" : LINE}`, background: a.error ? "#fff4ef" : "#fafafa", fontSize: 12.5, color: a.error ? "#b0451f" : TEXT, maxWidth: 240 }}>
-                  {a.uploading ? <Spinner size={13} /> : <span aria-hidden style={{ lineHeight: 1 }}>{a.error ? "⚠" : a.isImage ? "🖼" : "📎"}</span>}
+                  {a.uploading ? <Spinner size={13} /> : <span aria-hidden style={{ display: "inline-flex", lineHeight: 0, color: a.error ? "#b0451f" : MUTED }}>{a.error ? "⚠" : a.isImage ? <ImageIcon size={14} /> : <PaperclipIcon size={14} />}</span>}
                   <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.error ? `${a.name} — ${a.error}` : a.name}</span>
                   <button type="button" onClick={() => removeAtt(a.id)} aria-label="Убрать" style={{ border: "none", background: "none", cursor: "pointer", color: MUTED, fontSize: 16, lineHeight: 1, padding: "0 2px" }}>×</button>
                 </span>
@@ -1341,12 +1403,14 @@ function MessagesPanel({ objId, side, authorName, disabled, autoOpen }) {
               style={{ height: 52, minWidth: 210, padding: "0 26px", borderRadius: 10, border: "none", background: !canSend ? "#c9c9c9" : "#111", color: "#fff", fontFamily: UI, fontSize: 13, fontWeight: 600, textTransform: "uppercase", letterSpacing: ".02em", cursor: !canSend ? "not-allowed" : "pointer", transition: "background-color .2s ease" }}
               onMouseEnter={(e) => { if (canSend) e.currentTarget.style.background = "#262626"; }}
               onMouseLeave={(e) => { if (canSend) e.currentTarget.style.background = "#111"; }}>
-              {uploadingAny ? "Загрузка файла…" : isCustomer ? "Отправить запрос" : "Отправить ответ"}
+              {uploadingAny ? "Загрузка файла…" : (<span style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>{isCustomer ? "Отправить" : "Отправить ответ"}<ArrowRightIcon size={16} /></span>)}
             </button>
             <button type="button" onClick={() => fileRef.current?.click()} title="Прикрепить файл или скриншот"
-              style={{ height: 52, width: 52, display: "grid", placeItems: "center", borderRadius: 10, border: `1px solid ${LINE}`, background: "#fff", color: "#555", fontSize: 18, cursor: "pointer", transition: "border-color .16s ease" }}
-              onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#999"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.borderColor = LINE; }}>📎</button>
+              style={{ height: 52, padding: "0 18px", display: "inline-flex", alignItems: "center", gap: 9, borderRadius: 10, border: `1px solid ${LINE}`, background: "#fff", color: "#555", fontFamily: UI, fontSize: 13, fontWeight: 500, cursor: "pointer", transition: "border-color .16s ease, color .16s ease" }}
+              onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#999"; e.currentTarget.style.color = TEXT; }}
+              onMouseLeave={(e) => { e.currentTarget.style.borderColor = LINE; e.currentTarget.style.color = "#555"; }}>
+              <PaperclipIcon size={16} /> Прикрепить файл
+            </button>
             <button type="button" onClick={resetComposer}
               style={{ height: 52, padding: "0 24px", borderRadius: 10, border: `1px solid ${LINE}`, background: "#fff", color: TEXT, fontFamily: UI, fontSize: 14, fontWeight: 400, cursor: "pointer", transition: "border-color .16s ease, background-color .16s ease" }}
               onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#999"; }}
@@ -1531,10 +1595,13 @@ function SubscribeButton({ objId, userEmail }) {
 
 function CustomerObjectView({ id, preview, autoOpenMessages, userEmail }) {
   const o = DB.getCustomerView(id);
-  // Открытие объекта помечает его просмотренным (гасит точку в списке/меню). Точку
-  // «новое» внутри объекта показываем не в шапке, а у самого нового сообщения в
-  // переписке (см. MessagesPanel) — она гаснет, когда заказчик долистал до него.
+  // Снимок отметки «просмотрено» ДО того, как откроем объект (ниже markObjectSeen
+  // поднимет её к «сейчас»). По этому снимку внутри объекта решаем, что подсветить:
+  // кружочек у статуса (смена статуса) и пилюлю New у свежезагруженных документов.
+  const refAtOpen = React.useMemo(() => DB.objectSeenRef(id), [id]);
+  // Открытие объекта помечает его просмотренным (гасит кружочек в списке/меню).
   React.useEffect(() => { if (!preview) DB.markObjectSeen(id); }, [id, preview]);
+  const statusUnseen = React.useMemo(() => (o ? DB.hasUnseenStatus(o, refAtOpen) : false), [o, refAtOpen]);
   if (!o) return <div style={{ fontFamily: UI, marginTop: 8 }}><button style={backBtn} onClick={() => navigate("/account/objects")}>← Назад</button><div style={{ marginTop: 20, color: MUTED }}>Объект недоступен.</div></div>;
   const st = OBJECT_STATUSES.find((s) => s.code === o.status) || {};
   const byCat = {}; DOC_CATEGORIES.forEach((c) => (byCat[c] = [])); (o.documents || []).forEach((d) => (byCat[d.category] || byCat["Прочее"]).push(d));
@@ -1560,7 +1627,10 @@ function CustomerObjectView({ id, preview, autoOpenMessages, userEmail }) {
           {o.inn && <span>ИНН {o.inn}</span>}
           {o.kpp && <span>КПП {o.kpp}</span>}
           {o.contractNumber && <span>Договор: {o.contractNumber}</span>}
-          <Badge label={st.label} tone={st.tone} />
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
+            <Badge label={st.label} tone={st.tone} />
+            {statusUnseen && <NewBadge size={8} />}
+          </span>
         </div>
       </div>
         <div style={{ display: "flex", alignItems: "center", gap: 2, flexShrink: 0 }}>
@@ -1608,7 +1678,10 @@ function CustomerObjectView({ id, preview, autoOpenMessages, userEmail }) {
                       {i > 0 && <Dotted />}
                       <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px" }}>
                         <ExtBadge ext={d.type || d.file} />
-                        <div style={{ minWidth: 0, flex: 1, fontSize: 14, fontWeight: 500, color: TEXT, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{d.title}</div>
+                        <div style={{ minWidth: 0, flex: 1, display: "flex", alignItems: "center", gap: 8, overflow: "hidden" }}>
+                          <span style={{ minWidth: 0, fontSize: 14, fontWeight: 500, color: TEXT, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{d.title}</span>
+                          {(d.publishedTs || 0) > refAtOpen + 1000 && <NewPill />}
+                        </div>
                         {canPreview(d) && <DownloadBtn doc={d} label="Открыть" preview />}
                         <DownloadBtn doc={d} label="Скачать" />
                       </div>
@@ -1665,7 +1738,7 @@ function CustomerObjectsList({ email, accountId }) {
                 </div>
                 <div style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 9 }}>
                   <span style={{ fontSize: 17, fontWeight: 500, color: TEXT, lineHeight: 1.3 }}>{o.customerName} — {o.title}</span>
-                  {DB.isObjectUnseen(o) && <NewPill />}
+                  {DB.isObjectUnseen(o) && <NewBadge />}
                 </div>
                 <div style={{ marginTop: 3, fontSize: 13, fontWeight: 300, color: MUTED }}>{o.address || o.city}{o.responsibleName ? ` · ${o.responsibleName}` : ""} · {(o.documents || []).length} док.</div>
               </div>
