@@ -2434,6 +2434,11 @@ export default function AccountProfilePage() {
   const [vbadgeMount, setVbadgeMount] = React.useState(false); // управляет наличием в DOM
   React.useEffect(() => {
     if (!emailVerified || !userEmail) { setVbadgeShow(false); setVbadgeMount(false); return; }
+    // Показываем «подтверждена» ОДИН раз — при первом визите после подтверждения.
+    // Дальше не мигаем на каждом заходе: ставим флаг по адресу почты.
+    const flagKey = `profile:vbadgeShown:${userEmail}`;
+    try { if (localStorage.getItem(flagKey)) { setVbadgeShow(false); setVbadgeMount(false); return; } } catch {}
+    try { localStorage.setItem(flagKey, "1"); } catch {}
     setVbadgeMount(true);
     const rif = requestAnimationFrame(() => setVbadgeShow(true)); // плавное появление
     const tHide = setTimeout(() => setVbadgeShow(false), 3200);   // начать исчезновение
@@ -2691,6 +2696,37 @@ export default function AccountProfilePage() {
         return;
       }
       setSessions((prev) => prev.filter((s) => s.sid !== sid));
+      window.showDockToast?.("Сессия отозвана");
+    } catch {
+      window.showDockToast?.("Не удалось отозвать сессию");
+    } finally {
+      setRevokingSid("");
+    }
+  }
+
+  // Повторные входы с одного браузера+IP схлопываем в одну карточку: показываем
+  // самое свежее время и число входов; «Отозвать» гасит все токены группы разом.
+  // (Сервер плодит по записи на каждый /auth/login — визуально это спам.)
+  const groupedSessions = React.useMemo(() => {
+    const map = new Map();
+    for (const s of sessions) {
+      const key = `${s.userAgent || ""}|${s.ip || ""}`;
+      let g = map.get(key);
+      if (!g) { g = { key, userAgent: s.userAgent, ip: s.ip, lastSeen: 0, current: false, sids: [], count: 0 }; map.set(key, g); }
+      g.sids.push(s.sid);
+      g.count += 1;
+      if (s.current) g.current = true;
+      if ((s.lastSeen || 0) > g.lastSeen) g.lastSeen = s.lastSeen || 0;
+    }
+    return [...map.values()].sort((a, b) => (Number(b.current) - Number(a.current)) || (b.lastSeen - a.lastSeen));
+  }, [sessions]);
+
+  async function handleRevokeGroup(g) {
+    if (!g || !token || !g.sids.length) return;
+    try {
+      setRevokingSid(g.key);
+      for (const sid of g.sids) { if (sid) { try { await apiRevokeSession(token, sid); } catch {} } }
+      setSessions((prev) => prev.filter((s) => !g.sids.includes(s.sid)));
       window.showDockToast?.("Сессия отозвана");
     } catch {
       window.showDockToast?.("Не удалось отозвать сессию");
@@ -3193,20 +3229,20 @@ export default function AccountProfilePage() {
                   <div style={{ fontSize: 14, fontWeight: 300, color: "#999" }}>Активных сессий не найдено.</div>
                 ) : (
                   <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                    {sessions.map((s) => (
-                      <div key={s.sid} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "12px 14px", borderRadius: 12, border: s.current ? "1px solid #000" : "1px solid #e6e6e6", background: s.current ? "#fafafa" : "#fff" }}>
+                    {groupedSessions.map((g) => (
+                      <div key={g.key} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "12px 14px", borderRadius: 12, border: g.current ? "1px solid #000" : "1px solid #e6e6e6", background: g.current ? "#fafafa" : "#fff" }}>
                         <div style={{ minWidth: 0 }}>
                           <div style={{ fontSize: 14, fontWeight: 500, color: TEXT, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                            {describeUserAgent(s.userAgent)}
-                            {s.current && (<span style={{ fontSize: 11, fontWeight: 500, color: "#0a7d32", background: "#e7f6ec", borderRadius: 6, padding: "2px 7px" }}>текущая</span>)}
+                            {describeUserAgent(g.userAgent)}
+                            {g.current && (<span style={{ fontSize: 11, fontWeight: 500, color: "#0a7d32", background: "#e7f6ec", borderRadius: 6, padding: "2px 7px" }}>текущая</span>)}
                           </div>
                           <div style={{ fontSize: 12, fontWeight: 300, color: "#888", marginTop: 3 }}>
-                            {[s.ip, formatSessionTime(s.lastSeen)].filter(Boolean).join(" · ")}
+                            {[g.ip, formatSessionTime(g.lastSeen), g.count > 1 ? `${g.count} входов` : ""].filter(Boolean).join(" · ")}
                           </div>
                         </div>
-                        {!s.current && (
-                          <button type="button" onClick={() => handleRevokeSession(s.sid)} disabled={revokingSid === s.sid} style={{ flexShrink: 0, height: 36, padding: "0 14px", borderRadius: 9, background: "#fff", color: "#c0392b", border: "1px solid #e3b4ae", fontFamily: UI, fontSize: 13, fontWeight: 300, cursor: revokingSid === s.sid ? "not-allowed" : "pointer", opacity: revokingSid === s.sid ? 0.6 : 1 }}>
-                            {revokingSid === s.sid ? "…" : "Отозвать"}
+                        {!g.current && (
+                          <button type="button" onClick={() => handleRevokeGroup(g)} disabled={revokingSid === g.key} style={{ flexShrink: 0, height: 36, padding: "0 14px", borderRadius: 9, background: "#fff", color: "#c0392b", border: "1px solid #e3b4ae", fontFamily: UI, fontSize: 13, fontWeight: 300, cursor: revokingSid === g.key ? "not-allowed" : "pointer", opacity: revokingSid === g.key ? 0.6 : 1 }}>
+                            {revokingSid === g.key ? "…" : "Отозвать"}
                           </button>
                         )}
                       </div>
