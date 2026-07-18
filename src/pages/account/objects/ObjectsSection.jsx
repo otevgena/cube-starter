@@ -1321,7 +1321,8 @@ function MessagesPanel({ objId, side, authorName, disabled, autoOpen }) {
     else groups.push({ from: m.from, items: [m], no: 0 });
   }
   groups.forEach((g) => { if (g.from === "customer") g.no = ++custNo; });
-  const groupIsNew = (g) => g.items.some((m) => m.from !== side && DB.msgTs(m) > seenUpTo + 1000);
+  // В предпросмотре (disabled) точки «новое» тоже не показываем — чистый вид «как у заказчика».
+  const groupIsNew = (g) => !disabled && g.items.some((m) => m.from !== side && DB.msgTs(m) > seenUpTo + 1000);
 
   // Свёртка старой переписки: по умолчанию показываем блоки за последние ~3 дня
   // (но не меньше двух последних). Более старое скрыто под бледным превью вверху;
@@ -1709,12 +1710,16 @@ function CustomerObjectView({ id, preview, autoOpenMessages, userEmail }) {
   // Снимок отметки «просмотрено» ДО того, как откроем объект (ниже markObjectSeen
   // поднимет её к «сейчас»). По этому снимку внутри объекта решаем, что подсветить:
   // кружочек у статуса (смена статуса) и пилюлю New у свежезагруженных документов.
-  const refAtOpen = React.useMemo(() => DB.objectSeenRef(id), [id]);
+  // В предпросмотре «как заказчик» метки новизны не имеют смысла: они считаются
+  // от ОТМЕТКИ администратора, а не заказчика, и лишь путают. Отматываем снимок в
+  // +∞ — тогда статус/этапы/документы разом считаются просмотренными (меток нет).
+  const refAtOpen = React.useMemo(() => (preview ? Infinity : DB.objectSeenRef(id)), [id, preview]);
   // Открытие объекта помечает его просмотренным (гасит кружочек в списке/меню).
   React.useEffect(() => { if (!preview) DB.markObjectSeen(id); }, [id, preview]);
-  const statusUnseen = React.useMemo(() => (o ? DB.hasUnseenStatus(o, refAtOpen) : false), [o, refAtOpen]);
-  // Какие этапы сменили статус после прошлого просмотра — по ним морковная метка
-  // «обновилось» у конкретного этапа.
+  // Внутри объекта морковную метку ставим ТОЛЬКО там, где реально было изменение —
+  // на конкретном этапе (ниже). У статуса в шапке кружка нет: сигнал «в объекте
+  // что-то новое» живёт в СПИСКЕ объектов (строка «Заказчик — Название»), не здесь.
+  // Какие этапы сменили статус после прошлого просмотра — по ним морковная метка.
   const stageUnseen = React.useMemo(() => {
     const m = {};
     (o?.stages || []).forEach((s) => { if ((s.statusTs || 0) > refAtOpen + 1000) m[s.id] = true; });
@@ -1759,7 +1764,6 @@ function CustomerObjectView({ id, preview, autoOpenMessages, userEmail }) {
           {o.contractNumber && <span>Договор: {o.contractNumber}</span>}
           <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
             <Badge label={st.label} tone={st.tone} />
-            {statusUnseen && <NewBadge size={8} />}
           </span>
         </div>
       </div>
