@@ -615,7 +615,7 @@ function AdminObjectsList() {
                 </div>
                 <div style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 9 }}>
                   <span style={{ fontSize: 17, fontWeight: 500, color: TEXT, lineHeight: 1.3 }}>{o.customerName} — {o.title}</span>
-                  {DB.isObjectUnseen(o) && <NewBadge />}
+                  {DB.isObjectUnseen(o) && <NewPill />}
                 </div>
                 <div style={{ marginTop: 3, fontSize: 13, fontWeight: 300, color: MUTED }}>{o.address || o.city}{o.responsibleName ? ` · ${o.responsibleName}` : ""} · {(o.documents || []).length} док.</div>
               </div>
@@ -1403,6 +1403,22 @@ function NewBadge({ size = 8, style, fading }) {
   );
 }
 
+// Морковная пилюля «New» — как бейдж «New» у пункта «Проекты» в шапке сайта,
+// только фирменного морковного цвета. Стоит у объекта со свежими изменениями и
+// исчезает, когда заказчик открыл объект (isObjectUnseen → markObjectSeen при
+// заходе). Лёгкое «пружинистое» появление в общем стиле сайта.
+function NewPill() {
+  return (
+    <span aria-label="Есть новое"
+      style={{ display: "inline-flex", alignItems: "center", flexShrink: 0, padding: "2px 6px",
+        borderRadius: 5, background: CARROT, color: "#fff", fontSize: 10, fontWeight: 600,
+        lineHeight: 1, letterSpacing: ".01em", animation: "cubeNewPop .32s cubic-bezier(.2,.8,.2,1) both" }}>
+      New
+      <style>{`@keyframes cubeNewPop{from{opacity:0;transform:scale(.6)}to{opacity:1;transform:scale(1)}}`}</style>
+    </span>
+  );
+}
+
 function ChangeLogButton({ events }) {
   const [open, setOpen] = React.useState(false);
   const list = Array.isArray(events) ? events : [];
@@ -1461,25 +1477,38 @@ function ChangeLogButton({ events }) {
 
 // Иконка-переключатель подписки на e-mail-уведомления по объекту.
 // Клик → морковная (подписан), повторный клик → выкл. Если у юзера нет почты —
-// мягкая подсказка «сначала укажите e-mail». Состояние пока в localStorage
-// (серверная рассылка — отложенный бэкенд, см. object-messaging-backend/postbox).
+// мягкая подсказка «сначала укажите e-mail». Состояние храним на бэкенде
+// (таблица object_subs); локальный кэш даёт мгновенную отрисовку. Реальная
+// рассылка уходит при публичных событиях по объекту (см. server/functions/objects).
 function SubscribeButton({ objId, userEmail }) {
-  const KEY = "objects:subscribed";
-  const read = () => { try { return JSON.parse(localStorage.getItem(KEY) || "{}"); } catch { return {}; } };
-  const [on, setOn] = React.useState(() => Boolean(read()[objId]));
+  const [on, setOn] = React.useState(() => DB.isSubscribedLocal(objId));
+  const [busy, setBusy] = React.useState(false);
   const [hint, setHint] = React.useState("");
   const hintT = React.useRef(null);
   const showHint = (t) => { setHint(t); if (hintT.current) clearTimeout(hintT.current); hintT.current = setTimeout(() => setHint(""), 3200); };
   React.useEffect(() => () => { if (hintT.current) clearTimeout(hintT.current); }, []);
-  const toggle = () => {
+  // Свериться с сервером при монтировании (истина по подписке — на бэкенде).
+  React.useEffect(() => {
+    let alive = true;
+    DB.getObjectSubscription(objId).then((v) => { if (alive) setOn(Boolean(v)); }).catch(() => {});
+    return () => { alive = false; };
+  }, [objId]);
+  const toggle = async () => {
+    if (busy) return;
     if (!userEmail) { showHint("Сначала укажите e-mail в профиле"); return; }
-    const map = read();
     const next = !on;
-    if (next) map[objId] = true; else delete map[objId];
-    try { localStorage.setItem(KEY, JSON.stringify(map)); } catch {}
-    setOn(next);
-    try { window.dispatchEvent(new Event("objects:subscribed")); } catch {}
-    showHint(next ? "Уведомления на e-mail включены" : "Уведомления на e-mail отключены");
+    setOn(next); setBusy(true); // оптимистично
+    try {
+      const server = await DB.setObjectSubscription(objId, next);
+      setOn(server);
+      try { window.dispatchEvent(new Event("objects:subscribed")); } catch {}
+      showHint(server ? "Уведомления на e-mail включены" : "Уведомления на e-mail отключены");
+    } catch {
+      setOn(!next); // откат
+      showHint("Не удалось сохранить — попробуйте ещё раз");
+    } finally {
+      setBusy(false);
+    }
   };
   return (
     <div style={{ position: "relative" }}>
@@ -1636,7 +1665,7 @@ function CustomerObjectsList({ email, accountId }) {
                 </div>
                 <div style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 9 }}>
                   <span style={{ fontSize: 17, fontWeight: 500, color: TEXT, lineHeight: 1.3 }}>{o.customerName} — {o.title}</span>
-                  {DB.isObjectUnseen(o) && <NewBadge />}
+                  {DB.isObjectUnseen(o) && <NewPill />}
                 </div>
                 <div style={{ marginTop: 3, fontSize: 13, fontWeight: 300, color: MUTED }}>{o.address || o.city}{o.responsibleName ? ` · ${o.responsibleName}` : ""} · {(o.documents || []).length} док.</div>
               </div>

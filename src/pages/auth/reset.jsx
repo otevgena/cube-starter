@@ -5,6 +5,10 @@
 // поля-подчёркивания без контура, ошибки — морковным текстом под полем.
 import React from "react";
 import { resetPassword, checkResetToken } from "@/lib/auth";
+import Spinner from "@/components/common/Spinner.jsx";
+
+// Мягкое появление (как на остальном сайте: лёгкий подъём + проявление).
+const RISE = "cubeRise .5s cubic-bezier(.2,.8,.2,1) both";
 
 // ==== стили, скопированные из Contact.jsx (чтобы НЕ отличались) ====
 const LABEL_CLASS = "block text-left text-xs font-light uppercase tracking-[0.04em] text-[#a7a7a7]";
@@ -115,14 +119,26 @@ export default function ResetPasswordPage() {
 
   return (
     <section className="bg-page font-tight text-ink -mt-8" aria-label="Новый пароль">
+      <style>{`@keyframes cubeRise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}`}</style>
+
       {/* Шапка — как «Напишите нам» / «КОНТАКТЫ» */}
       <div className="text-center text-sm font-light leading-7">Восстановление доступа</div>
       <div className="mt-[26px] text-center">
-        <h2 className="font-semibold uppercase leading-none h-hero">{heading}</h2>
+        {/* key по тексту заголовка → при смене фазы (НОВЫЙ ПАРОЛЬ → ССЫЛКА УСТАРЕЛА)
+            заголовок мягко переигрывает появление */}
+        <h2 key={heading} className="font-semibold uppercase leading-none h-hero" style={{ animation: RISE }}>
+          {heading}
+        </h2>
       </div>
 
-      {/* Колонки: слева текст, справа форма */}
-      <div className="mx-4 mt-12 grid grid-cols-1 items-start gap-10 md:grid-cols-2 lg:mx-[52px] lg:mt-20 xl:grid-cols-[1fr_auto]">
+      {/* Пока проверяем ссылку — вместо текста наш брендовый «кружок с точками» */}
+      {phase === "checking" ? (
+        <div key="checking" className="mt-14 flex justify-center lg:mt-20" style={{ animation: RISE }}>
+          <Spinner size={34} />
+        </div>
+      ) : (
+      /* Колонки: слева текст, справа форма — key по фазе для плавной смены */
+      <div key={phase} className="mx-4 mt-12 grid grid-cols-1 items-start gap-10 md:grid-cols-2 lg:mx-[52px] lg:mt-20 xl:grid-cols-[1fr_auto]" style={{ animation: RISE }}>
         {/* Левый текст */}
         <div className="max-w-[760px] text-left">
           {phase === "done" ? (
@@ -146,11 +162,6 @@ export default function ResetPasswordPage() {
               <p className="mt-1.5 text-sm font-light leading-6">
                 Запросите новую — на почту придёт свежее письмо со ссылкой.
               </p>
-            </>
-          ) : phase === "checking" ? (
-            <>
-              <p className="text-[21px] font-semibold leading-7">Проверяем ссылку…</p>
-              <p className="mt-[18px] text-sm font-light leading-6">Одну секунду.</p>
             </>
           ) : (
             <>
@@ -187,10 +198,6 @@ export default function ResetPasswordPage() {
               Запросить новую ссылку
             </button>
           </div>
-        ) : phase === "checking" ? (
-          <div className="w-[683px] max-w-full text-left text-sm font-light text-[#a7a7a7]">
-            Проверяем ссылку…
-          </div>
         ) : (
           <form onSubmit={onSubmit} noValidate className="w-[683px] max-w-full text-left">
             {/* Пароль */}
@@ -215,19 +222,25 @@ export default function ResetPasswordPage() {
               <ErrorSlot text={errors.pass2} />
             </div>
 
-            {/* Кнопка — как «Оставить заявку» */}
-            <button
-              type="submit"
-              disabled={busy}
-              aria-busy={busy ? "true" : "false"}
-              className="mt-[22px] block h-[60px] w-[210px] rounded-[10px] bg-black text-sm font-semibold uppercase tracking-[0.02em] text-white transition-colors hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-85"
-            >
-              {busy ? "Сохранение..." : "Сохранить пароль"}
-            </button>
+            {/* Кнопка — как «Оставить заявку». Во время сохранения вместо кнопки
+                показываем брендовый «кружок с точками» в том же боксе (60×210). */}
+            {busy ? (
+              <div className="mt-[22px] flex h-[60px] w-[210px] items-center justify-center">
+                <Spinner size={28} />
+              </div>
+            ) : (
+              <button
+                type="submit"
+                className="mt-[22px] block h-[60px] w-[210px] rounded-[10px] bg-black text-sm font-semibold uppercase tracking-[0.02em] text-white transition-colors hover:bg-neutral-800"
+              >
+                Сохранить пароль
+              </button>
+            )}
             <ErrorSlot text={formErr} />
           </form>
         )}
       </div>
+      )}
 
       <div className="h-0 lg:h-[58px]" />
     </section>

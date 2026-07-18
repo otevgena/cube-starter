@@ -326,6 +326,45 @@ export function addMessage(objId, { from = "customer", author = "", text = "", a
   return { msg, mailedTo, promise };
 }
 
+/* --- Подписка на e-mail-уведомления по объекту (таблица object_subs на бэкенде) ---
+   В localStorage-режиме (objects:api=0) — только локальный флаг, без сети/почты.
+   Локальный кэш objects:subscribed держим и в API-режиме — чтобы кнопка мгновенно
+   рисовала состояние до ответа сервера. */
+const SUB_LS_KEY = "objects:subscribed";
+function readSubLS() { return lsGet(SUB_LS_KEY, {}) || {}; }
+function writeSubLS(map) { lsSet(SUB_LS_KEY, map); }
+function setSubLS(objId, on) { const m = readSubLS(); if (on) m[objId] = true; else delete m[objId]; writeSubLS(m); }
+
+// Локальное (мгновенное) состояние подписки — для первичной отрисовки кнопки.
+export function isSubscribedLocal(objId) { return Boolean(readSubLS()[objId]); }
+
+// Свериться с сервером (в API-режиме). Возвращает Promise<boolean>.
+export async function getObjectSubscription(objId) {
+  if (!apiEnabled()) return isSubscribedLocal(objId);
+  try {
+    const res = await api(`/objects/${encodeURIComponent(objId)}`, { method: "GET" });
+    const on = Boolean(res && res.subscribed);
+    setSubLS(objId, on);
+    return on;
+  } catch {
+    return isSubscribedLocal(objId);
+  }
+}
+
+// Включить/выключить подписку. Оптимистично пишем локальный кэш, затем на бэкенд.
+// Возвращает Promise<boolean> — итоговое состояние (по ответу сервера).
+export async function setObjectSubscription(objId, on) {
+  const want = Boolean(on);
+  setSubLS(objId, want);
+  if (!apiEnabled()) return want;
+  const res = await api(`/objects/${encodeURIComponent(objId)}/subscribe`, {
+    method: "POST", body: { subscribed: want },
+  });
+  const server = Boolean(res && res.subscribed);
+  setSubLS(objId, server);
+  return server;
+}
+
 /* ===================== Утилиты ===================== */
 function lsGet(key, fallback) { try { const s = localStorage.getItem(key); return s ? JSON.parse(s) : fallback; } catch { return fallback; } }
 function lsSet(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch {} }
@@ -806,7 +845,16 @@ export function addDocument(id, doc, author = "Администратор") {
     const o = findObj(store, id); if (!o) return;
     const d = { id: uid("d"), title: doc.title || doc.name || "Документ", category: doc.category || "Прочее", file: doc.file || "", type: doc.type || extOf(doc.name || doc.file || ""), size: doc.size || 0, status: doc.status || "draft", version: 1, isActual: true, stageId: doc.stageId || "", uploadedBy: author, uploadedAt: today(), publicDescription: doc.publicDescription || "", internalComment: doc.internalComment || "", isNewForCustomer: false, visibleToCustomer: doc.visibleToCustomer !== false, key: doc.key || "", url: doc.url || "", versions: [] };
     o.documents.push(d);
-    pushEvent(o, { type: "doc_added", title: "Добавлен документ", description: d.title, author, visibility: "internal" });
+    // Если документ создаётся сразу опубликованным (загрузка файла админом идёт
+    // со status:"published") — событие ПУБЛИЧНОЕ, чтобы заказчик увидел его в
+    // «Истории изменений» и сработал сигнал «новое». Черновик — внутреннее.
+    const published = d.status === "published" && d.visibleToCustomer;
+    if (published) {
+      pushEvent(o, { type: "doc_published", title: "Добавлен документ", description: d.title, author, visibility: "public" });
+      d.isNewForCustomer = true;
+    } else {
+      pushEvent(o, { type: "doc_added", title: "Добавлен документ", description: d.title, author, visibility: "internal" });
+    }
     touch(o); return d.id;
   });
 }
