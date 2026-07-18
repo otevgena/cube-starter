@@ -372,6 +372,14 @@ let _seq = 0;
 function uid(p = "id") { _seq += 1; return `${p}-${Date.now().toString(36)}-${_seq}`; }
 function today() { const d = new Date(); return d.toISOString().slice(0, 10); }
 function nowIso() { return new Date().toISOString(); }
+// Локальная отметка "YYYY-MM-DD HH:MM" (НЕ UTC) — чтобы событие отображалось
+// в местном времени и parseTs (который трактует наивную строку как локальную)
+// давал epoch, совпадающий с Date.now() из seen-логики.
+function nowStampLocal() {
+  const d = new Date();
+  const p = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
 // Часовой пояс автора для отметки времени в переписке: сперва выбранный в профиле
 // (кэш profile:timezone), иначе — фактический пояс браузера.
 function myTimezone() {
@@ -406,7 +414,7 @@ export function objectSignal(o) {
   const bump = (v) => { const t = parseTs(v); if (t > max) max = t; };
   bump(o.lastUpdatedAt);
   bump(o.threadUpdatedAt);
-  (o.events || []).forEach((e) => bump(e.createdAt));
+  (o.events || []).forEach((e) => bump(e.ts || e.createdAt));
   (o.messages || []).forEach((m) => bump(m.at));
   return max;
 }
@@ -904,7 +912,7 @@ export function removeAction(id, actionId) {
 }
 
 /* ---- События ---- */
-function pushEvent(o, ev) { o.events = o.events || []; o.events.unshift({ id: uid("e"), createdAt: nowIso().slice(0, 16).replace("T", " "), visibility: "internal", author: "Администратор", ...ev }); }
+function pushEvent(o, ev) { o.events = o.events || []; o.events.unshift({ id: uid("e"), ts: Date.now(), createdAt: nowStampLocal(), visibility: "internal", author: "Администратор", ...ev }); }
 export function addEvent(id, ev, author = "Администратор") {
   return withStore((store) => { const o = findObj(store, id); if (!o) return; pushEvent(o, { ...ev, author }); touch(o); });
 }
