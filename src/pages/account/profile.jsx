@@ -5,6 +5,7 @@ import { AccessSheetModal } from "@/components/documents/AccessSheet.jsx";
 import { BTN as MBTN, inputCls, ErrorSlot as MErrorSlot, FancyCheckbox, Label as MLabel, FormShell } from "@/components/common/Modals.jsx";
 import Spinner, { CenterSpinner } from "@/components/common/Spinner.jsx";
 import * as DB from "@/data/objects.js";
+import { setMyAuth, can as permCan } from "@/lib/perms.js";
 
 /* ===== API helpers ===== */
 const API_BASE =
@@ -1336,7 +1337,7 @@ function IconLink({ onClick, disabled, icon, children, prompt, danger = false })
 }
 
 /* ===== Верхняя полоска вкладок ===== */
-function TabsBar({ active, isAdmin, onNavigate, lineWidth, isDesktop = false }) {
+function TabsBar({ active, isAdmin, canPartner, canSupplier, onNavigate, lineWidth, isDesktop = false }) {
   const wrapRef = React.useRef(null);
   const tabRefs = React.useRef(new Map());
   const [underline, setUnderline] = React.useState({ left: 0, width: 56 });
@@ -1351,12 +1352,12 @@ function TabsBar({ active, isAdmin, onNavigate, lineWidth, isDesktop = false }) 
     return [
       { code: "profile",  label: "Профиль",  adminOnly: false, locked: false },
       { code: "objects",  label: "Объекты",  adminOnly: false, locked: false },
-      { code: "partner",  label: "Партнёр",  adminOnly: false, locked: !isAdmin },
-      { code: "supplier", label: "Поставщик",adminOnly: false, locked: !isAdmin },
+      { code: "partner",  label: "Партнёр",  adminOnly: false, locked: !canPartner },
+      { code: "supplier", label: "Поставщик",adminOnly: false, locked: !canSupplier },
       { code: "personal", label: "Настройки", adminOnly: false, locked: false }, // ← Переименовано
       { code: "admin",    label: "Администратор", adminOnly: true, locked: false },
     ].filter(t => (t.adminOnly ? isAdmin : true));
-  }, [isAdmin]);
+  }, [isAdmin, canPartner, canSupplier]);
 
   const measure = React.useCallback(() => {
     const el = tabRefs.current.get(active);
@@ -1466,7 +1467,7 @@ function TabsBar({ active, isAdmin, onNavigate, lineWidth, isDesktop = false }) 
               aria-disabled={t.locked || undefined}
               title={t.locked ? "Недоступно" : undefined}
             >
-              {!isAdmin && (t.code === "partner" || t.code === "supplier") ? <Lock /> : null}
+              {t.locked && (t.code === "partner" || t.code === "supplier") ? <Lock /> : null}
               {t.label}
             </a>
           );
@@ -2368,6 +2369,8 @@ export default function AccountProfilePage() {
   const [isAdmin, setIsAdmin] = React.useState(() => {
     try { return sessionStorage.getItem("auth:isAdmin") === "1"; } catch { return false; }
   });
+  // Тик перерисовки после установки прав из /auth/me (can() — модульное состояние).
+  const [, setMyPermsTick] = React.useState(0);
   // Пока тянем /me — показываем спиннер, чтобы не мелькали пустые поля профиля.
   const [booting, setBooting] = React.useState(true);
 
@@ -2518,6 +2521,9 @@ export default function AccountProfilePage() {
       const admin = Boolean(u.isAdmin || u.role === "admin" || u.group === "admin");
       setIsAdmin(admin);
       try { sessionStorage.setItem("auth:isAdmin", admin ? "1" : "0"); } catch {}
+      // Реальные права из бэкенда → рантайм-хранилище (can()). Админ — всё; иначе набор от сервера.
+      setMyAuth({ role: u.role, perms: u.perms, permOverrides: u.permOverrides });
+      setMyPermsTick((n) => n + 1); // перерисовать зависимые от прав элементы
       setCity(String(u.city || ""));
       { const tz = RU_TIMEZONES.some((z) => z.tz === u.timezone) ? u.timezone : DEFAULT_TZ;
         setTimezone(tz);
@@ -2974,6 +2980,12 @@ export default function AccountProfilePage() {
     admin:    { title: "Роли и группы", desc: "Управляйте ролями (доступ) и группами (кто вы?) прямо тут." },
   }[tab] || { title: "Ваш профиль", desc: "Добавьте здесь дополнительную информацию о себе." };
 
+  // Доступ к разделам «Партнёр»/«Поставщик»: закрыт для заказчиков, открыт админам и
+  // сотрудникам (у staff-ролей есть partners.view/suppliers.view). isAdmin — быстрый
+  // путь до загрузки прав из /auth/me. Зависят от setMyPermsTick (перерисовка).
+  const canPartner  = isAdmin || permCan("partners.view");
+  const canSupplier = isAdmin || permCan("suppliers.view");
+
   // Первичная загрузка профиля — брендовый спиннер вместо мигающих пустых полей.
   if (booting) {
     return (
@@ -3049,13 +3061,15 @@ export default function AccountProfilePage() {
             <TabsBar
               active={tab}
               isAdmin={isAdmin}
+              canPartner={canPartner}
+              canSupplier={canSupplier}
               onNavigate={() => {}}
               lineWidth={tabsLineWidth}
               isDesktop={isDesktop}
             />
 
             {/* Save — мобилка: под табами (как awwwards) */}
-            {!(tab === "personal" || tab === "objects" || tab === "admin" || (isAdmin && (tab === "partner" || tab === "supplier"))) && (
+            {!(tab === "personal" || tab === "objects" || tab === "admin" || (canPartner && tab === "partner") || (canSupplier && tab === "supplier")) && (
               <div className="mb-7 mt-2 lg:hidden">
                 {saving ? (
                   <div className="w-full" style={{ height: 48, display: "flex", alignItems: "center", justifyContent: "center" }}><Spinner size={24} /></div>
@@ -3105,11 +3119,11 @@ export default function AccountProfilePage() {
                   <AdminLauncher />
                 )}
               </div>
-            ) : tab === "partner" && isAdmin ? (
+            ) : tab === "partner" && canPartner ? (
               <div className="animate-svcfade" style={isDesktop ? { width: MID_COL + GAP_COL + RIGHT_COL } : undefined}>
                 <AdminPanelFiltered token={token} group="partner" />
               </div>
-            ) : tab === "supplier" && isAdmin ? (
+            ) : tab === "supplier" && canSupplier ? (
               <div className="animate-svcfade" style={isDesktop ? { width: MID_COL + GAP_COL + RIGHT_COL } : undefined}>
                 <AdminPanelFiltered token={token} group="supplier" />
               </div>

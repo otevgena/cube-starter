@@ -8,12 +8,16 @@ import * as DB from "@/data/objects.js";
 import Spinner, { CenterSpinner } from "@/components/common/Spinner.jsx";
 import {
   OBJECT_STATUSES, STAGE_STATUSES, DOC_CATEGORIES, STAGE_PRESETS, OBJECT_TEMPLATES,
-  toneOf, labelOf, extOf, getEmployees, addEmployee, removeEmployee,
+  toneOf, labelOf, extOf, getEmployees,
   getTemplates, templateByCode, addTemplate, updateTemplate, removeTemplate,
   resetTemplate, isTemplateModified, normalizePrefix,
-  EMP_CAPS, addEmployeeFromAccount, updateEmployee, employeeByEmail,
+  employeeByEmail, hydrateStaff, adminGetUser, saveStaff, removeStaff,
   getMessages, addMessage, threadStatus,
 } from "@/data/objects.js";
+import {
+  PERMISSIONS, PERM_GROUP_LABELS, permLabel, ROLE_LABELS, STAFF_ROLES,
+  effectivePerms, diffOverrides,
+} from "@/lib/perms.js";
 
 /* ===================== стиль ===================== */
 const UI = "'Inter Tight','Inter',system-ui";
@@ -2258,94 +2262,152 @@ function CustomerObjectsList({ email, accountId }) {
 /* ============================================================= */
 /* ================== МОДУЛЬ «СОТРУДНИКИ» ===================== */
 /* ============================================================= */
-// Чек-лист прав «полуадмина» — фирменные квадратные галочки (как на /admin/create-account).
-function CapsChecklist({ caps, setCaps }) {
+// Чек-лист прав из КАТАЛОГА (server/functions/*/perms.js → src/lib/perms.js).
+// permSet — Set включённых прав; roleSet — базовый набор роли (для пометки ручных
+// оверрайдов). disabled — только чтение (роль admin = полный доступ).
+function PermChecklist({ permSet, roleSet, onToggle, disabled }) {
   return (
-    <div style={{ display: "grid", gap: 2 }}>
-      {EMP_CAPS.map((c) => {
-        const on = !!caps[c.key];
-        return (
-          <div key={c.key} role="button" tabIndex={0} onClick={() => setCaps({ ...caps, [c.key]: !on })}
-            onKeyDown={(e) => { if (e.key === " " || e.key === "Enter") { e.preventDefault(); setCaps({ ...caps, [c.key]: !on }); } }}
-            style={{ display: "flex", gap: 12, alignItems: "flex-start", padding: "12px 2px", cursor: "pointer", borderBottom: `1px solid ${UNDER}` }}>
-            <span style={{ marginTop: 1 }}><SquareCheck checked={on} /></span>
-            <span style={{ minWidth: 0 }}>
-              <span style={{ display: "block", fontSize: 14, fontWeight: 500, color: TEXT }}>{c.label}</span>
-              <span style={{ display: "block", marginTop: 2, fontSize: 12, fontWeight: 300, color: MUTED, lineHeight: 1.4 }}>{c.hint}</span>
-            </span>
+    <div style={{ display: "grid", gap: 18 }}>
+      {Object.keys(PERMISSIONS).map((ns) => (
+        <div key={ns}>
+          <div style={{ fontSize: 11, letterSpacing: ".06em", textTransform: "uppercase", fontWeight: 600, color: MUTED, marginBottom: 2 }}>
+            {PERM_GROUP_LABELS[ns] || ns}
           </div>
-        );
-      })}
+          {PERMISSIONS[ns].map(([perm, label]) => {
+            const on = permSet.has(perm);
+            const overridden = roleSet && (on !== roleSet.has(perm));
+            const toggle = () => { if (!disabled) onToggle(perm); };
+            return (
+              <div key={perm} role="button" tabIndex={disabled ? -1 : 0} onClick={toggle}
+                onKeyDown={(e) => { if (!disabled && (e.key === " " || e.key === "Enter")) { e.preventDefault(); toggle(); } }}
+                style={{ display: "flex", gap: 12, alignItems: "center", padding: "10px 2px", cursor: disabled ? "default" : "pointer", opacity: disabled ? 0.55 : 1, borderBottom: `1px solid ${LINE}` }}>
+                <span><SquareCheck checked={on} /></span>
+                <span style={{ minWidth: 0, flex: 1, fontSize: 14, fontWeight: 500, color: TEXT }}>{label}</span>
+                {overridden && !disabled && (
+                  <span style={{ fontSize: 11, fontWeight: 500, color: CARROT }} title="Отличается от пресета роли">
+                    {on ? "+ вручную" : "− снято"}
+                  </span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      ))}
     </div>
   );
 }
 
-// Inline-форма (как /admin/create-account): добавить сотрудника из учётки (add) или отредактировать права (edit).
-function EmployeeForm({ emp, accounts, existingEmails, onCancel, onSaved }) {
+const ROLE_OPTIONS = STAFF_ROLES.map((r) => ({ value: r, label: ROLE_LABELS[r] || r }));
+
+// Inline-форма: назначить сотрудника из учётки (add) либо изменить роль/права (edit).
+// Хранит роль + оверрайды на учётке (/admin/users). Права — из каталога perms.js.
+function EmployeeForm({ emp, accounts, onCancel, onSaved }) {
   const editing = !!emp;
   const [acc, setAcc] = React.useState(null);       // выбранная учётка (режим добавления)
-  const [fio, setFio] = React.useState(emp?.fio || "");
-  const [email, setEmail] = React.useState(emp?.email || "");
+  const [role, setRole] = React.useState(editing ? (emp.role || "executor") : "executor");
   const [position, setPosition] = React.useState(emp?.position || "");
-  const [caps, setCaps] = React.useState(() => { const c = {}; EMP_CAPS.forEach((x) => (c[x.key] = !!emp?.caps?.[x.key])); return c; });
-  const pickable = React.useMemo(() => (accounts || []).filter((a) => a.email && !existingEmails.has(a.email.toLowerCase())), [accounts, existingEmails]);
-  const emailTrim = email.trim().toLowerCase();
-  const emailBad = !!emailTrim && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailTrim);
-  // при редактировании нельзя занять e-mail другого сотрудника
-  const emailTaken = editing && !!emailTrim && emailTrim !== (emp?.email || "").toLowerCase() && existingEmails.has(emailTrim);
-  const canSave = editing ? !emailBad && !emailTaken : !!acc;
-  const save = () => {
+  const [permSet, setPermSet] = React.useState(() => effectivePerms(editing ? (emp.role || "executor") : "executor", null));
+  const [loading, setLoading] = React.useState(editing);
+  const [saving, setSaving] = React.useState(false);
+  const [error, setError] = React.useState("");
+
+  // При редактировании подтягиваем точные оверрайды учётки (список их не содержит).
+  React.useEffect(() => {
+    if (!editing) return;
+    let alive = true;
+    (async () => {
+      try {
+        const u = await adminGetUser(emp.id);
+        if (!alive || !u) { if (alive) setLoading(false); return; }
+        const r = u.role || "executor";
+        setRole(r);
+        setPosition(u.position || "");
+        setPermSet(effectivePerms(r, u.permOverrides));
+      } catch { /* оставляем предзаполнение из роли списка */ }
+      finally { if (alive) setLoading(false); }
+    })();
+    return () => { alive = false; };
+  }, [editing, emp?.id]);
+
+  const roleSet = React.useMemo(() => effectivePerms(role, null), [role]);
+  const isAdminRole = role === "admin";
+
+  const pickable = React.useMemo(
+    () => (accounts || []).filter((a) => a.email && !STAFF_ROLES.includes(a.role)),
+    [accounts]
+  );
+
+  const changeRole = (r) => { setRole(r); setPermSet(effectivePerms(r, null)); };       // роль → предзаполнить галочки
+  const togglePerm = (perm) => setPermSet((s) => { const n = new Set(s); n.has(perm) ? n.delete(perm) : n.add(perm); return n; });
+  const resetToRole = () => setPermSet(effectivePerms(role, null));
+
+  const targetId = editing ? emp.id : (acc && acc.id);
+  const canSave = !saving && !loading && !!targetId;
+
+  const save = async () => {
     if (!canSave) return;
-    if (editing) updateEmployee(emp.id, { fio, email: emailTrim, position, caps });
-    else addEmployeeFromAccount(acc, { position, caps });
-    onSaved();
+    setSaving(true); setError("");
+    try {
+      const permOverrides = isAdminRole ? { grant: [], revoke: [] } : diffOverrides(role, permSet);
+      await saveStaff(targetId, { role, position: position.trim(), permOverrides });
+      onSaved();
+    } catch (e) {
+      setError((e && e.message) || "Не удалось сохранить. Попробуйте ещё раз.");
+      setSaving(false);
+    }
   };
+
+  const title = editing ? emp.fio : (acc ? acc.name || acc.email : "Новый сотрудник");
+
   return (
     <div style={{ fontFamily: UI, marginTop: 8 }}>
       <button type="button" onClick={onCancel} style={backBtn}>← К списку сотрудников</button>
-      <div style={{ marginTop: 14, ...h1 }}>{editing ? emp.fio : "Новый сотрудник"}</div>
+      <div style={{ marginTop: 14, ...h1 }}>{title}</div>
       <div style={{ marginTop: 6, fontSize: 14, fontWeight: 300, color: MUTED }}>
-        {editing ? (emp.email || "без привязки к e-mail") : "Выберите учётную запись и выдайте права доступа."}
+        {editing ? (emp.email || "") : "Выберите учётную запись, роль и права доступа."}
       </div>
 
-      <div style={{ marginTop: 26, display: "grid", gap: 22 }}>
-        <div style={{ display: "grid", gap: 22, gridTemplateColumns: editing ? "1fr" : "repeat(auto-fit,minmax(260px,1fr))" }}>
-          {!editing && (
-            <div>
-              <FLabel>Учётная запись</FLabel>
-              <UnderAccountPicker accounts={pickable} value={acc} onPick={setAcc} loading={false} />
-              {pickable.length === 0 && <div style={{ marginTop: 6, fontSize: 12, color: MUTED, fontWeight: 300 }}>Нет свободных учёток. Сначала создайте её в разделе «Создать учётную запись».</div>}
-            </div>
-          )}
-          <div>
-            <FLabel>Должность</FLabel>
-            <UnderInput value={position} onChange={setPosition} placeholder="Например: Инженер ПТО" />
-          </div>
-        </div>
-        {editing && (
+      {loading ? (
+        <CenterSpinner minHeight={220} label="Загружаем права…" />
+      ) : (
+        <div style={{ marginTop: 26, display: "grid", gap: 22 }}>
           <div style={{ display: "grid", gap: 22, gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))" }}>
+            {!editing && (
+              <div>
+                <FLabel>Учётная запись</FLabel>
+                <UnderAccountPicker accounts={pickable} value={acc} onPick={setAcc} loading={false} />
+                {pickable.length === 0 && <div style={{ marginTop: 6, fontSize: 12, color: MUTED, fontWeight: 300 }}>Нет свободных учёток. Сначала создайте её в разделе «Создать учётную запись».</div>}
+              </div>
+            )}
             <div>
-              <FLabel>ФИО</FLabel>
-              <UnderInput value={fio} onChange={setFio} placeholder="Фамилия Имя Отчество" />
+              <FLabel>Роль</FLabel>
+              <UnderSelect value={role} onChange={changeRole} options={ROLE_OPTIONS} placeholder="Выберите роль" />
             </div>
             <div>
-              <FLabel>E-mail{emp?.email ? "" : " — привязать учётку"}</FLabel>
-              <UnderInput value={email} onChange={setEmail} placeholder="name@cube-tech.ru" />
-              {emailBad && <div style={{ marginTop: 6, fontSize: 12, color: CARROT, fontWeight: 300 }}>Проверьте адрес — похоже на ошибку.</div>}
-              {emailTaken && <div style={{ marginTop: 6, fontSize: 12, color: CARROT, fontWeight: 300 }}>Этот e-mail уже привязан к другому сотруднику.</div>}
-              {!emp?.email && !emailBad && <div style={{ marginTop: 6, fontSize: 12, color: MUTED, fontWeight: 300 }}>Укажите e-mail — на него уходят уведомления по объектам.</div>}
+              <FLabel>Должность</FLabel>
+              <UnderInput value={position} onChange={setPosition} placeholder="Например: Инженер ПТО" />
             </div>
           </div>
-        )}
-        <div>
-          <FLabel>Права доступа</FLabel>
-          <div style={{ marginTop: 4 }}><CapsChecklist caps={caps} setCaps={setCaps} /></div>
+
+          <div>
+            <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12 }}>
+              <FLabel>Права доступа</FLabel>
+              {!isAdminRole && <button type="button" onClick={resetToRole} style={{ ...backBtn, color: CARROT }}>Сбросить к роли</button>}
+            </div>
+            {isAdminRole ? (
+              <div style={{ marginTop: 8, fontSize: 13, fontWeight: 300, color: MUTED }}>Администратор — полный доступ ко всем разделам. Отдельные права не настраиваются.</div>
+            ) : (
+              <div style={{ marginTop: 8 }}><PermChecklist permSet={permSet} roleSet={roleSet} onToggle={togglePerm} /></div>
+            )}
+          </div>
+
+          {error && <div style={{ fontSize: 13, color: CARROT, fontWeight: 300 }}>{error}</div>}
+          <div style={{ marginTop: 6, display: "flex", gap: 12 }}>
+            <PrimaryBtn onClick={save} disabled={!canSave}>{saving ? "Сохранение…" : editing ? "Сохранить" : "Добавить сотрудника"}</PrimaryBtn>
+            <FillBtn big onClick={onCancel}>Отмена</FillBtn>
+          </div>
         </div>
-        <div style={{ marginTop: 6, display: "flex", gap: 12 }}>
-          <PrimaryBtn onClick={save} disabled={!canSave}>{editing ? "Сохранить" : "Добавить сотрудника"}</PrimaryBtn>
-          <FillBtn big onClick={onCancel}>Отмена</FillBtn>
-        </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -2355,16 +2417,38 @@ export function EmployeesModule({ backTo }) {
   const [q, setQ] = React.useState("");
   const [accounts, setAccounts] = React.useState([]);
   const [view, setView] = React.useState(null);   // null=список | {emp:null}=добавить | {emp}=редактировать
-  React.useEffect(() => { let alive = true; (async () => { const list = await DB.listAccounts(); if (alive) setAccounts(list); })(); return () => { alive = false; }; }, []);
+  const [busyId, setBusyId] = React.useState("");  // id учётки, которую сейчас понижаем
+  // Учётки (для выбора при добавлении) + актуальный список сотрудников с бэкенда.
+  React.useEffect(() => {
+    let alive = true;
+    (async () => {
+      const list = await DB.listAccounts();
+      if (alive) setAccounts(list);
+      await hydrateStaff(true);
+      if (alive) force();
+    })();
+    return () => { alive = false; };
+  }, []);
+
   const t = q.toLowerCase().trim();
   const all = getEmployees();
-  const existingEmails = new Set(all.map((e) => (e.email || "").toLowerCase()).filter(Boolean));
   const list = all.filter((e) => !t || `${e.fio} ${e.position} ${e.email}`.toLowerCase().includes(t));
+
+  const demote = async (e) => {
+    if (busyId) return;
+    if (!window.confirm(`Убрать «${e.fio}» из сотрудников? Учётная запись сохранится как заказчик.`)) return;
+    setBusyId(e.id);
+    try { await removeStaff(e.id); } catch { /* игнор: остаёмся как есть */ }
+    finally { setBusyId(""); force(); }
+  };
+
+  const reloadAccounts = async () => { const l = await DB.listAccounts(); setAccounts(l); };
 
   if (view) {
     return (
-      <EmployeeForm emp={view.emp} accounts={accounts} existingEmails={existingEmails}
-        onCancel={() => setView(null)} onSaved={() => { setView(null); force(); }} />
+      <EmployeeForm emp={view.emp} accounts={accounts}
+        onCancel={() => setView(null)}
+        onSaved={() => { setView(null); reloadAccounts(); force(); }} />
     );
   }
 
@@ -2374,7 +2458,7 @@ export function EmployeesModule({ backTo }) {
       <div style={{ marginTop: backTo ? 14 : 0, display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
         <div>
           <div style={h1}>Сотрудники</div>
-          <div style={{ marginTop: 6, fontSize: 14, fontWeight: 300, color: MUTED }}>Учётные записи с правами «полуадмина». Назначаются ответственными за объекты.</div>
+          <div style={{ marginTop: 6, fontSize: 14, fontWeight: 300, color: MUTED }}>Учётные записи со штатной ролью и правами. Назначаются ответственными за объекты.</div>
         </div>
         <FillBtn big onClick={() => setView({ emp: null })}>+ Добавить сотрудника</FillBtn>
       </div>
@@ -2384,19 +2468,22 @@ export function EmployeesModule({ backTo }) {
         <ListHead label="Сотрудники" count={list.length} />
         <DottedLine />
         {list.map((e) => {
-          const capList = EMP_CAPS.filter((c) => e.caps[c.key]);
+          const busy = busyId === e.id;
           return (
             <ListRow key={e.id} onOpen={() => setView({ emp: e })}>
               <div style={{ minWidth: 0, flex: 1 }}>
-                <div style={{ fontSize: 17, fontWeight: 500, color: TEXT, lineHeight: 1.3 }}>{e.fio}</div>
-                <div style={{ marginTop: 3, fontSize: 13, fontWeight: 300, color: MUTED }}>{e.position || "—"}{e.email ? <span> · {e.email}</span> : <span style={{ color: "#c07a2a" }}> · без учётки</span>}</div>
-                <div style={{ marginTop: 8, fontSize: 11, letterSpacing: ".05em", textTransform: "uppercase", fontWeight: 400, color: capList.length ? "#888" : "#bbb", lineHeight: 1.5 }}>
-                  {capList.length === 0 ? "Прав не выдано" : capList.map((c) => c.label).join("  ·  ")}
+                <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                  <span style={{ fontSize: 17, fontWeight: 500, color: TEXT, lineHeight: 1.3 }}>{e.fio}</span>
+                  <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: ".04em", textTransform: "uppercase", color: "#555", background: "#f0f0f0", borderRadius: 6, padding: "2px 8px" }}>{ROLE_LABELS[e.role] || e.role}</span>
+                </div>
+                <div style={{ marginTop: 3, fontSize: 13, fontWeight: 300, color: MUTED }}>{e.position || "—"}{e.email ? <span> · {e.email}</span> : null}</div>
+                <div style={{ marginTop: 8, fontSize: 11, letterSpacing: ".05em", textTransform: "uppercase", fontWeight: 400, color: e.perms.length ? "#888" : "#bbb", lineHeight: 1.5 }}>
+                  {e.role === "admin" ? "Полный доступ" : (e.perms.length === 0 ? "Прав не выдано" : e.perms.map((p) => permLabel(p)).join("  ·  "))}
                 </div>
               </div>
               <div onClick={(ev) => ev.stopPropagation()} style={{ display: "flex", gap: 8, flexShrink: 0 }}>
                 <FillBtn onClick={() => setView({ emp: e })}>Права</FillBtn>
-                <FillBtn fill={CARROT} onClick={() => { if (window.confirm(`Удалить «${e.fio}» из сотрудников?`)) { removeEmployee(e.id); force(); } }}>Удалить</FillBtn>
+                <FillBtn fill={CARROT} onClick={() => demote(e)} disabled={busy}>{busy ? "…" : "Убрать"}</FillBtn>
               </div>
             </ListRow>
           );

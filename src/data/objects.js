@@ -7,6 +7,7 @@
 // in-memory кэш сразу, а запись на бэкенд идёт фоном (write-through).
 // Переключатель: localStorage['objects:api'] = '0' → вернуться к localStorage.
 import { api, auth } from "@/lib/auth.js";
+import { effectivePerms, normalizeOverrides, isStaffRole } from "@/lib/perms.js";
 
 /* ===================== Справочники / статусы ===================== */
 export const OBJECT_STATUSES = [
@@ -176,19 +177,15 @@ export function extOf(nameOrExt = "") {
 }
 
 /* ===================== Сотрудники ===================== */
-export const EMPLOYEES_BASE = [
-  // Попов = супер-админ info@cube-tech.ru (учётка уже привязана, все права).
-  { id: "popov",        fio: "Попов Евгений Александрович",       position: "Генеральный директор", email: "info@cube-tech.ru", caps: { objects: true, docs: true, messages: true, create: true, employees: true } },
-  { id: "ilyukhin",     fio: "Илюхин Александр Михайлович",        position: "Коммерческий директор" },
-  { id: "blyakharskiy", fio: "Бляхарский Валентин Владиславович",  position: "Директор по развитию" },
-  { id: "kulyutnikov",  fio: "Кулютников Дмитрий Сергеевич",       position: "Руководитель производственных работ" },
-];
-const LS_EMP_ADD = "cube:employees:added";
-const LS_EMP_HIDE = "cube:employees:hidden";
-const LS_EMP_EDIT = "cube:employees:edited";  // { [id]: {fio?,position?,caps?} }
+// Сотрудник = учётная запись с «штатной» ролью (role ∈ STAFF_ROLES). Источник
+// истины — бэкенд (/admin/users). Раньше жили в localStorage (cube:employees*);
+// теперь роль+оверрайды хранятся на учётке, права считает сервер (perms.js).
+//
+// getEmployees()/employeeByEmail()/capsForEmail() остаются СИНХРОННЫМИ — их зовёт
+// подбор ответственного при рендере. Поэтому держим синхронный кэш `_staff`,
+// который гидрируется из /admin/users (только под админом; иначе []).
 
-/* Права «полуадмина». Сотрудник = учётная запись + набор галочек-возможностей.
-   Проверка прав пока клиентская (демо); серверная — при переносе на бэкенд. */
+// Старый набор caps (для обратной совместимости с UI-подписями, если где-то остались).
 export const EMP_CAPS = [
   { key: "objects",   label: "Управлять объектами",     hint: "Редактировать закреплённые объекты: этапы, статусы, поля." },
   { key: "docs",      label: "Документы",               hint: "Загружать, публиковать и скрывать документы объекта." },
@@ -198,59 +195,109 @@ export const EMP_CAPS = [
 ];
 export const EMP_CAP_KEYS = EMP_CAPS.map((c) => c.key);
 export function normalizeCaps(caps = {}) { const c = {}; EMP_CAP_KEYS.forEach((k) => (c[k] = !!(caps && caps[k]))); return c; }
-function applyEmpEdit(e, edits, base) {
-  const ed = edits[e.id] || {};
-  return { ...e, ...ed, email: (ed.email != null ? ed.email : e.email) || "", caps: normalizeCaps({ ...(e.caps || {}), ...(ed.caps || {}) }), base };
+
+// Из набора прав выводим «старые» caps — чтобы прежние места UI не сломались.
+function capsFromPerms(permSet) {
+  const has = (p) => (permSet instanceof Set ? permSet.has(p) : false);
+  return {
+    objects:   has("objects.edit"),
+    docs:      has("docs.upload") || has("docs.delete"),
+    messages:  has("messages.reply"),
+    create:    has("objects.create"),
+    employees: has("staff.manage"),
+  };
 }
+
+// Учётка → сотрудник (единый shape для UI: id/fio/position/email/role/perms/caps).
+function mapAccountToEmp(u) {
+  const role = u.role || "customer";
+  const ov = normalizeOverrides(u.permOverrides);
+  const permSet = Array.isArray(u.perms) ? new Set(u.perms) : effectivePerms(role, ov);
+  const email = String(u.email || "").trim().toLowerCase();
+  return {
+    id: u.id, email,
+    fio: u.name || u.email || "(без имени)",
+    position: u.position || "",
+    role, permOverrides: ov, perms: [...permSet],
+    caps: capsFromPerms(permSet),
+  };
+}
+
+let _staff = [];
+let _staffHydrated = false;
+let _staffHydrating = null;
+
+// Подтянуть штатных сотрудников с бэкенда (учётки со штатной ролью).
+export async function hydrateStaff(force = false) {
+  if (!apiEnabled()) { _staff = []; _staffHydrated = true; return _staff; }
+  if (_staffHydrated && !force) return _staff;
+  if (_staffHydrating) return _staffHydrating;
+  _staffHydrating = (async () => {
+    try {
+      const data = await api("/admin/users", { method: "GET" });
+      const users = Array.isArray(data && data.users) ? data.users : Array.isArray(data) ? data : [];
+      _staff = users.filter((u) => isStaffRole(u.role)).map(mapAccountToEmp);
+      emitChanged();
+    } catch {
+      // не админ / бэкенд недоступен — оставляем текущий кэш
+    } finally {
+      _staffHydrated = true;
+      _staffHydrating = null;
+    }
+    return _staff;
+  })();
+  return _staffHydrating;
+}
+
 export function getEmployees() {
-  const hidden = new Set(lsGet(LS_EMP_HIDE, []));
-  const edits = lsGet(LS_EMP_EDIT, {});
-  const added = lsGet(LS_EMP_ADD, []);
-  return [
-    ...EMPLOYEES_BASE.filter((e) => !hidden.has(e.id)).map((e) => applyEmpEdit(e, edits, true)),
-    ...added.map((e) => applyEmpEdit(e, edits, false)),
-  ];
+  if (!_staffHydrated) hydrateStaff();   // ленивая гидрация; до ответа — текущий кэш
+  return _staff.slice();
 }
-// Старый путь (свободный ФИО) — оставлен для совместимости.
-export function addEmployee({ fio, position }) {
-  const list = lsGet(LS_EMP_ADD, []); const emp = { id: uid("emp"), fio, position, email: "", caps: normalizeCaps() }; list.push(emp); lsSet(LS_EMP_ADD, list); return emp;
-}
-// Новый путь: сотрудник заводится из существующей учётной записи.
-export function addEmployeeFromAccount(account, { position = "", caps = {} } = {}) {
-  const email = String((account && account.email) || "").trim().toLowerCase();
-  const list = lsGet(LS_EMP_ADD, []);
-  const emp = { id: uid("emp"), email, fio: (account && account.name) || email, position: String(position || "").trim(), caps: normalizeCaps(caps) };
-  list.push(emp); lsSet(LS_EMP_ADD, list); return emp;
-}
-export function updateEmployee(id, patch = {}) {
-  const clean = {};
-  if (patch.fio != null) clean.fio = String(patch.fio).trim();
-  if (patch.position != null) clean.position = String(patch.position).trim();
-  if (patch.email != null) clean.email = String(patch.email).trim().toLowerCase();
-  if (patch.caps != null) clean.caps = normalizeCaps(patch.caps);
-  const added = lsGet(LS_EMP_ADD, []);
-  const idx = added.findIndex((e) => e.id === id);
-  if (idx >= 0) { added[idx] = { ...added[idx], ...clean, caps: clean.caps || normalizeCaps(added[idx].caps) }; lsSet(LS_EMP_ADD, added); return; }
-  const edits = lsGet(LS_EMP_EDIT, {}); edits[id] = { ...(edits[id] || {}), ...clean }; lsSet(LS_EMP_EDIT, edits);
-}
-export function removeEmployee(id) {
-  const added = lsGet(LS_EMP_ADD, []);
-  if (added.some((e) => e.id === id)) {
-    lsSet(LS_EMP_ADD, added.filter((e) => e.id !== id));
-    const edits = lsGet(LS_EMP_EDIT, {}); if (edits[id]) { delete edits[id]; lsSet(LS_EMP_EDIT, edits); }
-    return;
-  }
-  const hidden = lsGet(LS_EMP_HIDE, []); if (!hidden.includes(id)) { hidden.push(id); lsSet(LS_EMP_HIDE, hidden); }
-}
-export function employeeById(id) { return getEmployees().find((e) => e.id === id) || null; }
+export function employeeById(id) { return _staff.find((e) => e.id === id) || null; }
 export function employeeByEmail(email) {
   const e = String(email || "").trim().toLowerCase(); if (!e) return null;
-  return getEmployees().find((x) => (x.email || "").toLowerCase() === e) || null;
+  return _staff.find((x) => (x.email || "").toLowerCase() === e) || null;
 }
 // Права сотрудника по e-mail (для проверок в UI). null — не сотрудник.
 export function capsForEmail(email) { const emp = employeeByEmail(email); return emp ? emp.caps : null; }
-// совместимость со старым кодом
-export const EMPLOYEES = EMPLOYEES_BASE;
+
+// Полные данные учётки (роль + точные оверрайды) — для карточки сотрудника.
+export async function adminGetUser(id) {
+  const data = await api(`/admin/users/${encodeURIComponent(id)}`, { method: "GET" });
+  return (data && data.user) || null;
+}
+
+// Назначить/обновить сотрудника: PATCH роль+должность+оверрайды на учётке.
+// patch: { role, position, permOverrides:{grant,revoke} }. Возвращает обновлённую учётку.
+export async function saveStaff(id, { role, position, permOverrides } = {}) {
+  const body = {};
+  if (role !== undefined) body.role = role;
+  if (position !== undefined) body.position = position;
+  if (permOverrides !== undefined) body.permOverrides = permOverrides;
+  const data = await api(`/admin/users/${encodeURIComponent(id)}`, { method: "PATCH", body });
+  await hydrateStaff(true);
+  return (data && data.user) || null;
+}
+
+// Убрать из сотрудников — понизить учётку до заказчика (не удаляя саму учётку),
+// заодно очистив персональные оверрайды прав.
+export async function removeStaff(id) {
+  await api(`/admin/users/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    body: { role: "customer", permOverrides: { grant: [], revoke: [] } },
+  });
+  await hydrateStaff(true);
+}
+
+// Сброс кэша сотрудников при смене пользователя (вход/выход).
+try {
+  let _lastStaffTok = auth.get();
+  auth.subscribe((t) => {
+    if (t === _lastStaffTok) return;
+    _lastStaffTok = t;
+    _staff = []; _staffHydrated = false; _staffHydrating = null;
+  });
+} catch {}
 
 /* ===================== Переписка по объекту (бэкенд) =====================
    Тред «заказчик ↔ ответственный» хранится ВНУТРИ объекта (o.messages[]) в
