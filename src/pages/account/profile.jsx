@@ -1069,6 +1069,7 @@ function TimezoneSelect({ value, onChange }) {
 /* аватар */
 function AvatarPicker({ fileName, onPick, error }) {
   const inputRef = React.useRef(null);
+  const [hover, setHover] = React.useState(false);
   const open = () => inputRef.current?.click();
   const label = fileName || "Файл не выбран";
   const onChange = (e) => {
@@ -1085,13 +1086,18 @@ function AvatarPicker({ fileName, onPick, error }) {
         onClick={open}
         role="button"
         tabIndex={0}
+        onMouseEnter={() => setHover(true)}
+        onMouseLeave={() => setHover(false)}
         onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(); } }}
         style={{
-          width: 200, height: 200, border: `1px dashed ${UNDERLINE}`, borderRadius: 10,
-          display: "block", padding: 14, cursor: "pointer", background: "#fff",
+          width: 200, height: 200,
+          border: `1px dashed ${error ? ERR : hover ? "#9a9a9a" : UNDERLINE}`,
+          borderRadius: 10,
+          display: "block", padding: 14, cursor: "pointer",
+          background: hover ? "#f4f4f4" : "#fafafa",
+          transition: "background .12s ease, border-color .12s ease",
           boxShadow: error ? `inset 0 0 0 1px ${ERR}` : "none",
         }}
-        title="Перетащите или выберите файл"
       >
         <div style={{ width: "100%", display: "flex", justifyContent: "center", transform: "translateY(-5px)" }}>
           <svg width="34" height="34" viewBox="0 0 24 24" aria-hidden="true">
@@ -2926,7 +2932,15 @@ export default function AccountProfilePage() {
       if (!resp) throw new Error("save_failed");
 
       try { localStorage.setItem("profile:timezone", timezone); } catch {}
-      const updatedUser = resp.user || { name: display.trim(), email: userEmail, group: groupCode };
+      const updatedUser = {
+        ...(resp.user || { name: display.trim(), email: userEmail, group: groupCode }),
+        ...(avatarDataUrl ? { avatar: avatarDataUrl } : {}),
+      };
+      // Бэкенд /auth/me может не возвращать avatar — держим его локально,
+      // чтобы шапка не сбрасывала аватар при следующем refresh/bootstrap.
+      try {
+        if (avatarDataUrl) localStorage.setItem("profile:avatar", avatarDataUrl);
+      } catch {}
       if (typeof window.setHeaderUser === "function") {
         window.setHeaderUser(updatedUser, token);
       } else {

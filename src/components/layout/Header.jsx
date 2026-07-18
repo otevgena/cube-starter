@@ -31,6 +31,16 @@ const writeCachedUser = (u) => {
   } catch {}
 };
 
+// Бэкенд /auth/me пока не возвращает avatar — восстанавливаем его из
+// localStorage, чтобы аватар в шапке не сбрасывался после refresh/bootstrap.
+const withAvatar = (u) => {
+  if (!u || u.avatar) return u;
+  try {
+    const a = localStorage.getItem("profile:avatar");
+    return a ? { ...u, avatar: a } : u;
+  } catch { return u; }
+};
+
 /* ---- non-blocking refresh with timeout ---- */
 async function apiRefresh(timeoutMs = 1200) {
   const ctrl = new AbortController();
@@ -888,7 +898,7 @@ function AvatarMenu({ user, onLogout }) {
   return (
     <div ref={wrapRef} className="relative" onMouseEnter={openNow} onMouseLeave={scheduleClose}>
       <img
-        src="/profile/profile.png"
+        src={user?.avatar || "/profile/profile.png"}
         alt={user?.name || user?.email || "Profile"}
         width={32}
         height={32}
@@ -978,7 +988,7 @@ export default function Header() {
   }, [mobileView]);
 
   // === auth state (без мигания) ===
-  const initialUser = (typeof window !== "undefined") ? readCachedUser() : null;
+  const initialUser = (typeof window !== "undefined") ? withAvatar(readCachedUser()) : null;
   const [user, setUser] = React.useState(initialUser);
   const [authReady, setAuthReady] = React.useState(false);
   const accessRef = React.useRef(null);
@@ -1008,8 +1018,9 @@ export default function Header() {
         if (accessRef.current) {
           const u = await apiMe(accessRef.current);
           if (u) {
-            setUser(u);
-            writeCachedUser(u);
+            const uu = withAvatar(u);
+            setUser(uu);
+            writeCachedUser(uu);
             setAuthReady(true);
             return;
           }
@@ -1019,8 +1030,9 @@ export default function Header() {
             try { sessionStorage.setItem("auth:accessToken", t2); } catch {}
             const u2 = await apiMe(t2);
             if (u2) {
-              setUser(u2);
-              writeCachedUser(u2);
+              const uu2 = withAvatar(u2);
+              setUser(uu2);
+              writeCachedUser(uu2);
               setAuthReady(true);
               return;
             }
@@ -1043,7 +1055,7 @@ export default function Header() {
         accessRef.current = t;
         try { sessionStorage.setItem("auth:accessToken", t); } catch {}
         const u = await apiMe(t);
-        if (u) { setUser(u); writeCachedUser(u); }
+        if (u) { const uu = withAvatar(u); setUser(uu); writeCachedUser(uu); }
       }
     };
     window.addEventListener("focus", onFocus);
@@ -1052,7 +1064,7 @@ export default function Header() {
 
   React.useEffect(() => {
     const onAuth = (e) => {
-      const newUser = e?.detail?.user || null;
+      const newUser = withAvatar(e?.detail?.user || null);
       const newToken = e?.detail?.accessToken || null;
       if (newToken) {
         accessRef.current = newToken;

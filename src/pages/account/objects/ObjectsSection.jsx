@@ -618,7 +618,7 @@ function AdminObjectsList() {
                   {/* Сотрудника уведомляют ТОЛЬКО новые сообщения заказчика, а не собственные правки (документы/статус). */}
                   {DB.hasUnreadMessages(o.id, "staff") && <NewBadge />}
                 </div>
-                <div style={{ marginTop: 3, fontSize: 13, fontWeight: 300, color: MUTED }}>{o.address || o.city}{o.responsibleName ? ` · ${o.responsibleName}` : ""} · {(o.documents || []).length} док.</div>
+                <div style={{ marginTop: 3, fontSize: 13, fontWeight: 300, color: MUTED }}>{o.address || o.city}{o.responsibleName ? <>{" · "}<RespHover name={o.responsibleName} coExecutors={o.coExecutors} /></> : ""} · {(o.documents || []).length} док.</div>
               </div>
               <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" style={{ flexShrink: 0, color: "#bdbdbd" }}>
                 <path d="M4 12h13" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
@@ -709,13 +709,232 @@ function AccountPicker({ accounts, value, onPick, loading }) {
 
 /* Переиспользуемый редактор списка этапов: drag-and-drop за ручку ⠿ + добавление/удаление.
    Используется и в «Создать объект», и в редакторе шаблона (админка). */
+// Этап в редакторе может быть строкой или {title, description}. Отдаём заголовок
+// и описание, при правке сохраняем недостающее поле.
+const stTitle = (s) => (typeof s === "string" ? s : (s && s.title) || "");
+const stDesc = (s) => (typeof s === "string" ? "" : (s && s.description) || "");
+
+// Поле «что входит в этап» — компактный триггер + выпадающая панель в нашем стиле.
+// Пункты вносятся отдельными строками (каждый как «— пункт»), хранятся строкой
+// через запятую (onSave отдаёт готовую строку). Высота строки этапа не растёт —
+// удобно перетаскивать. Используется и в редакторе объекта, и в шаблонах/создании.
+function StageItemsField({ value, onSave, side = "left" }) {
+  const [open, setOpen] = React.useState(false);
+  const [items, setItems] = React.useState(() => descToItems(value));
+  const [draft, setDraft] = React.useState("");
+  const ref = React.useRef(null);
+  const addRef = React.useRef(null);
+
+  // Пока панель закрыта — держим локальный список в синхроне с внешним значением.
+  React.useEffect(() => { if (!open) setItems(descToItems(value)); }, [value, open]);
+  React.useEffect(() => {
+    if (!open) return;
+    const onDoc = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    const onKey = (e) => { if (e.key === "Escape") setOpen(false); };
+    document.addEventListener("mousedown", onDoc);
+    window.addEventListener("keydown", onKey);
+    return () => { document.removeEventListener("mousedown", onDoc); window.removeEventListener("keydown", onKey); };
+  }, [open]);
+
+  const commit = (next) => { setItems(next); onSave(joinDesc(next)); };
+  const change = (i, val) => setItems(items.map((x, j) => (j === i ? val : x)));
+  const blurItem = (i) => { if (!items[i].trim()) commit(items.filter((_, j) => j !== i)); else onSave(joinDesc(items)); };
+  const remove = (i) => commit(items.filter((_, j) => j !== i));
+  const add = () => { const t = draft.trim(); if (!t) return; commit([...items.filter((x) => x.trim()), t]); setDraft(""); addRef.current?.focus(); };
+
+  const n = items.filter((x) => x.trim()).length;
+  const underIn = (foc) => ({ flex: 1, minWidth: 0, height: 34, border: "none", outline: "none", background: "transparent", fontFamily: UI, fontSize: 14, fontWeight: 300, color: TEXT, padding: "0 2px", boxShadow: `inset 0 -1px 0 0 ${foc ? UNDER_FOCUS : UNDER}`, transition: "box-shadow .18s ease" });
+
+  return (
+    <div ref={ref} style={{ position: "relative", display: "inline-block", maxWidth: "100%" }}>
+      <button type="button" onClick={() => setOpen((o) => !o)}
+        style={{ display: "inline-flex", alignItems: "center", gap: 8, height: 30, padding: "0 4px", border: "none", background: "transparent", cursor: "pointer", fontFamily: UI, fontSize: 13, fontWeight: 400, color: n ? "#555" : MUTED, transition: "color .15s ease" }}
+        onMouseEnter={(e) => { e.currentTarget.style.color = TEXT; }}
+        onMouseLeave={(e) => { e.currentTarget.style.color = n ? "#555" : MUTED; }}>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" aria-hidden="true">
+          <path d="M8 6h12M8 12h12M8 18h12M3.5 6h.01M3.5 12h.01M3.5 18h.01" />
+        </svg>
+        {n ? `Что входит · ${n}` : "Что входит в этап"}
+        <Chevron open={open} />
+      </button>
+      {open && (
+        <div className="animate-svcfade"
+          style={{ position: "absolute", top: "calc(100% + 8px)", [side]: 0, zIndex: 90, width: "min(400px, 86vw)", background: "#fff", border: `1px solid ${LINE}`, borderRadius: 12, boxShadow: "0 16px 44px rgba(0,0,0,.16)", padding: "14px 16px" }}>
+          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 10 }}>
+            <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: ".05em", textTransform: "uppercase", color: MUTED }}>Что входит в этап</span>
+            <span style={{ fontSize: 12, color: "#bbb", fontVariantNumeric: "tabular-nums" }}>{String(n).padStart(2, "0")}</span>
+          </div>
+          <div style={{ display: "grid", gap: 6 }}>
+            {items.map((it, i) => (
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ color: MUTED, flexShrink: 0 }}>—</span>
+                <input autoFocus={i === items.length - 1 && it === ""} value={it}
+                  onChange={(e) => change(i, e.target.value)}
+                  onBlur={(e) => { e.currentTarget.style.boxShadow = `inset 0 -1px 0 0 ${UNDER}`; blurItem(i); }}
+                  onFocus={(e) => { e.currentTarget.style.boxShadow = `inset 0 -1px 0 0 ${UNDER_FOCUS}`; }}
+                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addRef.current?.focus(); } }}
+                  placeholder="Пункт…" style={underIn(false)} />
+                <button type="button" onClick={() => remove(i)} title="Удалить пункт"
+                  style={{ width: 26, height: 26, display: "grid", placeItems: "center", border: "none", background: "transparent", color: "#c0c0c0", cursor: "pointer", borderRadius: 7, flexShrink: 0, transition: "color .12s, background-color .12s" }}
+                  onMouseEnter={(e) => { e.currentTarget.style.color = CARROT; e.currentTarget.style.background = "#faf1ee"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.color = "#c0c0c0"; e.currentTarget.style.background = "transparent"; }}>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
+                </button>
+              </div>
+            ))}
+            {n === 0 && <div style={{ fontSize: 13, fontWeight: 300, color: "#bbb", padding: "2px 0 4px" }}>Пунктов пока нет — добавьте ниже.</div>}
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 12 }}>
+            <span style={{ color: "#cfcfcf", flexShrink: 0 }}>+</span>
+            <input ref={addRef} value={draft} onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }}
+              onBlur={(e) => { e.currentTarget.style.boxShadow = `inset 0 -1px 0 0 ${UNDER}`; add(); }}
+              onFocus={(e) => { e.currentTarget.style.boxShadow = `inset 0 -1px 0 0 ${UNDER_FOCUS}`; }}
+              placeholder="Добавить пункт и нажать Enter…" style={underIn(false)} />
+          </div>
+          <div style={{ marginTop: 12, fontSize: 11.5, fontWeight: 300, lineHeight: 1.5, color: "#a8a8a8" }}>Каждый пункт — отдельной строкой. Заказчику покажем списком через тире, когда этап «В работе».</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function BellIcon({ size = 13, off = false }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0" />
+      {off && <path d="M3 3l18 18" stroke="currentColor" strokeWidth="1.7" />}
+    </svg>
+  );
+}
+
+// Компактный колокольчик-переключатель уведомлений (в строке выпадающего списка).
+function BellToggle({ on, onToggle }) {
+  return (
+    <button type="button" onClick={(e) => { e.stopPropagation(); onToggle(); }} title={on ? "Получает уведомления по объекту" : "Уведомления выключены"}
+      style={{ width: 30, height: 30, display: "grid", placeItems: "center", border: "none", background: "transparent", color: on ? CARROT : "#cbcbcb", cursor: "pointer", borderRadius: 8, flexShrink: 0, transition: "color .15s, background-color .15s" }}
+      onMouseEnter={(e) => { e.currentTarget.style.background = "#f5f5f5"; }}
+      onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}>
+      <BellIcon size={16} off={!on} />
+    </button>
+  );
+}
+// Квадратик-галочка выбора — в стиле КУБ (как согласие в регистрации, FancyCheckbox):
+// тёмная точка внутри, без морковного. disabled → серая (у ответственного, снять нельзя).
+function CheckMark({ on, disabled }) {
+  return (
+    <span style={{ width: 18, height: 18, borderRadius: 4, border: "1px solid #d9d9d9", background: "#fff", display: "grid", placeItems: "center", flexShrink: 0 }}>
+      <span style={{ width: 10, height: 10, borderRadius: 3, background: disabled ? "#c2c2c2" : "#111", transform: on ? "scale(1)" : "scale(0)", transition: "transform .15s ease" }} />
+    </span>
+  );
+}
+
+// Соисполнители — мультиселект в стиле «Ответственный» (тот же подчёркнутый вид + chevron).
+// Можно выбрать несколько; у выбранных — колокольчик «получает уведомления». Ответственный
+// закреплён сверху списка (не выбирается), его уведомления — через onRespNotify.
+// value: [{ id, fio, role, email, notify }]; onChange(next).
+function CoExecutorsField({ value, onChange, respId = "", respName = "", respRole = "", respNotify = true, onRespNotify }) {
+  const [open, setOpen] = React.useState(false);
+  const ref = React.useRef(null);
+  const items = Array.isArray(value) ? value : [];
+  const selById = new Map(items.map((c) => [c.id, c]));
+  const emps = getEmployees().filter((e) => e.id !== respId);
+
+  React.useEffect(() => { const f = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); }; document.addEventListener("mousedown", f); return () => document.removeEventListener("mousedown", f); }, []);
+
+  const togglePick = (e) => {
+    if (selById.has(e.id)) onChange(items.filter((c) => c.id !== e.id));
+    else onChange([...items, { id: e.id, fio: e.fio, role: e.position || "", email: e.email || "", notify: true }]);
+  };
+  const toggleNotify = (id) => onChange(items.map((c) => (c.id === id ? { ...c, notify: c.notify === false } : c)));
+
+  const label = items.length ? items.map((c) => c.fio).join(", ") : "";
+  const nameSpan = { minWidth: 0, flex: 1, fontSize: 14.5, fontWeight: 300, color: TEXT, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" };
+
+  return (
+    <div ref={ref} style={{ position: "relative", width: "100%" }}>
+      <button type="button" onClick={() => setOpen((o) => !o)} style={underFieldStyle(open, !!label)}>
+        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{label || "— выбрать соисполнителей —"}</span>
+        <Chevron open={open} />
+      </button>
+      {open && (
+        <div className="animate-svcfade" style={underMenuStyle}>
+          {respName ? (
+            <div style={{ display: "flex", alignItems: "center", background: "#fafafa", boxShadow: `inset 0 -1px 0 0 ${LINE}` }}>
+              <div title="Ответственный всегда в команде — снять нельзя" style={{ display: "flex", alignItems: "center", gap: 11, flex: 1, minWidth: 0, padding: "11px 14px", cursor: "default" }}>
+                <CheckMark on disabled />
+                <span style={nameSpan}>{respName}{respRole ? <span style={{ color: MUTED }}> · {respRole}</span> : null}<span style={{ color: "#bbb", marginLeft: 8, fontSize: 12 }}>ответственный</span></span>
+              </div>
+              <div style={{ paddingRight: 8 }}><BellToggle on={respNotify !== false} onToggle={() => onRespNotify && onRespNotify(respNotify === false)} /></div>
+            </div>
+          ) : null}
+
+          {emps.length === 0 && <div style={{ padding: "12px 14px", fontSize: 13, color: MUTED }}>Нет других сотрудников.</div>}
+          {emps.map((e) => {
+            const sel = selById.get(e.id);
+            return (
+              <div key={e.id} style={{ display: "flex", alignItems: "center", background: sel ? "#fbfbfb" : "#fff" }}
+                onMouseEnter={(ev) => { if (!sel) ev.currentTarget.style.background = "#f8f8f8"; }}
+                onMouseLeave={(ev) => { ev.currentTarget.style.background = sel ? "#fbfbfb" : "#fff"; }}>
+                <button type="button" onClick={() => togglePick(e)}
+                  style={{ display: "flex", alignItems: "center", gap: 11, flex: 1, minWidth: 0, textAlign: "left", padding: "11px 14px", border: "none", background: "transparent", cursor: "pointer", fontFamily: UI }}>
+                  <CheckMark on={!!sel} />
+                  <span style={nameSpan}>{e.fio}<span style={{ color: MUTED }}> · {e.position}</span></span>
+                </button>
+                {sel && <div style={{ paddingRight: 8 }}><BellToggle on={sel.notify !== false} onToggle={() => toggleNotify(e.id)} /></div>}
+              </div>
+            );
+          })}
+
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Показ ответственного в списках/шапке: имя как обычно, но если есть соисполнители —
+// при наведении разворачивается список команды (наш стиль). Кружков нет — только имя.
+function RespHover({ name, coExecutors }) {
+  const list = Array.isArray(coExecutors) ? coExecutors : [];
+  const [hover, setHover] = React.useState(false);
+  if (!name) return null;
+  if (!list.length) return <span>{name}</span>;
+  return (
+    <span style={{ position: "relative", display: "inline-block" }}
+      onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
+      <span style={{ boxShadow: "inset 0 -1px 0 0 #d7d7d7", boxDecorationBreak: "clone", cursor: "pointer", borderBottom: "1px dotted transparent" }}>{name}</span>
+      <span style={{ marginLeft: 5, color: "#b3b3b3", fontVariantNumeric: "tabular-nums" }}>+{list.length}</span>
+      {hover && (
+        <span onClick={(e) => e.stopPropagation()} className="animate-svcfade"
+          style={{ position: "absolute", top: "calc(100% + 8px)", left: 0, zIndex: 95, minWidth: 240, maxWidth: "min(360px, 80vw)", background: CTRL_REST, border: "1.5px dotted #c7c7c7", borderRadius: 12, padding: "12px 14px", cursor: "default", textAlign: "left", whiteSpace: "normal" }}>
+          <span style={{ display: "block", fontSize: 11, fontWeight: 600, letterSpacing: ".05em", textTransform: "uppercase", color: MUTED, marginBottom: 8 }}>Соисполнители</span>
+          <span style={{ display: "grid", gap: 6 }}>
+            {list.map((c, i) => (
+              <span key={c.id || i} style={{ display: "flex", gap: 9, fontSize: 13.5, fontWeight: 300, lineHeight: 1.45, color: "#333" }}>
+                <span style={{ color: MUTED, flexShrink: 0 }}>—</span>
+                <span style={{ wordBreak: "break-word" }}>{c.fio}{c.role ? <span style={{ color: MUTED }}> · {c.role}</span> : null}</span>
+              </span>
+            ))}
+          </span>
+        </span>
+      )}
+    </span>
+  );
+}
+
 function StageListEditor({ stages, setStages }) {
   const [newStage, setNewStage] = React.useState("");
   const addStage = () => { const s = newStage.trim(); if (!s) return; setStages((v) => [...v, s]); setNewStage(""); };
   const dragFrom = React.useRef(null);
   const [dragIdx, setDragIdx] = React.useState(null);
   const [overIdx, setOverIdx] = React.useState(null);
-  const editAt = (i, val) => setStages((prev) => prev.map((x, j) => (j === i ? val : x)));
+  const editAt = (i, val) => setStages((prev) => prev.map((x, j) => (j === i ? (typeof x === "string" ? val : { ...x, title: val }) : x)));
+  // Описание превращает строку-этап в объект {title, description} и обратно (пустое → снова строка).
+  const setDescAt = (i, desc) => setStages((prev) => prev.map((x, j) => {
+    if (j !== i) return x;
+    const title = stTitle(x);
+    return desc && desc.trim() ? { title, description: desc } : title;
+  }));
   const dropStage = (to) => {
     const from = dragFrom.current; dragFrom.current = null; setDragIdx(null); setOverIdx(null);
     if (from == null || from === to) return;
@@ -732,19 +951,24 @@ function StageListEditor({ stages, setStages }) {
             <div key={`stage-${i}`}
               onDragOver={(e) => { e.preventDefault(); if (overIdx !== i) setOverIdx(i); }}
               onDrop={(e) => { e.preventDefault(); dropStage(i); }}
-              style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 4px", boxShadow: `inset 0 -1px 0 0 ${UNDER}`, opacity: dragging ? 0.4 : 1, background: over ? "#fafafa" : "transparent", transition: "background-color .12s ease" }}>
-              <span draggable
-                onDragStart={() => { dragFrom.current = i; setDragIdx(i); }}
-                onDragEnd={() => { dragFrom.current = null; setDragIdx(null); setOverIdx(null); }}
-                title="Перетащите"
-                style={{ cursor: "grab", color: "#c4c4c4", fontSize: 16, lineHeight: 1, userSelect: "none", flexShrink: 0 }}>⠿</span>
-              <span style={{ width: 20, textAlign: "center", fontSize: 12, fontWeight: 600, color: "#b0b0b0", flexShrink: 0 }}>{i + 1}</span>
-              <input key={`stage-in-${i}-${s}`} defaultValue={s} onBlur={(e) => { if (e.target.value !== s) editAt(i, e.target.value); }} placeholder="Название этапа"
-                style={{ flex: 1, minWidth: 0, height: 40, border: "none", outline: "none", background: "transparent", fontFamily: UI, fontSize: 15, fontWeight: 300, color: TEXT, padding: "0 2px" }} />
-              <button type="button" onClick={() => setStages(stages.filter((_, j) => j !== i))} title="Удалить этап"
-                style={{ width: 34, height: 34, display: "grid", placeItems: "center", border: "none", background: "transparent", color: "#b0b0b0", cursor: "pointer", flexShrink: 0, borderRadius: 8, transition: "color .12s, background-color .12s" }}
-                onMouseEnter={(e) => { e.currentTarget.style.color = CARROT; e.currentTarget.style.background = "#faf1ee"; }}
-                onMouseLeave={(e) => { e.currentTarget.style.color = "#b0b0b0"; e.currentTarget.style.background = "transparent"; }}><IconTrash size={17} /></button>
+              style={{ padding: "8px 4px", boxShadow: `inset 0 -1px 0 0 ${UNDER}`, opacity: dragging ? 0.4 : 1, background: over ? "#fafafa" : "transparent", transition: "background-color .12s ease" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <span draggable
+                  onDragStart={() => { dragFrom.current = i; setDragIdx(i); }}
+                  onDragEnd={() => { dragFrom.current = null; setDragIdx(null); setOverIdx(null); }}
+                  title="Перетащите"
+                  style={{ cursor: "grab", color: "#c4c4c4", fontSize: 16, lineHeight: 1, userSelect: "none", flexShrink: 0 }}>⠿</span>
+                <span style={{ width: 20, textAlign: "center", fontSize: 12, fontWeight: 600, color: "#b0b0b0", flexShrink: 0 }}>{i + 1}</span>
+                <input key={`stage-in-${i}`} defaultValue={stTitle(s)} onBlur={(e) => { if (e.target.value !== stTitle(s)) editAt(i, e.target.value); }} placeholder="Название этапа"
+                  style={{ flex: 1, minWidth: 0, height: 40, border: "none", outline: "none", background: "transparent", fontFamily: UI, fontSize: 15, fontWeight: 300, color: TEXT, padding: "0 2px" }} />
+                <button type="button" onClick={() => setStages(stages.filter((_, j) => j !== i))} title="Удалить этап"
+                  style={{ width: 34, height: 34, display: "grid", placeItems: "center", border: "none", background: "transparent", color: "#b0b0b0", cursor: "pointer", flexShrink: 0, borderRadius: 8, transition: "color .12s, background-color .12s" }}
+                  onMouseEnter={(e) => { e.currentTarget.style.color = CARROT; e.currentTarget.style.background = "#faf1ee"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.color = "#b0b0b0"; e.currentTarget.style.background = "transparent"; }}><IconTrash size={17} /></button>
+              </div>
+              <div style={{ paddingLeft: 44 }}>
+                <StageItemsField value={stDesc(s)} onSave={(v) => setDescAt(i, v)} />
+              </div>
             </div>
           );
         })}
@@ -772,7 +996,12 @@ export function CreateObjectForm({ onCancel, onCreated, fixedCustomer = null, em
   const [accounts, setAccounts] = React.useState([]);
   const [accLoading, setAccLoading] = React.useState(!fixedCustomer);
   const [respId, setRespId] = React.useState("");
+  const [respNotify, setRespNotify] = React.useState(true);
+  const [coExec, setCoExec] = React.useState([]); // [{ id, fio, role, email, notify }]
   const [stages, setStages] = React.useState(() => ((templates.find((x) => x.code === firstCode) || {}).stages || []).slice());
+  // Если нового ответственного выбрали из уже добавленных соисполнителей — убираем дубль.
+  const pickResp = (v) => { setRespId(v); setCoExec((prev) => prev.filter((c) => c.id !== v)); };
+  const respEmp = getEmployees().find((e) => e.id === respId);
 
   // при смене типа работ подтягиваем его типовые этапы (пользователь дальше правит)
   React.useEffect(() => { setStages(((templates.find((x) => x.code === tpl) || {}).stages || []).slice()); }, [tpl]);
@@ -797,6 +1026,8 @@ export function CreateObjectForm({ onCancel, onCreated, fixedCustomer = null, em
       responsibleName: emp ? emp.fio : "",
       responsibleRole: emp ? emp.position : "",
       responsibleEmail: emp ? (emp.email || "") : "",
+      responsibleNotify: respNotify,
+      coExecutors: coExec,
       stages,
     });
     onCreated(o.id);
@@ -820,7 +1051,16 @@ export function CreateObjectForm({ onCancel, onCreated, fixedCustomer = null, em
           </div>
           <div>
             <FLabel>Ответственный</FLabel>
-            <UnderSelect value={respId} onChange={setRespId} placeholder="— выбрать из сотрудников —" options={empOpts()} />
+            <UnderSelect value={respId} onChange={pickResp} placeholder="— выбрать из сотрудников —" options={empOpts()} />
+          </div>
+        </div>
+
+        <div style={{ display: "grid", gap: 22, gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))" }}>
+          <div>
+            <FLabel>Соисполнители</FLabel>
+            <CoExecutorsField value={coExec} onChange={setCoExec}
+              respId={respId} respName={respEmp ? respEmp.fio : ""} respRole={respEmp ? respEmp.position : ""}
+              respNotify={respNotify} onRespNotify={setRespNotify} />
           </div>
         </div>
 
@@ -862,10 +1102,60 @@ export function CreateObjectForm({ onCancel, onCreated, fixedCustomer = null, em
 function SectionRule() {
   return <div style={{ marginTop: 34, borderTop: `1px solid ${LINE}` }} />;
 }
+// Баннер публикации: правки админа копятся черновиком, заказчик видит последнюю
+// публикацию. Пока есть незапубликованные изменения — тёплый баннер с кнопками
+// «Опубликовать» / «Сбросить». Когда всё опубликовано — тихая строка-подтверждение.
+function PublishBar({ dirty, onPublish, onDiscard }) {
+  const [hDiscard, setHDiscard] = React.useState(false);
+  const [hPublish, setHPublish] = React.useState(false);
+  if (!dirty) {
+    return (
+      <div style={{ marginTop: 14, display: "flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 300, color: MUTED }}>
+        <span style={{ width: 7, height: 7, borderRadius: 999, background: "#8bc48b", flexShrink: 0 }} />
+        Опубликовано — заказчик видит актуальную версию.
+      </div>
+    );
+  }
+  return (
+    <div style={{ marginTop: 16, borderRadius: 12, border: "1px solid #f0d9cf", background: "#fdf6f2", padding: "14px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+        <span style={{ width: 8, height: 8, borderRadius: 999, background: CARROT, flexShrink: 0 }} />
+        <div style={{ fontSize: 13.5, fontWeight: 300, color: TEXT, lineHeight: 1.45 }}>
+          Есть неопубликованные изменения — <b style={{ fontWeight: 500 }}>заказчик их пока не видит</b>.
+        </div>
+      </div>
+      <div style={{ display: "flex", gap: 10, flexShrink: 0 }}>
+        <button type="button" onClick={onDiscard} onMouseEnter={() => setHDiscard(true)} onMouseLeave={() => setHDiscard(false)}
+          style={{ height: 40, padding: "0 16px", borderRadius: 10, background: hDiscard ? "#f5f5f5" : "#fff", color: TEXT, border: "1px solid", borderColor: hDiscard ? "#c2c2c2" : "#d9d9d9", fontFamily: UI, fontSize: 14, fontWeight: 300, cursor: "pointer", transition: "background-color .16s ease, border-color .16s ease" }}>Сбросить</button>
+        <button type="button" onClick={onPublish} onMouseEnter={() => setHPublish(true)} onMouseLeave={() => setHPublish(false)}
+          style={{ height: 40, padding: "0 18px", borderRadius: 10, background: hPublish ? "#262626" : "#111", color: "#fff", border: "none", fontFamily: UI, fontSize: 14, fontWeight: 400, cursor: "pointer", boxShadow: hPublish ? "0 8px 22px rgba(0,0,0,.18)" : "none", transform: hPublish ? "translateY(-1px)" : "none", transition: "background-color .16s ease, box-shadow .16s ease, transform .16s ease" }}>Опубликовать изменения</button>
+      </div>
+    </div>
+  );
+}
+
 function AdminObjectEditor({ id, autoOpenMessages }) {
   const force = useForceUpdate();
   const obj = DB.getObject(id);
   React.useEffect(() => { DB.markObjectSeen(id); }, [id]);
+  // Легаси-объект без снимка: фиксируем базу публикации = текущее состояние,
+  // чтобы дальнейшие правки копились как черновик, а не летели заказчику сразу.
+  React.useEffect(() => { DB.ensurePublishedBaseline(id); }, [id]);
+  // Учётки для выбора заказчика — БЕЗ сотрудников (их заводят отдельно как
+  // ответственных/соисполнителей, в заказчиках им делать нечего).
+  const [accounts, setAccounts] = React.useState([]);
+  const [accLoading, setAccLoading] = React.useState(true);
+  React.useEffect(() => {
+    let alive = true;
+    (async () => {
+      const list = await DB.listAccounts();
+      if (!alive) return;
+      const staff = new Set(getEmployees().map((e) => String(e.email || "").trim().toLowerCase()).filter(Boolean));
+      setAccounts(list.filter((a) => !staff.has(String(a.email || "").trim().toLowerCase())));
+      setAccLoading(false);
+    })();
+    return () => { alive = false; };
+  }, []);
   // Пока объекты подгружаются с бэкенда (в т.ч. при переходе по ссылке из письма)
   // не мигаем «Объект не найден», а показываем кружок-загрузчик.
   if (!obj) return (
@@ -878,6 +1168,18 @@ function AdminObjectEditor({ id, autoOpenMessages }) {
   );
   const save = (patch) => { DB.updateObject(id, patch); force(); };
   const respId = respIdOf(obj);
+  const dirty = DB.hasUnpublished(id);
+  const publish = () => { DB.publishObject(id); force(); };
+  const discard = () => { if (window.confirm("Сбросить неопубликованные изменения? Черновик вернётся к тому, что сейчас видит заказчик.")) { DB.discardDraft(id); force(); } };
+  // Текущий заказчик как учётка: ищем по id/e-mail среди клиентских учёток,
+  // иначе показываем сохранённое имя (легаси-объекты со свободным вводом).
+  const custMatch = obj.customerId
+    ? accounts.find((a) => a.id === obj.customerId)
+    : obj.customerEmail
+      ? accounts.find((a) => String(a.email || "").toLowerCase() === String(obj.customerEmail).toLowerCase())
+      : null;
+  const custValue = custMatch || (obj.customerName ? { id: "__current__", name: obj.customerName, email: obj.customerEmail || "" } : null);
+  const pickCustomer = (a) => save({ customerName: a.name || a.email, customerEmail: a.email || "", customerId: a.id || "" });
 
   return (
     <div style={{ fontFamily: UI, marginTop: 8 }}>
@@ -885,6 +1187,8 @@ function AdminObjectEditor({ id, autoOpenMessages }) {
         <button style={backBtn} onClick={() => navigate("/account/objects")}>← К объектам</button>
         <FillBtn onClick={() => navigate(`/account/objects/${encodeURIComponent(id)}?preview=customer`)}>Предпросмотр как заказчик</FillBtn>
       </div>
+
+      <PublishBar dirty={dirty} onPublish={publish} onDiscard={discard} />
 
       <div style={{ marginTop: 12 }}>
         <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: ".04em", color: MUTED, textTransform: "uppercase" }}>№ {obj.id}</div>
@@ -899,15 +1203,19 @@ function AdminObjectEditor({ id, autoOpenMessages }) {
       <div style={{ marginTop: 28 }}>
         <div style={secLabel}>Основное</div>
         <div style={{ marginTop: 14, display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 22 }}>
-          <div><FLabel>Заказчик</FLabel><UnderCommitInput key={`cust-${obj.customerName || ""}`} defaultValue={obj.customerName} onCommit={(v) => save({ customerName: v })} /></div>
-          <ObjInnField obj={obj} save={save} />
-          <div><FLabel>КПП</FLabel><UnderCommitInput key={`kpp-${obj.kpp || ""}`} defaultValue={obj.kpp} onCommit={(v) => save({ kpp: v })} /></div>
+          <div><FLabel>Заказчик — из учётных записей</FLabel><UnderAccountPicker accounts={accounts} value={custValue} loading={accLoading} onPick={pickCustomer} /></div>
           <div><FLabel>Город</FLabel><UnderCommitInput defaultValue={obj.city} onCommit={(v) => save({ city: v })} /></div>
           <div><FLabel>Адрес</FLabel><UnderCommitInput key={`addr-${obj.address || ""}`} defaultValue={obj.address} onCommit={(v) => save({ address: v })} /></div>
           <div><FLabel>Договор</FLabel><UnderCommitInput defaultValue={obj.contractNumber} onCommit={(v) => save({ contractNumber: v })} /></div>
           <div>
             <FLabel>Ответственный</FLabel>
-            <UnderSelect value={respId} options={empOpts()} placeholder="— не назначен —" onChange={(v) => { const e = getEmployees().find((x) => x.id === v); save({ responsibleName: e ? e.fio : "", responsibleRole: e ? e.position : "", responsibleEmail: e ? (e.email || "") : "" }); }} />
+            <UnderSelect value={respId} options={empOpts()} placeholder="— не назначен —" onChange={(v) => { const e = getEmployees().find((x) => x.id === v); save({ responsibleName: e ? e.fio : "", responsibleRole: e ? e.position : "", responsibleEmail: e ? (e.email || "") : "", coExecutors: (obj.coExecutors || []).filter((c) => c.id !== v) }); }} />
+          </div>
+          <div>
+            <FLabel>Соисполнители</FLabel>
+            <CoExecutorsField value={obj.coExecutors || []} onChange={(next) => save({ coExecutors: next })}
+              respId={respId} respName={obj.responsibleName} respRole={obj.responsibleRole}
+              respNotify={obj.responsibleNotify !== false} onRespNotify={(v) => save({ responsibleNotify: v })} />
           </div>
         </div>
       </div>
@@ -982,17 +1290,25 @@ function StagesEditor({ id, obj, onChange }) {
             <div key={s.id}
               onDragOver={(e) => { e.preventDefault(); if (overId !== s.id) setOverId(s.id); }}
               onDrop={(e) => { e.preventDefault(); drop(i); }}
-              style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 4px", boxShadow: `inset 0 -1px 0 0 ${UNDER}`, opacity: dragging ? 0.4 : 1, background: over ? "#fafafa" : "transparent", transition: "background-color .12s ease" }}>
-              <span draggable onDragStart={() => { dragFrom.current = i; setDragId(s.id); }} onDragEnd={() => { dragFrom.current = null; setDragId(null); setOverId(null); }} title="Перетащите" style={{ cursor: "grab", color: "#c4c4c4", fontSize: 16, lineHeight: 1, userSelect: "none", flexShrink: 0 }}>⠿</span>
-              <span style={{ width: 20, textAlign: "center", fontSize: 12, fontWeight: 600, color: "#b0b0b0", flexShrink: 0 }}>{i + 1}</span>
-              <span style={{ width: 10, height: 10, borderRadius: 999, background: s.status === "not_started" ? "#fff" : toneOf(STAGE_STATUSES, s.status), border: `2px solid ${toneOf(STAGE_STATUSES, s.status)}`, flexShrink: 0 }} />
-              <input defaultValue={s.title} onBlur={(e) => { if (e.target.value !== s.title) { DB.updateStage(id, s.id, { title: e.target.value }); onChange(); } }} placeholder="Название этапа"
-                style={{ flex: 1, minWidth: 0, height: 40, border: "none", outline: "none", background: "transparent", fontFamily: UI, fontSize: 15, fontWeight: 300, color: TEXT, padding: "0 2px" }} />
-              <div style={{ width: 190, flexShrink: 0 }}><UnderSelect value={s.status} options={STAGE_OPTS} onChange={(v) => { DB.updateStage(id, s.id, { status: v }); onChange(); }} /></div>
-              <button type="button" onClick={() => { if (window.confirm(`Удалить этап «${s.title}»?`)) { DB.removeStage(id, s.id); onChange(); } }} title="Удалить этап"
-                style={{ width: 34, height: 34, display: "grid", placeItems: "center", border: "none", background: "transparent", color: "#b0b0b0", cursor: "pointer", flexShrink: 0, borderRadius: 8, transition: "color .12s, background-color .12s" }}
-                onMouseEnter={(e) => { e.currentTarget.style.color = CARROT; e.currentTarget.style.background = "#faf1ee"; }}
-                onMouseLeave={(e) => { e.currentTarget.style.color = "#b0b0b0"; e.currentTarget.style.background = "transparent"; }}><IconTrash size={17} /></button>
+              style={{ padding: "8px 4px", boxShadow: `inset 0 -1px 0 0 ${UNDER}`, opacity: dragging ? 0.4 : 1, background: over ? "#fafafa" : "transparent", transition: "background-color .12s ease" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <span draggable onDragStart={() => { dragFrom.current = i; setDragId(s.id); }} onDragEnd={() => { dragFrom.current = null; setDragId(null); setOverId(null); }} title="Перетащите" style={{ cursor: "grab", color: "#c4c4c4", fontSize: 16, lineHeight: 1, userSelect: "none", flexShrink: 0 }}>⠿</span>
+                <span style={{ width: 20, textAlign: "center", fontSize: 12, fontWeight: 600, color: "#b0b0b0", flexShrink: 0 }}>{i + 1}</span>
+                <span style={{ width: 10, height: 10, borderRadius: 999, background: s.status === "not_started" ? "#fff" : toneOf(STAGE_STATUSES, s.status), border: `2px solid ${toneOf(STAGE_STATUSES, s.status)}`, flexShrink: 0 }} />
+                <input defaultValue={s.title} onBlur={(e) => { if (e.target.value !== s.title) { DB.updateStage(id, s.id, { title: e.target.value }); onChange(); } }} placeholder="Название этапа"
+                  style={{ flex: 1, minWidth: 0, height: 40, border: "none", outline: "none", background: "transparent", fontFamily: UI, fontSize: 15, fontWeight: 300, color: TEXT, padding: "0 2px" }} />
+                <div style={{ width: 190, flexShrink: 0 }}><UnderSelect value={s.status} options={STAGE_OPTS} onChange={(v) => { DB.updateStage(id, s.id, { status: v }); onChange(); }} /></div>
+                <button type="button" onClick={() => { if (window.confirm(`Удалить этап «${s.title}»?`)) { DB.removeStage(id, s.id); onChange(); } }} title="Удалить этап"
+                  style={{ width: 34, height: 34, display: "grid", placeItems: "center", border: "none", background: "transparent", color: "#b0b0b0", cursor: "pointer", flexShrink: 0, borderRadius: 8, transition: "color .12s, background-color .12s" }}
+                  onMouseEnter={(e) => { e.currentTarget.style.color = CARROT; e.currentTarget.style.background = "#faf1ee"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.color = "#b0b0b0"; e.currentTarget.style.background = "transparent"; }}><IconTrash size={17} /></button>
+              </div>
+              {/* «Что входит» — компактный триггер + выпадающая панель (высота строки стабильна,
+                  перетаскивать этапы удобно). Заказчику покажем списком через тире, когда этап «В работе». */}
+              <div style={{ paddingLeft: 52 }}>
+                <StageItemsField value={s.description || ""} side="left"
+                  onSave={(v) => { if (v !== (s.description || "")) { DB.updateStage(id, s.id, { description: v }); onChange(); } }} />
+              </div>
             </div>
           );
         })}
@@ -1616,6 +1932,78 @@ function ChangeLogButton({ events }) {
   );
 }
 
+// Описание этапа хранится строкой через запятую («осмотр, замеры, …»). Режем по
+// запятой/переносу/точке с запятой, снимаем хвостовую точку — сырые пункты для
+// редактора; для показа заказчику первую букву делаем заглавной (через тире).
+function descToItems(desc) {
+  return String(desc || "")
+    .split(/\s*[\n;,]\s*/)
+    .map((x) => x.replace(/\.\s*$/, "").trim())
+    .filter(Boolean);
+}
+function stageDescItems(desc) {
+  return descToItems(desc).map((x) => x.charAt(0).toUpperCase() + x.slice(1));
+}
+const joinDesc = (arr) => arr.map((x) => x.trim()).filter(Boolean).join(", ");
+
+// Этапы у заказчика — плоский список слева. У этапа «В работе» с описанием при
+// НАВЕДЕНИИ справа в той же рамке всплывает блок «что входит»: пунктирный контур,
+// фон = фон страницы, без бейджа и названия внутри (они уже слева). Список слева
+// фиксированной ширины — не сдвигается при появлении блока; длинный текст
+// переносится внутри самого блока. На мобилке будет тап (сделаем позже).
+function CustomerStages({ stages, stageUnseen }) {
+  const list = (stages || []).slice().sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  const hasDesc = (s) => s.status === "in_progress" && !!(s.description && s.description.trim());
+  const [hoverId, setHoverId] = React.useState(null);
+  const sel = list.find((s) => s.id === hoverId && hasDesc(s)) || null;
+
+  if (list.length === 0) return <div style={{ marginTop: 12, color: MUTED, fontSize: 14, fontWeight: 300 }}>Этапы не заданы.</div>;
+
+  return (
+    <div onMouseLeave={() => setHoverId(null)}
+      style={{ marginTop: 12, display: "flex", gap: 24, alignItems: "flex-start" }}>
+      {/* Список — фиксированная ширина, не реагирует на появление блока справа */}
+      <div style={{ flex: "0 0 auto", width: "min(560px, 100%)", display: "grid", gap: 12 }}>
+        {list.map((s) => {
+          const sst = STAGE_STATUSES.find((x) => x.code === s.status) || {};
+          const clickable = hasDesc(s);
+          return (
+            <div key={s.id}
+              style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <span style={{ width: 12, height: 12, borderRadius: 999, flexShrink: 0, background: s.status === "not_started" ? "#fff" : sst.tone, border: `2px solid ${s.status === "not_started" ? "#d0d0d0" : sst.tone}` }} />
+              <span
+                onMouseEnter={() => clickable && setHoverId(s.id)}
+                style={{ fontSize: 15, fontWeight: s.status === "in_progress" ? 600 : 400, color: s.status === "not_started" ? MUTED : TEXT, cursor: clickable ? "pointer" : "default" }}>{s.title}</span>
+              <Badge label={sst.label} tone={sst.tone} />
+              {stageUnseen[s.id] && <NewBadge size={8} />}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Блок описания — присутствует всегда (ширина колонки постоянна), наполняется по наведению */}
+      <div style={{ flex: "1 1 0", minWidth: 0, alignSelf: "stretch" }}>
+        {sel && (
+          <div key={sel.id}>
+            <style>{`@keyframes stageDescIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}`}</style>
+            <div style={{ animation: "stageDescIn .24s cubic-bezier(.2,.8,.2,1)", background: CTRL_REST, border: "1.5px dotted #c7c7c7", borderRadius: 12, padding: "16px 18px" }}>
+              <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: ".05em", textTransform: "uppercase", color: MUTED }}>Что входит в этап</div>
+              <div style={{ marginTop: 10, display: "grid", gap: 6 }}>
+                {stageDescItems(sel.description).map((it, i) => (
+                  <div key={i} style={{ display: "flex", gap: 9, fontSize: 14.5, fontWeight: 300, lineHeight: 1.5, color: "#333" }}>
+                    <span style={{ color: MUTED, flexShrink: 0 }}>—</span>
+                    <span style={{ wordBreak: "break-word" }}>{it}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // Иконка-переключатель подписки на e-mail-уведомления по объекту.
 // Клик → морковная (подписан), повторный клик → выкл. Если у юзера нет почты —
 // мягкая подсказка «сначала укажите e-mail». Состояние храним на бэкенде
@@ -1706,7 +2094,9 @@ function CustDocCategory({ cat, docs, refAtOpen }) {
 }
 
 function CustomerObjectView({ id, preview, autoOpenMessages, userEmail }) {
-  const o = DB.getCustomerView(id);
+  // Предпросмотр админом («preview») показывает ЧЕРНОВИК (draft:true) — то, что он
+  // только что наредактировал; реальный заказчик видит последнюю публикацию.
+  const o = DB.getCustomerView(id, { draft: !!preview });
   // Снимок отметки «просмотрено» ДО того, как откроем объект (ниже markObjectSeen
   // поднимет её к «сейчас»). По этому снимку внутри объекта решаем, что подсветить:
   // кружочек у статуса (смена статуса) и пилюлю New у свежезагруженных документов.
@@ -1758,9 +2148,7 @@ function CustomerObjectView({ id, preview, autoOpenMessages, userEmail }) {
           <span style={{ fontSize: 26, fontWeight: 600, color: TEXT }}>{o.customerName} — {o.title}</span>
         </div>
         <div style={{ marginTop: 6, display: "flex", flexWrap: "wrap", gap: "6px 18px", fontSize: 14, fontWeight: 300, color: "#444", alignItems: "center" }}>
-          {o.address && <span>{o.address}</span>}
-          {o.inn && <span>ИНН {o.inn}</span>}
-          {o.kpp && <span>КПП {o.kpp}</span>}
+          {(o.city || o.address) && <span>{[o.city, o.address].filter(Boolean).join(", ")}</span>}
           {o.contractNumber && <span>Договор: {o.contractNumber}</span>}
           <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
             <Badge label={st.label} tone={st.tone} />
@@ -1777,7 +2165,7 @@ function CustomerObjectView({ id, preview, autoOpenMessages, userEmail }) {
       {o.responsibleName && (
         <div style={{ marginTop: 22 }}>
           <div style={secLabel}>Ответственный за объект</div>
-          <div style={{ marginTop: 8, fontSize: 15, color: TEXT }}>{o.responsibleName}{o.responsibleRole ? <span style={{ color: MUTED, fontWeight: 300 }}> · {o.responsibleRole}</span> : null}</div>
+          <div style={{ marginTop: 8, fontSize: 15, color: TEXT }}><RespHover name={o.responsibleName} coExecutors={o.coExecutors} />{o.responsibleRole ? <span style={{ color: MUTED, fontWeight: 300 }}> · {o.responsibleRole}</span> : null}</div>
         </div>
       )}
 
@@ -1785,17 +2173,7 @@ function CustomerObjectView({ id, preview, autoOpenMessages, userEmail }) {
       <SectionRule />
       <div style={{ marginTop: 28 }}>
         <div style={secLabel}>Этапы работ</div>
-        <div style={{ marginTop: 12, display: "grid", gap: 12 }}>
-          {(o.stages || []).map((s) => { const sst = STAGE_STATUSES.find((x) => x.code === s.status) || {}; return (
-            <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <span style={{ width: 12, height: 12, borderRadius: 999, flexShrink: 0, background: s.status === "not_started" ? "#fff" : sst.tone, border: `2px solid ${sst.tone}` }} />
-              <span style={{ fontSize: 15, fontWeight: s.status === "in_progress" ? 600 : 400, color: s.status === "not_started" ? MUTED : TEXT }}>{s.title}</span>
-              <Badge label={sst.label} tone={sst.tone} />
-              {stageUnseen[s.id] && <NewBadge size={8} />}
-            </div>
-          ); })}
-          {(o.stages || []).length === 0 && <div style={{ color: MUTED, fontSize: 14, fontWeight: 300 }}>Этапы не заданы.</div>}
-        </div>
+        <CustomerStages stages={o.stages || []} stageUnseen={stageUnseen} />
       </div>
 
       {/* Документы */}
@@ -1858,7 +2236,7 @@ function CustomerObjectsList({ email, accountId }) {
                   <span style={{ fontSize: 17, fontWeight: 500, color: TEXT, lineHeight: 1.3 }}>{o.customerName} — {o.title}</span>
                   {DB.isObjectUnseen(o) && <NewBadge />}
                 </div>
-                <div style={{ marginTop: 3, fontSize: 13, fontWeight: 300, color: MUTED }}>{o.address || o.city}{o.responsibleName ? ` · ${o.responsibleName}` : ""} · {(o.documents || []).length} док.</div>
+                <div style={{ marginTop: 3, fontSize: 13, fontWeight: 300, color: MUTED }}>{o.address || o.city}{o.responsibleName ? <>{" · "}<RespHover name={o.responsibleName} coExecutors={o.coExecutors} /></> : ""} · {(o.documents || []).length} док.</div>
               </div>
               <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" style={{ flexShrink: 0, color: "#111" }}>
                 <path d="M4 12h13" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
@@ -2110,7 +2488,7 @@ export function TemplatesModule({ backTo }) {
               <div style={{ minWidth: 0, flex: 1 }}>
                 <div style={{ fontSize: 17, fontWeight: 500, color: TEXT, lineHeight: 1.3 }}>{x.label}</div>
                 <div style={{ marginTop: 3, fontSize: 13, fontWeight: 300, color: MUTED }}>{x.base ? "Базовый" : "Свой"}{modified ? " · изменён" : ""} · № вида {x.prefix}-… · этапов: {x.stages.length}</div>
-                {x.stages.length > 0 && <div style={{ marginTop: 8, fontSize: 11, letterSpacing: ".04em", textTransform: "uppercase", fontWeight: 400, color: "#888", lineHeight: 1.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{x.stages.join("  ·  ")}</div>}
+                {x.stages.length > 0 && <div style={{ marginTop: 8, fontSize: 11, letterSpacing: ".04em", textTransform: "uppercase", fontWeight: 400, color: "#888", lineHeight: 1.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{x.stages.map(stTitle).join("  ·  ")}</div>}
               </div>
               <div onClick={(ev) => ev.stopPropagation()} style={{ display: "flex", gap: 8, flexShrink: 0 }}>
                 <FillBtn onClick={() => setView({ tpl: x })}>Редактировать</FillBtn>
