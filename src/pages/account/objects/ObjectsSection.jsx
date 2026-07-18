@@ -2148,7 +2148,7 @@ function CustomerObjectView({ id, preview, autoOpenMessages, userEmail }) {
           <span style={{ fontSize: 26, fontWeight: 600, color: TEXT }}>{o.customerName} — {o.title}</span>
         </div>
         <div style={{ marginTop: 6, display: "flex", flexWrap: "wrap", gap: "6px 18px", fontSize: 14, fontWeight: 300, color: "#444", alignItems: "center" }}>
-          {(o.city || o.address) && <span>{[o.city, o.address].filter(Boolean).join(", ")}</span>}
+          {o.address && <span>{o.address}</span>}
           {o.contractNumber && <span>Договор: {o.contractNumber}</span>}
           <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
             <Badge label={st.label} tone={st.tone} />
