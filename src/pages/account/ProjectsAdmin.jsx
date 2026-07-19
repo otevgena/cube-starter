@@ -13,7 +13,7 @@
 import React from "react";
 import { FLabel, UnderInput, PrimaryBtn } from "@/pages/account/objects/ObjectsSection.jsx";
 import { ProjectCardResponsive } from "@/components/blocks/Projects.jsx";
-import { getProjects, addProject, updateProject, removeProject, moveProject, resetProjects } from "@/data/projects.js";
+import { getProjects, addProject, updateProject, removeProject, moveProject, resetProjects, uploadProjectImage } from "@/data/projects.js";
 
 const UI = "'Inter Tight','Inter',system-ui";
 const TEXT = "#111";
@@ -24,33 +24,6 @@ const UNDER = "#e6e6e6";
 function adminNav(to) {
   try { window.history.pushState({}, "", to); window.dispatchEvent(new PopStateEvent("popstate")); }
   catch { window.location.href = to; }
-}
-
-// Ужимаем картинку клиентом до разумного размера → data:URL (localStorage не резиновый).
-function fileToScaledDataURL(file, { maxW = 1400, maxH = 1400, quality = 0.82, mime = "image/jpeg" } = {}) {
-  return new Promise((resolve, reject) => {
-    if (!file || !file.type || !file.type.startsWith("image/")) { reject(new Error("Это не изображение")); return; }
-    const fr = new FileReader();
-    fr.onerror = () => reject(new Error("Не удалось прочитать файл"));
-    fr.onload = () => {
-      const img = new Image();
-      img.onerror = () => reject(new Error("Не удалось открыть изображение"));
-      img.onload = () => {
-        let { width: w, height: h } = img;
-        const r = Math.min(1, maxW / w, maxH / h);
-        w = Math.round(w * r); h = Math.round(h * r);
-        const cv = document.createElement("canvas");
-        cv.width = w; cv.height = h;
-        const ctx = cv.getContext("2d");
-        // Прозрачные PNG (логотипы) кладём на белый фон, если сохраняем в JPEG.
-        if (mime === "image/jpeg") { ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, w, h); }
-        ctx.drawImage(img, 0, 0, w, h);
-        try { resolve(cv.toDataURL(mime, quality)); } catch (e) { reject(e); }
-      };
-      img.src = fr.result;
-    };
-    fr.readAsDataURL(file);
-  });
 }
 
 const EMPTY = {
@@ -135,7 +108,7 @@ function LogoUploader({ value, onChange }) {
   const pick = async (files) => {
     const file = files[0]; if (!file) return;
     setBusy(true); setErr("");
-    try { onChange(await fileToScaledDataURL(file, { maxW: 240, maxH: 240, quality: 0.9 })); }
+    try { onChange(await uploadProjectImage(file, { maxW: 240, maxH: 240, quality: 0.9 })); }
     catch (e) { setErr(e.message || "Ошибка загрузки"); }
     finally { setBusy(false); }
   };
@@ -177,7 +150,7 @@ function ShotsUploader({ value, onChange }) {
     setBusy(true); setErr("");
     try {
       const urls = [];
-      for (const f of files) { try { urls.push(await fileToScaledDataURL(f, { maxW: 1400, maxH: 1000, quality: 0.82 })); } catch (e) { setErr(e.message || "Ошибка"); } }
+      for (const f of files) { try { urls.push(await uploadProjectImage(f, { maxW: 1400, maxH: 1000, quality: 0.82 })); } catch (e) { setErr(e.message || "Ошибка"); } }
       if (urls.length) onChange([...(value || []), ...urls]);
     } finally { setBusy(false); }
   };
