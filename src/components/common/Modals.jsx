@@ -57,6 +57,7 @@ export default function ModalsHost() {
       {view === "login" && <LoginForm />}
       {view === "forgot" && <ForgotForm />}
       {view === "custom" && <CustomCard {...props} />}
+      {view === "oops" && <OopsForm {...props} />}
       {view === "review" && <div>{props.content}</div>}
     </ModalShell>,
     document.body
@@ -163,14 +164,14 @@ function ModalShell({ children, onClose, width }) {
 }
 
 /* ===== Каркас формы: левая графит-панель + правая колонка ===== */
-export function FormShell({ welcome, bottom, title, children }) {
+export function FormShell({ welcome, bottom, title, children, badge }) {
   return (
     <div className="grid min-h-[560px] grid-cols-1 md:grid-cols-[1fr_1.35fr]">
       <aside className="grid grid-rows-[auto_1fr_auto] gap-[18px] bg-[#ededed] p-7 text-[#111]">
         <div className="text-[18px] font-semibold leading-tight">{welcome}</div>
         <div className="grid place-items-center gap-[30px]">
           <span className="text-[72px] font-black leading-none tracking-[.02em] text-[#111]">c.</span>
-          <SmileBadge />
+          {badge || <SmileBadge />}
         </div>
         <div className="text-sm leading-snug text-[#666]">{bottom}</div>
       </aside>
@@ -204,11 +205,11 @@ function SocialSlab({ text }) {
 }
 
 /* ===== Регистрация ===== */
-function RegisterForm({ email = "" }) {
+function RegisterForm({ email = "", _previewSent = null }) {
   const [form, setForm] = React.useState({ user: "", email, pass: "", pass2: "", news: false, agree: false });
   const [errors, setErrors] = React.useState({});
   const [busy, setBusy] = React.useState(false);
-  const [sent, setSent] = React.useState(null); // e-mail, на который ушло письмо-подтверждение
+  const [sent, setSent] = React.useState(_previewSent); // e-mail, на который ушло письмо-подтверждение
 
   const set = (k, v) => setForm((s) => ({ ...s, [k]: v }));
   const isEmail = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((v || "").trim());
@@ -260,7 +261,7 @@ function RegisterForm({ email = "" }) {
     } catch (err) {
       if (err.status === 409) setErrors({ ...es, email: "Аккаунт с такой почтой уже зарегистрирован." });
       else if (err.status === 400) setErrors({ ...es, email: "Проверьте корректность введённых данных." });
-      else window.openModal("custom", { title: "Ошибка", content: <div>{err.message}</div>, width: 560 });
+      else window.openModal("oops", { title: "Не получилось зарегистрироваться", message: err.message, retryTo: "register", retryLabel: "Вернуться к регистрации" });
     } finally {
       setBusy(false);
     }
@@ -362,19 +363,19 @@ function RegisterForm({ email = "" }) {
 }
 
 /* ===== Вход ===== */
-function LoginForm() {
+function LoginForm({ _previewTwofa = null, _previewUnverified = null }) {
   const [form, setForm] = React.useState({ id: "", pass: "", keep: false });
   const [errors, setErrors] = React.useState({});
   const [busy, setBusy] = React.useState(false);
   const set = (k, v) => setForm((s) => ({ ...s, [k]: v }));
 
   // Второй шаг при 2FA
-  const [twofa, setTwofa] = React.useState(null); // { challenge, remember } | null
+  const [twofa, setTwofa] = React.useState(_previewTwofa); // { challenge, remember } | null
   const [code, setCode] = React.useState("");
   const [codeErr, setCodeErr] = React.useState("");
 
   // Вход заблокирован до подтверждения почты (саморегистрация)
-  const [unverified, setUnverified] = React.useState(null); // e-mail | null
+  const [unverified, setUnverified] = React.useState(_previewUnverified); // e-mail | null
   const resendVerifyMail = async () => {
     if (!unverified || busy) return;
     try {
@@ -415,7 +416,7 @@ function LoginForm() {
       }
       else if (err.status === 400) setErrors({ ...es, id: "Укажите e-mail или логин и пароль." });
       else if (err.status === 401) setErrors({ id: "Неверный e-mail/логин или пароль.", pass: "Проверьте пароль." });
-      else window.openModal("custom", { title: "Ошибка", content: <div>{err.message}</div>, width: 560 });
+      else window.openModal("oops", { title: "Не получилось войти", message: err.message, retryTo: "login" });
     } finally {
       setBusy(false);
     }
@@ -443,7 +444,7 @@ function LoginForm() {
           setCodeErr("Неверный код. Попробуйте ещё раз.");
         }
       } else {
-        window.openModal("custom", { title: "Ошибка", content: <div>{err.message}</div>, width: 560 });
+        window.openModal("oops", { title: "Не получилось войти", message: err.message, retryTo: "login" });
       }
     } finally {
       setBusy(false);
@@ -548,11 +549,11 @@ function LoginForm() {
 }
 
 /* ===== Восстановление пароля ===== */
-function ForgotForm() {
-  const [id, setId] = React.useState("");
+function ForgotForm({ _previewSent = null }) {
+  const [id, setId] = React.useState(_previewSent || "");
   const [errors, setErrors] = React.useState({});
   const [busy, setBusy] = React.useState(false);
-  const [sent, setSent] = React.useState(null); // адрес, на который отправили | null
+  const [sent, setSent] = React.useState(_previewSent); // адрес, на который отправили | null
   const isEmail = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((v || "").trim());
 
   const onSubmit = async (e) => {
@@ -679,5 +680,41 @@ function SmileBadge() {
       <circle cx="90" cy="66" r="8" fill="#9ef0ff" />
       <path d="M50 90c10 16 38 16 48 0" fill="none" stroke="#9ef0ff" strokeWidth="8" strokeLinecap="round" />
     </svg>
+  );
+}
+
+/* ===== Значок «грусть» (тот же бейдж, но рот-дуга перевёрнута) ===== */
+function SadBadge() {
+  return (
+    <svg width="148" height="148" viewBox="0 0 148 148" aria-hidden="true">
+      <circle cx="74" cy="74" r="58" fill="#3b36ff" />
+      <circle cx="74" cy="74" r="66" fill="none" stroke="#9ef0ff" strokeWidth="8" />
+      <circle cx="58" cy="66" r="8" fill="#9ef0ff" />
+      <circle cx="90" cy="66" r="8" fill="#9ef0ff" />
+      <path d="M50 100c10-16 38-16 48 0" fill="none" stroke="#9ef0ff" strokeWidth="8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+/* Технические ошибки приводим к человеческому виду. */
+function humanizeError(msg) {
+  const m = String(msg || "");
+  if (/failed to fetch|networkerror|load failed|network request failed/i.test(m))
+    return "Не удалось связаться с сервером. Проверьте интернет-соединение и попробуйте ещё раз.";
+  return m || "Произошла непредвиденная ошибка. Попробуйте ещё раз.";
+}
+
+/* ===== Экран ошибки: та же панель, что у форм, но с грустным смайлом ===== */
+function OopsForm({ title = "Что-то пошло не так", message, retryTo = "login", retryLabel = "Попробовать снова" }) {
+  return (
+    <FormShell welcome="Упс…" title={title} badge={<SadBadge />}>
+      <div className="flex max-w-[420px] flex-col gap-5 self-start">
+        <p className="text-[15px] font-light leading-6 text-[#444]">{humanizeError(message)}</p>
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+          <button className={BTN} type="button" onClick={() => window.openModal(retryTo)}>{retryLabel}</button>
+          <button type="button" className={LINK} onClick={() => window.closeModal()}>Закрыть</button>
+        </div>
+      </div>
+    </FormShell>
   );
 }

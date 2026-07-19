@@ -152,6 +152,39 @@ export function resetTemplate(code) {
   const hidden = lsGet(LS_TPL_HIDE, []); if (hidden.includes(code)) lsSet(LS_TPL_HIDE, hidden.filter((c) => c !== code));
 }
 
+/* ===================== Типовые этапы (общая библиотека) =====================
+   Плоский, курируемый админом список типовых этапов. Правится в «Шаблоны →
+   Типовые этапы» и вставляется в любой объект/шаблон кнопкой «Добавить из типовых».
+   Элемент — { id, title, description? }. Хранится в localStorage; при первом чтении
+   сидим из STAGE_PRESETS (фронтовое хранилище, как и правки шаблонов). */
+const LS_STAGE_LIB = "cube:stagelib";
+function normLibStage(s) {
+  if (typeof s === "string") return { id: uid("stg"), title: s.trim(), description: "" };
+  return { id: s && s.id ? s.id : uid("stg"), title: String((s && s.title) || "").trim(), description: String((s && s.description) || "").trim() };
+}
+export function getStageLibrary() {
+  let raw = lsGet(LS_STAGE_LIB, null);
+  if (!Array.isArray(raw)) { raw = STAGE_PRESETS.map((s) => normLibStage(s)); lsSet(LS_STAGE_LIB, raw); }
+  return raw.map(normLibStage).filter((s) => s.title);
+}
+export function setStageLibrary(arr) {
+  const list = (Array.isArray(arr) ? arr : []).map(normLibStage).filter((s) => s.title);
+  lsSet(LS_STAGE_LIB, list);
+  return list;
+}
+export function addStageLib({ title, description = "" } = {}) {
+  const item = normLibStage({ title, description });
+  if (!item.title) return null;
+  setStageLibrary([...getStageLibrary(), item]);
+  return item;
+}
+export function updateStageLib(id, patch = {}) {
+  setStageLibrary(getStageLibrary().map((s) => (s.id === id
+    ? { ...s, ...(patch.title != null ? { title: String(patch.title).trim() } : {}), ...(patch.description != null ? { description: String(patch.description).trim() } : {}) }
+    : s)));
+}
+export function removeStageLib(id) { setStageLibrary(getStageLibrary().filter((s) => s.id !== id)); }
+
 export const EVENT_BADGES = {
   object_created:  "Объект",
   status_changed:  "Статус",

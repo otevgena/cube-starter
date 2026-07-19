@@ -4,40 +4,21 @@
 // попиксельной раскладки карточек.
 import React from "react";
 import FitScale from "@/components/common/FitScale.jsx";
+import { getFeaturedProjects } from "@/data/projects.js";
 
 const TITLE = { fontSize: "clamp(48px, 13.5vw, 137px)" };
 
-const PROJECTS = [
-  {
-    logo: "/projects/rmm/nng_logo.png",
-    shots: ["/projects/rmm/2-1200.jpg", "/projects/rmm/3-1200.jpg"],
-    location: "Ноябрьск",
-    objectTitle: "Учебный центр",
-    customer: "Газпром нефть",
-    servicesLabel: "5 Услуг",
-    days: 94,
-    // таблица
-    name: "Газпромнефть",
-    client: "Учебный центр",
-    year: "2025",
-    services: "СКС, ОПС, ЭО",
-    badge: "ННГ",
-  },
-  {
-    logo: "/projects/Frank/frank_logo.png",
-    shots: ["/projects/Frank/1-1200.jpg", "/projects/Frank/2-1200.jpg"],
-    location: "Тюмень",
-    objectTitle: "FRANK by БАСТА",
-    customer: "frankmeat",
-    servicesLabel: "3 услуги",
-    days: 76,
-    name: "frankmeat",
-    client: "FRANK by БАСТА",
-    year: "2025",
-    services: "СКС, ОПС, ЭО",
-    badge: "ФББ",
-  },
-];
+// Данные проектов — из общего стора (управляются в админке «Добавить проект»).
+// На главной показываем два самых свежих; hook перерисовывает при изменениях.
+function useFeaturedProjects() {
+  const [list, setList] = React.useState(() => getFeaturedProjects());
+  React.useEffect(() => {
+    const on = () => setList(getFeaturedProjects());
+    window.addEventListener("projects:changed", on);
+    return () => window.removeEventListener("projects:changed", on);
+  }, []);
+  return list;
+}
 
 const COLS = [
   { key: "name", w: 360, label: "Заказчик" },
@@ -119,7 +100,7 @@ function Dots({ active, total, onSelect }) {
 }
 
 /* Карточка проекта */
-function ProjectCard({ logo, shots = [], location, objectTitle, customer, servicesLabel, days }) {
+export function ProjectCard({ logo, shots = [], location, objectTitle, customer, servicesLabel, days }) {
   const [idx, setIdxState] = React.useState(0);
   const [prevIdx, setPrevIdx] = React.useState(0);
   const [opacity, setOpacity] = React.useState(1);
@@ -213,7 +194,7 @@ function ProjectCard({ logo, shots = [], location, objectTitle, customer, servic
 }
 
 /* Мобильная карточка проекта — вертикальная раскладка (крупная картинка во всю ширину, как у awwwards) */
-function MobileProjectCard({ logo, shots = [], location, objectTitle, customer, servicesLabel, days }) {
+export function MobileProjectCard({ logo, shots = [], location, objectTitle, customer, servicesLabel, days }) {
   const [idx, setIdx] = React.useState(0);
   const [prevIdx, setPrevIdx] = React.useState(0);
   const [opacity, setOpacity] = React.useState(1);
@@ -305,7 +286,7 @@ function MobileProjectCard({ logo, shots = [], location, objectTitle, customer, 
 
 /* Планшетная карточка проекта — landscape (как у awwwards): лого + картинка справа сверху,
    крупный заголовок слева, «Дней» справа, заказчик/услуги снизу. Во всю ширину колонки. */
-function TabletProjectCard({ logo, shots = [], location, objectTitle, customer, servicesLabel, days }) {
+export function TabletProjectCard({ logo, shots = [], location, objectTitle, customer, servicesLabel, days }) {
   const [idx, setIdx] = React.useState(0);
   const [prevIdx, setPrevIdx] = React.useState(0);
   const [opacity, setOpacity] = React.useState(1);
@@ -398,6 +379,20 @@ function TabletProjectCard({ logo, shots = [], location, objectTitle, customer, 
   );
 }
 
+/* Адаптивная карточка одного проекта (мобилка / планшет / десктоп-FitScale).
+   Единый источник для главной и страницы «Смотреть работы». */
+export function ProjectCardResponsive({ project }) {
+  return (
+    <div className="mx-auto w-full max-w-[710px] md:max-w-none lg:max-w-[710px]">
+      <div className="md:hidden"><MobileProjectCard {...project} /></div>
+      <div className="hidden md:block lg:hidden"><TabletProjectCard {...project} /></div>
+      <div className="hidden lg:block">
+        <FitScale baseW={710} baseH={555}><ProjectCard {...project} /></FitScale>
+      </div>
+    </div>
+  );
+}
+
 /* Кнопка «Подробнее» */
 function MoreButton() {
   return (
@@ -412,6 +407,7 @@ function MoreButton() {
 
 export default function Projects() {
   const isTablet = useIsTablet();
+  const PROJECTS = useFeaturedProjects();
   const cols = isTablet ? TABLET_COLS : COLS;
   const tableW = isTablet ? TABLET_TABLE_W : TABLE_W;
   const shift = isTablet ? SHIFT_T : SHIFT;
@@ -427,7 +423,7 @@ export default function Projects() {
       {/* Две карточки: на узких экранах — в столбик, карточка масштабируется под ширину (дизайн 1:1) */}
       <div className="mt-16 grid grid-cols-1 gap-6 px-4 lg:mx-[52px] lg:mt-20 lg:grid-cols-2 lg:px-0">
         {PROJECTS.map((p) => (
-          <div key={p.name} className="mx-auto w-full max-w-[710px] md:max-w-none lg:max-w-[710px]">
+          <div key={p.id || p.name} className="mx-auto w-full max-w-[710px] md:max-w-none lg:max-w-[710px]">
             {/* Мобилка — вертикальная карточка с крупной картинкой */}
             <div className="md:hidden">
               <MobileProjectCard {...p} />
@@ -451,7 +447,7 @@ export default function Projects() {
         <div className="pb-3 text-sm font-normal text-ink">Заказчик</div>
         <DottedLine />
         {PROJECTS.map((p) => (
-          <div key={p.name}>
+          <div key={p.id || p.name}>
             <div className="flex h-[84px] items-center justify-between gap-3">
               <div className="flex min-w-0 items-center gap-2">
                 <div className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-full bg-white">
@@ -487,7 +483,7 @@ export default function Projects() {
 
           {/* строки */}
           {PROJECTS.map((p) => (
-            <div key={p.name}>
+            <div key={p.id || p.name}>
               <div className="flex h-[88px] lg:h-[104px]">
                 {/* Заказчик */}
                 <div className="flex items-center" style={{ width: cols[0].w }}>

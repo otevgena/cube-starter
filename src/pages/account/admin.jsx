@@ -1,5 +1,6 @@
 // src/pages/account/admin.jsx
 import React from "react";
+import { PERMISSIONS, PERM_GROUP_LABELS, ROLE_LABELS, effectivePerms } from "@/lib/perms.js";
 
 /* ===== API helpers ===== */
 const API_BASE =
@@ -202,20 +203,27 @@ function GroupSelect({ value, onChange }) {
   );
 }
 
-/* роли доступа */
+/* роли доступа — каноничная модель RBAC (perms.js): admin/manager/executor/viewer/customer */
+const ROLE_OPTIONS = [
+  { code: "admin",    label: ROLE_LABELS.admin },
+  { code: "manager",  label: ROLE_LABELS.manager },
+  { code: "executor", label: ROLE_LABELS.executor },
+  { code: "viewer",   label: ROLE_LABELS.viewer },
+  { code: "customer", label: ROLE_LABELS.customer },
+];
+// Нормализация: легаси-значения (user/пусто/неизвестное) → «Заказчик».
+const toRoleCode = (v) => {
+  const s = String(v || "").trim().toLowerCase();
+  return ROLE_OPTIONS.some((r) => r.code === s) ? s : "customer";
+};
 function AccessRoleSelect({ value, onChange }) {
-  const OPTIONS = [
-    { code: "user",    label: "User" },
-    { code: "manager", label: "Manager" },
-    { code: "admin",   label: "Admin" },
-  ];
   return (
     <select
-      value={value || "user"}
+      value={toRoleCode(value)}
       onChange={(e) => onChange?.(e.target.value)}
       style={{ ...baseFieldStyle(false), height: FIELD_H, padding: "0 10px", background: "#fff" }}
     >
-      {OPTIONS.map(o => <option key={o.code} value={o.code}>{o.label}</option>)}
+      {ROLE_OPTIONS.map(o => <option key={o.code} value={o.code}>{o.label}</option>)}
     </select>
   );
 }
@@ -287,20 +295,20 @@ function UsersTable({ token }) {
   };
 
   const currentGroup = (u) => toCode((drafts[u.id]?.group ?? u.group ?? "user"));
-  const currentRole  = (u) => (drafts[u.id]?.role  ?? u.role  ?? "user");
+  const currentRole  = (u) => toRoleCode(drafts[u.id]?.role  ?? u.role);
 
   const isChanged = (u) => {
     const d = drafts[u.id];
     if (!d) return false;
     return (d.group && toCode(d.group) !== toCode(u.group)) ||
-           (d.role  && d.role !== (u.role || "user"));
+           (d.role  && toRoleCode(d.role) !== toRoleCode(u.role));
   };
 
   const saveRow = async (u) => {
     const d = drafts[u.id] || {};
     const patch = {};
     if (d.group && toCode(d.group) !== toCode(u.group)) patch.group = toCode(d.group);
-    if (d.role  && d.role !== (u.role || "user"))       patch.role  = d.role;
+    if (d.role  && toRoleCode(d.role) !== toRoleCode(u.role)) patch.role = toRoleCode(d.role);
     if (!Object.keys(patch).length) return;
 
     const res = await apiAdminUpdateUser(token, u.id, patch);
@@ -535,6 +543,185 @@ function UsersTable({ token }) {
   );
 }
 
+/* ===== Справка: роли, группы, права ===== */
+const HELP_ROLES = ["admin", "manager", "executor", "viewer", "customer"];
+const HELP_ROLE_DESC = {
+  admin:    "Полный доступ ко всему кабинету и настройкам.",
+  manager:  "Ведёт все объекты, документы, переписку, партнёров и поставщиков.",
+  executor: "Работает по своим объектам: правит, публикует, загружает документы, отвечает заказчику.",
+  viewer:   "Только просмотр объектов, партнёров и поставщиков.",
+  customer: "Клиент. Видит только свои объекты, штатных инструментов нет.",
+};
+
+function HelpReference() {
+  const [open, setOpen] = React.useState(true);
+  const [tab, setTab] = React.useState("roles"); // roles | matrix | groups
+  const roleSets = React.useMemo(() => HELP_ROLES.map((r) => effectivePerms(r, null)), []);
+
+  const cell = (has) => (
+    <td style={{ textAlign: "center", padding: "7px 6px", borderTop: `1px solid ${UNDERLINE}` }}>
+      {has
+        ? <span style={{ color: "#1a7f37", fontWeight: 600 }}>✓</span>
+        : <span style={{ color: "#c9c9c9" }}>·</span>}
+    </td>
+  );
+
+  const th = (txt, extra) => (
+    <th style={{
+      textAlign: extra?.center ? "center" : "left",
+      padding: "8px 6px",
+      fontSize: 11,
+      letterSpacing: ".05em",
+      textTransform: "uppercase",
+      color: "#666",
+      fontWeight: 600,
+      whiteSpace: "nowrap",
+      ...(extra?.style || {}),
+    }}>{txt}</th>
+  );
+
+  const TabBtn = ({ id, children }) => (
+    <button
+      type="button"
+      onClick={() => setTab(id)}
+      style={{
+        border: "none",
+        background: "transparent",
+        cursor: "pointer",
+        fontFamily: UI,
+        fontSize: 13,
+        fontWeight: tab === id ? 600 : 300,
+        color: tab === id ? TEXT : "#888",
+        padding: "0 0 4px",
+        borderBottom: tab === id ? `2px solid ${TEXT}` : "2px solid transparent",
+      }}
+    >
+      {children}
+    </button>
+  );
+
+  return (
+    <div style={{
+      background: CARD,
+      border: `1px solid ${BORDER}`,
+      borderRadius: 12,
+      padding: 20,
+      boxShadow: "0 6px 20px rgba(0,0,0,.05)",
+      marginBottom: 22,
+    }}>
+      <div
+        onClick={() => setOpen((v) => !v)}
+        style={{ display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer" }}
+      >
+        <div style={{ fontSize: 16, fontWeight: 700 }}>Справка · роли, группы и права</div>
+        <span style={{ fontSize: 20, fontWeight: 300, color: "#888", lineHeight: 1 }}>{open ? "–" : "+"}</span>
+      </div>
+
+      {open && (
+        <div style={{ marginTop: 14 }}>
+          {/* Две оси — вводная */}
+          <div style={{ fontSize: 14, fontWeight: 300, lineHeight: 1.55, marginBottom: 16 }}>
+            Доступ описывают <b>две независимые оси</b>. <b>Роль</b> — что человек умеет в кабинете (набор прав);
+            хранится в поле «Роль». <b>Группа</b> — кто он как контрагент (Заказчик, Партнёр, Поставщик…);
+            хранится в поле «Группа» и на права не влияет. Ещё есть <b>область</b>: право говорит «умеет править объекты»,
+            а какие именно — определяется участием (ответственный / соисполнитель). Администратор и Менеджер видят все объекты,
+            Исполнитель — только свои.
+          </div>
+
+          {/* Табы */}
+          <div style={{ display: "flex", gap: 18, marginBottom: 14, borderBottom: `1px solid ${UNDERLINE}`, paddingBottom: 8 }}>
+            <TabBtn id="roles">Роли</TabBtn>
+            <TabBtn id="matrix">Права по ролям</TabBtn>
+            <TabBtn id="groups">Группы</TabBtn>
+          </div>
+
+          {/* Роли — карточки */}
+          {tab === "roles" && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {HELP_ROLES.map((r) => (
+                <div key={r} style={{ display: "flex", gap: 12, alignItems: "baseline" }}>
+                  <div style={{ minWidth: 132, fontSize: 14, fontWeight: 600 }}>{ROLE_LABELS[r]}</div>
+                  <div style={{ fontSize: 14, fontWeight: 300, color: "#333" }}>{HELP_ROLE_DESC[r]}</div>
+                </div>
+              ))}
+              <div style={{ fontSize: 13, fontWeight: 300, color: "#777", marginTop: 4 }}>
+                «Заказчик» — это «убрать из штата»: сотрудником он не считается.
+              </div>
+            </div>
+          )}
+
+          {/* Матрица прав × роли */}
+          {tab === "matrix" && (
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ borderCollapse: "collapse", width: "100%", fontSize: 13 }}>
+                <thead>
+                  <tr>
+                    {th("Право")}
+                    {HELP_ROLES.map((r) => th(ROLE_LABELS[r], { center: true, style: { width: 92 } }))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {Object.keys(PERMISSIONS).map((ns) => (
+                    <React.Fragment key={ns}>
+                      <tr>
+                        <td colSpan={1 + HELP_ROLES.length} style={{
+                          padding: "12px 6px 4px",
+                          fontSize: 11,
+                          letterSpacing: ".05em",
+                          textTransform: "uppercase",
+                          color: "#999",
+                          fontWeight: 600,
+                        }}>
+                          {PERM_GROUP_LABELS[ns] || ns}
+                        </td>
+                      </tr>
+                      {PERMISSIONS[ns].map(([perm, label]) => (
+                        <tr key={perm}>
+                          <td style={{ padding: "7px 6px", borderTop: `1px solid ${UNDERLINE}`, fontWeight: 300, color: "#333" }}>
+                            {label}
+                          </td>
+                          {roleSets.map((set, i) => (
+                            <React.Fragment key={HELP_ROLES[i]}>{cell(set.has(perm))}</React.Fragment>
+                          ))}
+                        </tr>
+                      ))}
+                    </React.Fragment>
+                  ))}
+                </tbody>
+              </table>
+              <div style={{ fontSize: 13, fontWeight: 300, color: "#777", marginTop: 10 }}>
+                Пресеты можно докручивать поштучно в модуле «Сотрудники» (галочки поверх роли).
+              </div>
+            </div>
+          )}
+
+          {/* Группы */}
+          {tab === "groups" && (
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 300, marginBottom: 12 }}>
+                Группа не даёт прав — это классификация контрагента. Разделы «Партнёры» и «Поставщики»
+                в кабинете открываются <b>правами</b> (partners.view / suppliers.view), а не группой.
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                {GROUPS.map((g) => (
+                  <span key={g.code} style={{
+                    fontSize: 13,
+                    fontWeight: 300,
+                    color: "#222",
+                    border: `1px solid ${UNDERLINE}`,
+                    borderRadius: 999,
+                    padding: "5px 12px",
+                  }}>{g.label}</span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ===== Страница ===== */
 export default function AdminPage() {
   const [token, setToken] = React.useState(null);
@@ -692,7 +879,8 @@ export default function AdminPage() {
             }}>
               <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>Роли и доступы</div>
               <div style={{ fontSize: 14, fontWeight: 300, marginBottom: 12 }}>
-                Здесь будет управление ролями пользователей (назначение «partner», «supplier», «admin» и т.д.).
+                Роль задаёт права сотрудника (Администратор / Менеджер / Исполнитель / Наблюдатель / Заказчик),
+                группа — тип контрагента (Партнёр, Поставщик и т.д.). Это разные оси: см. блок «Справка» ниже.
               </div>
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                 <button type="button" style={btn()}>Открыть модуль ролей</button>
@@ -704,6 +892,9 @@ export default function AdminPage() {
                 </a>
               </div>
             </div>
+
+            {/* Справка по ролям, группам и правам */}
+            <HelpReference />
 
             {/* Таблица пользователей */}
             <UsersTable token={token} />

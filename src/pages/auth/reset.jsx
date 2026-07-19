@@ -50,20 +50,35 @@ function goModal(name) {
 }
 const goLogin = () => goModal("login");
 const goForgot = () => goModal("forgot");
+const goHome = () => {
+  window.history.pushState({}, "", "/");
+  window.dispatchEvent(new PopStateEvent("popstate"));
+};
 
-export default function ResetPasswordPage() {
+// Тихая вторичная ссылка «в нашем стиле»: серая база + выезжающая тёмная линия.
+const LINK =
+  "relative inline-block pb-0.5 text-sm font-semibold text-[#111] no-underline " +
+  "before:absolute before:inset-x-0 before:bottom-0 before:h-0.5 before:bg-neutral-300 before:content-[''] " +
+  "after:absolute after:bottom-0 after:left-0 after:h-0.5 after:w-0 after:bg-[#111] after:transition-[width] after:duration-300 after:content-[''] hover:after:w-full";
+
+export default function ResetPasswordPage({ _previewPhase = null }) {
   const [token] = React.useState(getToken);
   const [pass, setPass] = React.useState("");
   const [pass2, setPass2] = React.useState("");
   const [errors, setErrors] = React.useState({});   // { pass, pass2 }
   const [formErr, setFormErr] = React.useState("");  // общая ошибка под кнопкой
   const [busy, setBusy] = React.useState(false);
-  const [done, setDone] = React.useState(false);
+  const [done, setDone] = React.useState(_previewPhase === "done");
   // Проверка ссылки ПРИ ЗАГРУЗКЕ: "checking" | "valid" | "invalid".
   // Мёртвую/протухшую ссылку не даём даже открыть — сразу «ссылка устарела».
-  const [tokenState, setTokenState] = React.useState(token ? "checking" : "invalid");
+  const [tokenState, setTokenState] = React.useState(
+    _previewPhase
+      ? (_previewPhase === "invalid" ? "invalid" : _previewPhase === "checking" ? "checking" : "valid")
+      : (token ? "checking" : "invalid")
+  );
 
   React.useEffect(() => {
+    if (_previewPhase) return; // витрина: фаза задана вручную, сеть не дёргаем
     if (!token) return;
     let alive = true;
     (async () => {
@@ -187,6 +202,9 @@ export default function ResetPasswordPage() {
             >
               Войти
             </button>
+            <button type="button" onClick={goHome} className={`${LINK} mt-5`}>
+              На главную
+            </button>
           </div>
         ) : phase === "invalid" ? (
           <div className="w-[683px] max-w-full text-left">
@@ -196,6 +214,9 @@ export default function ResetPasswordPage() {
               className="block h-[60px] w-[240px] rounded-[10px] bg-black text-sm font-semibold uppercase tracking-[0.02em] text-white transition-colors hover:bg-neutral-800"
             >
               Запросить новую ссылку
+            </button>
+            <button type="button" onClick={goHome} className={`${LINK} mt-5`}>
+              На главную
             </button>
           </div>
         ) : (

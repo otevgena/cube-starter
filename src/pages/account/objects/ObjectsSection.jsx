@@ -11,6 +11,7 @@ import {
   toneOf, labelOf, extOf, getEmployees,
   getTemplates, templateByCode, addTemplate, updateTemplate, removeTemplate,
   resetTemplate, isTemplateModified, normalizePrefix,
+  getStageLibrary, setStageLibrary, addStageLib, updateStageLib, removeStageLib,
   employeeByEmail, hydrateStaff, adminGetUser, saveStaff, removeStaff,
   getMessages, addMessage, threadStatus,
 } from "@/data/objects.js";
@@ -29,8 +30,6 @@ const secLabel = { fontSize: 12, fontWeight: 600, letterSpacing: ".05em", textTr
 const h1 = { fontSize: 24, fontWeight: 600, color: TEXT };
 const inputStyle = { height: 40, padding: "0 12px", borderRadius: 8, border: `1px solid ${LINE}`, background: "#fff", fontFamily: UI, fontSize: 14, color: TEXT, outline: "none", minWidth: 0, width: "100%" };
 const darkBtn = { height: 40, padding: "0 16px", borderRadius: 8, border: "none", background: "#111", color: "#fff", fontFamily: UI, fontSize: 13, fontWeight: 600, cursor: "pointer", flexShrink: 0, transition: "background-color .15s ease" };
-// компактная кнопка-иконка (↑ / ↓ / ✕) в строке этапа
-const stepBtn = (disabled) => ({ width: 26, height: 26, display: "grid", placeItems: "center", borderRadius: 6, border: `1px solid ${LINE}`, background: "#fff", color: disabled ? "#c8c8c8" : "#555", cursor: disabled ? "default" : "pointer", fontSize: 13, lineHeight: 1, flexShrink: 0 });
 // Чёрная кнопка с hover как у «Ищу работу» в шапке (#111 → #262626). Наследует darkBtn + любой override через style.
 function DarkBtn({ children, onClick, disabled, style, type = "button", ...rest }) {
   const base = { ...darkBtn, ...style };
@@ -486,7 +485,7 @@ function ExtBadge({ ext }) { const e = extOf(ext); return <span style={{ display
 function Dotted() { return <div aria-hidden="true" style={{ height: 1, backgroundImage: "repeating-linear-gradient(to right,#d9d9d9 0 1px,rgba(0,0,0,0) 1px 8px)" }} />; }
 
 /* ---- фильтр-бар (стиль скрина: пилюли + счётчик + сброс) ---- */
-function FilterBar({ search, filters, activeCount, onReset }) {
+export function FilterBar({ search, filters, activeCount, onReset }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", background: FILTER_BG, borderRadius: 10, padding: 10 }}>
       {search && <SearchInput value={search.value} onChange={search.onChange} placeholder={search.placeholder} width={280} bare />}
@@ -928,6 +927,7 @@ function RespHover({ name, coExecutors }) {
 
 function StageListEditor({ stages, setStages }) {
   const [newStage, setNewStage] = React.useState("");
+  const [pickOpen, setPickOpen] = React.useState(false);
   const addStage = () => { const s = newStage.trim(); if (!s) return; setStages((v) => [...v, s]); setNewStage(""); };
   const dragFrom = React.useRef(null);
   const [dragIdx, setDragIdx] = React.useState(null);
@@ -939,11 +939,18 @@ function StageListEditor({ stages, setStages }) {
     const title = stTitle(x);
     return desc && desc.trim() ? { title, description: desc } : title;
   }));
+  // Перестановка (кнопки ↑/↓ — надёжно и на тач-экране; drag — как дополнение).
+  const move = (from, to) => {
+    if (to < 0 || to >= stages.length || from === to) return;
+    setStages((prev) => { const next = prev.slice(); const [m] = next.splice(from, 1); next.splice(to, 0, m); return next; });
+  };
   const dropStage = (to) => {
     const from = dragFrom.current; dragFrom.current = null; setDragIdx(null); setOverIdx(null);
     if (from == null || from === to) return;
-    setStages((prev) => { const next = prev.slice(); const [m] = next.splice(from, 1); next.splice(to, 0, m); return next; });
+    move(from, to);
   };
+  const addFromLibrary = (s) => setStages((prev) => [...prev, s.description ? { title: s.title, description: s.description } : s.title]);
+  const present = new Set(stages.map((s) => stTitle(s).toLowerCase()));
   return (
     <>
       <div style={{ marginTop: 4 }}>
@@ -956,14 +963,16 @@ function StageListEditor({ stages, setStages }) {
               onDragOver={(e) => { e.preventDefault(); if (overIdx !== i) setOverIdx(i); }}
               onDrop={(e) => { e.preventDefault(); dropStage(i); }}
               style={{ padding: "8px 4px", boxShadow: `inset 0 -1px 0 0 ${UNDER}`, opacity: dragging ? 0.4 : 1, background: over ? "#fafafa" : "transparent", transition: "background-color .12s ease" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <span draggable
                   onDragStart={() => { dragFrom.current = i; setDragIdx(i); }}
                   onDragEnd={() => { dragFrom.current = null; setDragIdx(null); setOverIdx(null); }}
                   title="Перетащите"
                   style={{ cursor: "grab", color: "#c4c4c4", fontSize: 16, lineHeight: 1, userSelect: "none", flexShrink: 0 }}>⠿</span>
                 <span style={{ width: 20, textAlign: "center", fontSize: 12, fontWeight: 600, color: "#b0b0b0", flexShrink: 0 }}>{i + 1}</span>
-                <input key={`stage-in-${i}`} defaultValue={stTitle(s)} onBlur={(e) => { if (e.target.value !== stTitle(s)) editAt(i, e.target.value); }} placeholder="Название этапа"
+                {/* Управляемый инпут: при перестановке значение следует за state (иначе,
+                    как было с defaultValue + ключами по индексу, текст «не двигался»). */}
+                <input value={stTitle(s)} onChange={(e) => editAt(i, e.target.value)} placeholder="Название этапа"
                   style={{ flex: 1, minWidth: 0, height: 40, border: "none", outline: "none", background: "transparent", fontFamily: UI, fontSize: 15, fontWeight: 300, color: TEXT, padding: "0 2px" }} />
                 <button type="button" onClick={() => setStages(stages.filter((_, j) => j !== i))} title="Удалить этап"
                   style={{ width: 34, height: 34, display: "grid", placeItems: "center", border: "none", background: "transparent", color: "#b0b0b0", cursor: "pointer", flexShrink: 0, borderRadius: 8, transition: "color .12s, background-color .12s" }}
@@ -977,16 +986,61 @@ function StageListEditor({ stages, setStages }) {
           );
         })}
       </div>
-      <div style={{ marginTop: 18, display: "flex", gap: 12, alignItems: "center" }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
+      <div style={{ marginTop: 18, display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+        <div style={{ flex: "1 1 240px", minWidth: 0 }}>
           <input value={newStage} onChange={(e) => setNewStage(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addStage(); } }} placeholder="Добавить этап…" className="obj-ph"
             style={{ width: "100%", height: 46, border: "none", outline: "none", borderRadius: 0, background: "#fff", color: TEXT, padding: "0 14px", fontFamily: UI, fontSize: 14, fontWeight: 300, boxShadow: `inset 0 -1px 0 0 ${UNDER}`, transition: "box-shadow .18s ease" }}
             onFocus={(e) => { e.currentTarget.style.boxShadow = `inset 0 -1px 0 0 ${UNDER_FOCUS}`; }}
             onBlur={(e) => { e.currentTarget.style.boxShadow = `inset 0 -1px 0 0 ${UNDER}`; }} />
         </div>
         <FillBtn onClick={addStage}>+ Добавить</FillBtn>
+        <div style={{ position: "relative" }}>
+          <FillBtn onClick={() => setPickOpen((o) => !o)}>+ Из типовых</FillBtn>
+          {pickOpen && (
+            <StagePickerPanel present={present} onPick={addFromLibrary} onClose={() => setPickOpen(false)} />
+          )}
+        </div>
       </div>
     </>
+  );
+}
+
+/* Выпадашка выбора типовых этапов (общая библиотека). Клик по этапу — добавить;
+   уже добавленные помечены галочкой. Данные — getStageLibrary() из data/objects. */
+function StagePickerPanel({ present, onPick, onClose }) {
+  const ref = React.useRef(null);
+  const lib = React.useMemo(() => getStageLibrary(), []);
+  React.useEffect(() => {
+    const onDoc = (e) => { if (ref.current && !ref.current.contains(e.target)) onClose(); };
+    const onKey = (e) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("mousedown", onDoc);
+    window.addEventListener("keydown", onKey);
+    return () => { document.removeEventListener("mousedown", onDoc); window.removeEventListener("keydown", onKey); };
+  }, [onClose]);
+  return (
+    <div ref={ref} className="animate-svcfade"
+      style={{ position: "absolute", top: "calc(100% + 8px)", right: 0, zIndex: 90, width: "min(420px, 86vw)", maxHeight: 340, overflowY: "auto", background: "#fff", border: `1px solid ${LINE}`, borderRadius: 12, boxShadow: "0 16px 44px rgba(0,0,0,.16)", padding: "10px 8px" }}>
+      <div style={{ padding: "4px 8px 8px", fontSize: 12, fontWeight: 600, letterSpacing: ".05em", textTransform: "uppercase", color: MUTED }}>Типовые этапы</div>
+      {lib.length === 0 && <div style={{ padding: "10px 8px", fontSize: 13, fontWeight: 300, color: MUTED }}>Список пуст. Заполните его в «Шаблоны → Типовые этапы».</div>}
+      {lib.map((s) => {
+        const added = present.has(s.title.toLowerCase());
+        return (
+          <button key={s.id} type="button" onClick={() => onPick(s)}
+            style={{ width: "100%", textAlign: "left", display: "flex", alignItems: "center", gap: 10, padding: "9px 8px", border: "none", background: "transparent", cursor: "pointer", borderRadius: 8, fontFamily: UI, transition: "background-color .12s ease" }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = "#f6f6f6"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}>
+            <span style={{ width: 18, height: 18, borderRadius: 5, border: `1px solid ${added ? "#111" : "#d9d9d9"}`, background: added ? "#111" : "#fff", display: "grid", placeItems: "center", flexShrink: 0 }}>
+              {added && <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12l5 5L20 6" /></svg>}
+            </span>
+            <span style={{ minWidth: 0, flex: 1 }}>
+              <span style={{ display: "block", fontSize: 14, fontWeight: 500, color: TEXT, lineHeight: 1.3 }}>{s.title}</span>
+              {s.description && <span style={{ display: "block", marginTop: 2, fontSize: 12, fontWeight: 300, color: MUTED, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.description}</span>}
+            </span>
+            <span style={{ fontSize: 12, color: MUTED, flexShrink: 0 }}>{added ? "добавить ещё" : "добавить"}</span>
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
@@ -1320,7 +1374,7 @@ function StagesEditor({ id, obj, onChange }) {
       <div style={{ marginTop: 18, display: "flex", gap: 16, alignItems: "flex-end", flexWrap: "wrap" }}>
         <div style={{ flex: "1 1 240px", minWidth: 220 }}>
           <FLabel>Добавить из типовых</FLabel>
-          <UnderSelect value="" placeholder="Выберите этап…" options={STAGE_PRESETS.map((p) => ({ value: p, label: p }))} onChange={(v) => { if (v) { DB.addStage(id, { title: v }); onChange(); } }} />
+          <UnderSelect value="" placeholder="Выберите этап…" options={getStageLibrary().map((p) => ({ value: p.id, label: p.title }))} onChange={(v) => { const p = getStageLibrary().find((x) => x.id === v); if (p) { DB.addStage(id, { title: p.title, description: p.description || "" }); onChange(); } }} />
         </div>
         <span style={{ color: MUTED, fontSize: 13, paddingBottom: 10 }}>или</span>
         <AddCustomStage id={id} onChange={onChange} />
@@ -2545,6 +2599,7 @@ export function TemplatesModule({ backTo }) {
   const force = useForceUpdate();
   const [q, setQ] = React.useState("");
   const [view, setView] = React.useState(null);   // null=список | {tpl:null}=создать | {tpl}=редактировать
+  const [section, setSection] = React.useState("templates"); // templates | library
   const t = q.toLowerCase().trim();
   const list = getTemplates().filter((x) => !t || `${x.label} ${x.prefix}`.toLowerCase().includes(t));
 
@@ -2560,32 +2615,76 @@ export function TemplatesModule({ backTo }) {
           <div style={h1}>Шаблоны объектов</div>
           <div style={{ marginTop: 6, fontSize: 14, fontWeight: 300, color: MUTED }}>Тип работ задаёт префикс для № объекта и типовые этапы при создании.</div>
         </div>
-        <FillBtn big onClick={() => setView({ tpl: null })}>+ Новый шаблон</FillBtn>
+        {section === "templates" && <FillBtn big onClick={() => setView({ tpl: null })}>+ Новый шаблон</FillBtn>}
       </div>
-      <div style={{ marginTop: 20 }}><UnderSearch value={q} onChange={setQ} placeholder="Поиск: название, префикс…" /></div>
 
-      <div style={{ marginTop: 26 }}>
-        <ListHead label="Шаблоны" count={list.length} />
-        <DottedLine />
-        {list.map((x) => {
-          const modified = x.base && isTemplateModified(x.code);
-          return (
-            <ListRow key={x.code} onOpen={() => setView({ tpl: x })}>
-              <span style={{ flexShrink: 0, fontSize: 12, fontWeight: 700, letterSpacing: ".06em", color: "#fff", background: "#111", padding: "5px 10px", borderRadius: 7 }}>{x.prefix}</span>
-              <div style={{ minWidth: 0, flex: 1 }}>
-                <div style={{ fontSize: 17, fontWeight: 500, color: TEXT, lineHeight: 1.3 }}>{x.label}</div>
-                <div style={{ marginTop: 3, fontSize: 13, fontWeight: 300, color: MUTED }}>{x.base ? "Базовый" : "Свой"}{modified ? " · изменён" : ""} · № вида {x.prefix}-… · этапов: {x.stages.length}</div>
-                {x.stages.length > 0 && <div style={{ marginTop: 8, fontSize: 11, letterSpacing: ".04em", textTransform: "uppercase", fontWeight: 400, color: "#888", lineHeight: 1.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{x.stages.map(stTitle).join("  ·  ")}</div>}
-              </div>
-              <div onClick={(ev) => ev.stopPropagation()} style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-                <FillBtn onClick={() => setView({ tpl: x })}>Редактировать</FillBtn>
-                {modified && <FillBtn onClick={() => { resetTemplate(x.code); force(); }}>Сбросить</FillBtn>}
-                <FillBtn fill={CARROT} onClick={() => { if (window.confirm(x.base ? `Скрыть базовый шаблон «${x.label}»?` : `Удалить шаблон «${x.label}»?`)) { removeTemplate(x.code); force(); } }}>{x.base ? "Скрыть" : "Удалить"}</FillBtn>
-              </div>
-            </ListRow>
-          );
-        })}
-        {list.length === 0 && <div style={{ padding: "28px 8px", color: MUTED, fontSize: 14, fontWeight: 300 }}>Ничего не найдено.</div>}
+      {/* Переключатель разделов — как «Кабинет заказчика / Кабинет команды» в Справке */}
+      <div style={{ marginTop: 22, display: "flex", gap: 24, borderBottom: "1px solid #eee" }}>
+        {[{ v: "templates", label: "Шаблоны" }, { v: "library", label: "Типовые этапы" }].map((o) => (
+          <button key={o.v} type="button" onClick={() => setSection(o.v)}
+            style={{ border: "none", background: "transparent", cursor: "pointer", fontFamily: UI, fontSize: 15,
+              fontWeight: section === o.v ? 600 : 300, color: section === o.v ? TEXT : "#888",
+              padding: "0 0 10px", borderBottom: section === o.v ? `2px solid ${TEXT}` : "2px solid transparent" }}>
+            {o.label}
+          </button>
+        ))}
+      </div>
+
+      {section === "library" ? (
+        <StageLibraryEditor />
+      ) : (
+        <>
+          <div style={{ marginTop: 22 }}><UnderSearch value={q} onChange={setQ} placeholder="Поиск: название, префикс…" /></div>
+
+          <div style={{ marginTop: 26 }}>
+            <ListHead label="Шаблоны" count={list.length} />
+            <DottedLine />
+            {list.map((x) => {
+              const modified = x.base && isTemplateModified(x.code);
+              return (
+                <ListRow key={x.code} onOpen={() => setView({ tpl: x })}>
+                  <span style={{ flexShrink: 0, fontSize: 12, fontWeight: 700, letterSpacing: ".06em", color: "#fff", background: "#111", padding: "5px 10px", borderRadius: 7 }}>{x.prefix}</span>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ fontSize: 17, fontWeight: 500, color: TEXT, lineHeight: 1.3 }}>{x.label}</div>
+                    <div style={{ marginTop: 3, fontSize: 13, fontWeight: 300, color: MUTED }}>{x.base ? "Базовый" : "Свой"}{modified ? " · изменён" : ""} · № вида {x.prefix}-… · этапов: {x.stages.length}</div>
+                    {x.stages.length > 0 && <div style={{ marginTop: 8, fontSize: 11, letterSpacing: ".04em", textTransform: "uppercase", fontWeight: 400, color: "#888", lineHeight: 1.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{x.stages.map(stTitle).join("  ·  ")}</div>}
+                  </div>
+                  <div onClick={(ev) => ev.stopPropagation()} style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+                    <FillBtn onClick={() => setView({ tpl: x })}>Редактировать</FillBtn>
+                    {modified && <FillBtn onClick={() => { resetTemplate(x.code); force(); }}>Сбросить</FillBtn>}
+                    <FillBtn fill={CARROT} onClick={() => { if (window.confirm(x.base ? `Скрыть базовый шаблон «${x.label}»?` : `Удалить шаблон «${x.label}»?`)) { removeTemplate(x.code); force(); } }}>{x.base ? "Скрыть" : "Удалить"}</FillBtn>
+                  </div>
+                </ListRow>
+              );
+            })}
+            {list.length === 0 && <div style={{ padding: "28px 8px", color: MUTED, fontSize: 14, fontWeight: 300 }}>Ничего не найдено.</div>}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+/* Редактор общей библиотеки типовых этапов (раздел «Типовые этапы»). Переиспользует
+   StageListEditor: переставить (↑/↓/drag), переименовать, описание, добавить/удалить.
+   Любое изменение сразу пишется в getStageLibrary/setStageLibrary. */
+function StageLibraryEditor() {
+  const toEditable = (arr) => arr.map((s) => (s.description ? { title: s.title, description: s.description } : s.title));
+  const [stages, setStagesRaw] = React.useState(() => toEditable(getStageLibrary()));
+  const setStages = React.useCallback((updater) => {
+    setStagesRaw((prev) => {
+      const next = typeof updater === "function" ? updater(prev) : updater;
+      setStageLibrary(next.map((s) => (typeof s === "string" ? { title: s } : s)));
+      return next;
+    });
+  }, []);
+  return (
+    <div style={{ marginTop: 22 }}>
+      <div style={{ fontSize: 14, fontWeight: 300, color: MUTED, lineHeight: 1.6, maxWidth: 660 }}>
+        Общий список типовых этапов. Их можно вставить в любой шаблон или объект кнопкой <b style={{ fontWeight: 500, color: TEXT }}>«+ Из типовых»</b>. Здесь — переставить (стрелками или перетаскиванием), переименовать, добавить описание, что входит в этап.
+      </div>
+      <div style={{ marginTop: 18 }}>
+        <StageListEditor stages={stages} setStages={setStages} />
       </div>
     </div>
   );
