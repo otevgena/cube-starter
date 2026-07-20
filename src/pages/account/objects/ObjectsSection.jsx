@@ -6,6 +6,7 @@ import React from "react";
 import { createPortal } from "react-dom";
 import * as DB from "@/data/objects.js";
 import Spinner, { CenterSpinner } from "@/components/common/Spinner.jsx";
+import { confirmDialog } from "@/components/common/Confirm.jsx";
 import {
   OBJECT_STATUSES, STAGE_STATUSES, DOC_CATEGORIES, STAGE_PRESETS, OBJECT_TEMPLATES,
   toneOf, labelOf, extOf, getEmployees,
@@ -1228,7 +1229,7 @@ function AdminObjectEditor({ id, autoOpenMessages }) {
   const respId = respIdOf(obj);
   const dirty = DB.hasUnpublished(id);
   const publish = () => { DB.publishObject(id); force(); };
-  const discard = () => { if (window.confirm("Сбросить неопубликованные изменения? Черновик вернётся к тому, что сейчас видит заказчик.")) { DB.discardDraft(id); force(); } };
+  const discard = async () => { if (await confirmDialog({ title: "Сбросить изменения?", message: "Черновик вернётся к тому, что сейчас видит заказчик. Неопубликованные правки пропадут.", confirmText: "Сбросить" })) { DB.discardDraft(id); force(); } };
   // Текущий заказчик как учётка: ищем по id/e-mail среди клиентских учёток,
   // иначе показываем сохранённое имя (легаси-объекты со свободным вводом).
   const custMatch = obj.customerId
@@ -1356,7 +1357,7 @@ function StagesEditor({ id, obj, onChange }) {
                 <input defaultValue={s.title} onBlur={(e) => { if (e.target.value !== s.title) { DB.updateStage(id, s.id, { title: e.target.value }); onChange(); } }} placeholder="Название этапа"
                   style={{ flex: 1, minWidth: 0, height: 40, border: "none", outline: "none", background: "transparent", fontFamily: UI, fontSize: 15, fontWeight: 300, color: TEXT, padding: "0 2px" }} />
                 <div style={{ width: 190, flexShrink: 0 }}><UnderSelect value={s.status} options={STAGE_OPTS} onChange={(v) => { DB.updateStage(id, s.id, { status: v }); onChange(); }} /></div>
-                <button type="button" onClick={() => { if (window.confirm(`Удалить этап «${s.title}»?`)) { DB.removeStage(id, s.id); onChange(); } }} title="Удалить этап"
+                <button type="button" onClick={async () => { if (await confirmDialog({ title: "Удалить этап?", message: `Этап «${s.title}» будет удалён.`, confirmText: "Удалить" })) { DB.removeStage(id, s.id); onChange(); } }} title="Удалить этап"
                   style={{ width: 34, height: 34, display: "grid", placeItems: "center", border: "none", background: "transparent", color: "#b0b0b0", cursor: "pointer", flexShrink: 0, borderRadius: 8, transition: "color .12s, background-color .12s" }}
                   onMouseEnter={(e) => { e.currentTarget.style.color = CARROT; e.currentTarget.style.background = "#faf1ee"; }}
                   onMouseLeave={(e) => { e.currentTarget.style.color = "#b0b0b0"; e.currentTarget.style.background = "transparent"; }}><IconTrash size={17} /></button>
@@ -1432,7 +1433,7 @@ function DocCategory({ id, cat, docs, uploadDoc, onChange }) {
                     {canPreview(d) && <DownloadBtn doc={d} label="Открыть" preview />}
                     <DownloadBtn doc={d} label="Скачать" />
                     <FillBtn tiny onClick={() => { DB.updateDocument(id, d.id, { status: hidden ? "published" : "hidden" }); onChange(); }}>{hidden ? "Показать" : "Скрыть"}</FillBtn>
-                    <FillBtn tiny fill={CARROT} onClick={() => { if (window.confirm(`Удалить «${d.title}»?`)) { if (d.key) DB.deleteFile(d.key); DB.removeDocument(id, d.id); onChange(); } }}>Удалить</FillBtn>
+                    <FillBtn tiny fill={CARROT} onClick={async () => { if (await confirmDialog({ title: "Удалить документ?", message: `Документ «${d.title}» будет удалён.`, confirmText: "Удалить" })) { if (d.key) DB.deleteFile(d.key); DB.removeDocument(id, d.id); onChange(); } }}>Удалить</FillBtn>
                   </div>
                 </React.Fragment>
               );
@@ -2490,7 +2491,7 @@ export function EmployeesModule({ backTo }) {
 
   const demote = async (e) => {
     if (busyId) return;
-    if (!window.confirm(`Убрать «${e.fio}» из сотрудников? Учётная запись сохранится как заказчик.`)) return;
+    if (!await confirmDialog({ title: "Убрать из сотрудников?", message: `«${e.fio}» будет убран из сотрудников. Учётная запись сохранится как заказчик.`, confirmText: "Убрать" })) return;
     setBusyId(e.id);
     try { await removeStaff(e.id); } catch { /* игнор: остаёмся как есть */ }
     finally { setBusyId(""); force(); }
@@ -2652,7 +2653,7 @@ export function TemplatesModule({ backTo }) {
                   <div onClick={(ev) => ev.stopPropagation()} style={{ display: "flex", gap: 8, flexShrink: 0 }}>
                     <FillBtn onClick={() => setView({ tpl: x })}>Редактировать</FillBtn>
                     {modified && <FillBtn onClick={() => { resetTemplate(x.code); force(); }}>Сбросить</FillBtn>}
-                    <FillBtn fill={CARROT} onClick={() => { if (window.confirm(x.base ? `Скрыть базовый шаблон «${x.label}»?` : `Удалить шаблон «${x.label}»?`)) { removeTemplate(x.code); force(); } }}>{x.base ? "Скрыть" : "Удалить"}</FillBtn>
+                    <FillBtn fill={CARROT} onClick={async () => { if (await confirmDialog(x.base ? { title: "Скрыть шаблон?", message: `Базовый шаблон «${x.label}» будет скрыт.`, confirmText: "Скрыть" } : { title: "Удалить шаблон?", message: `Шаблон «${x.label}» будет удалён.`, confirmText: "Удалить" })) { removeTemplate(x.code); force(); } }}>{x.base ? "Скрыть" : "Удалить"}</FillBtn>
                   </div>
                 </ListRow>
               );

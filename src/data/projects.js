@@ -84,6 +84,10 @@ function apiEnabled() {
 }
 export function usesApi() { return apiEnabled(); }
 
+// true, пока идёт ПЕРВАЯ подгрузка витрины с сервера (для спиннера на странице работ).
+// В localStorage-режиме всегда false — там данные есть сразу.
+export function isProjectsLoading() { return apiEnabled() && !_hydrated; }
+
 /* ===================== localStorage-режим ===================== */
 function lsGet(fallback) {
   try { const s = localStorage.getItem(LS_KEY); return s ? JSON.parse(s) : fallback; } catch { return fallback; }
@@ -116,12 +120,12 @@ export async function hydrateProjects({ force = false } = {}) {
       const data = await api("/projects", { method: "GET", authRequired: false });
       const list = Array.isArray(data && data.projects) ? data.projects.map(norm) : [];
       _mem = list;
-      fire();
     } catch (e) {
       reportSyncErr(e); // офлайн/ошибка — оставляем текущий кэш (сид-дефолты)
     } finally {
       _hydrated = true;
       _hydrating = null;
+      fire(); // событие только когда гидрация ЗАВершена → подписчик увидит loading=false
     }
   })();
   return _hydrating;

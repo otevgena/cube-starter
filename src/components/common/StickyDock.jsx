@@ -35,6 +35,8 @@ export default function StickyDock() {
   const getIsDesign       = () => { try { return /^\/services\/design(\/|$)/.test(window.location.pathname || "/"); } catch { return false; } };
   const getIsConstruction = () => { try { return /^\/services\/construction(\/|$)/.test(window.location.pathname || "/"); } catch { return false; } };
   const getIsContact      = () => { try { return /^\/contact(\/|$)/.test(window.location.pathname || "/"); } catch { return false; } };
+  // публичная страница «Смотреть работы»: компактный док (c. + «Оставить заявку»), как на сервисных
+  const getIsProjects     = () => { try { return /^\/pages\/projects(\/|$)/.test(window.location.pathname || "/"); } catch { return false; } };
   // auth-страницы (сброс/подтверждение пароля): док как на «Контактах» — только плитка «c.»
   const getIsAuthPage     = () => { try { return /^\/(reset|verify-email)(\/|$)/.test(window.location.pathname || "/"); } catch { return false; } };
   const getIsAccount      = () => { try { return /^\/account(\/|$)/.test(window.location.pathname || "/"); } catch { return false; } };
@@ -52,6 +54,7 @@ export default function StickyDock() {
     getIsElectroOnly() || getIsLow() || getIsVent() || getIsDesign() || getIsConstruction()
   );
   const [isContact, setIsContact] = React.useState(getIsContact());
+  const [isProjects, setIsProjects] = React.useState(getIsProjects());
   const [isAuthPage, setIsAuthPage] = React.useState(getIsAuthPage());
   const [isAccount, setIsAccount] = React.useState(getIsAccount());
   const [isServiceDetail, setIsServiceDetail] = React.useState(getIsServiceDetail());
@@ -174,6 +177,7 @@ export default function StickyDock() {
       setIsLegal(legal);
       setIsElectro(compactService);
       setIsContact(getIsContact());
+      setIsProjects(getIsProjects());
       setIsAuthPage(getIsAuthPage());
       setIsAccount(getIsAccount());
       setIsServiceDetail(getIsServiceDetail());
@@ -249,7 +253,7 @@ export default function StickyDock() {
   }, [go]);
 
   React.useEffect(() => {
-    if (isLegal || isElectro) return;
+    if (isLegal || isElectro || isProjects) return;
     const items = defaultPills
       .map((label, idx) => {
         const el = getSectionEl(label);
@@ -288,7 +292,7 @@ export default function StickyDock() {
       window.removeEventListener("resize", recompute);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLegal, isElectro, defaultPills.join("|")]);
+  }, [isLegal, isElectro, isProjects, defaultPills.join("|")]);
 
   const onPillClick = (label, idx) => {
     if (isLegal) {
@@ -382,7 +386,7 @@ export default function StickyDock() {
     "--pill-h": "48px",
     "--pill-gap": "6px",
   };
-  const dockVars = isAccount ? accountVars : (isContact || isAuthPage) ? contactVars : isLegal ? legalVars : isElectro ? electroVars : defaultVars;
+  const dockVars = isAccount ? accountVars : (isContact || isAuthPage) ? contactVars : isLegal ? legalVars : (isElectro || isProjects) ? electroVars : defaultVars;
 
   /* =============== анимация (инлайн с !important) =============== */
   const panelRef = React.useRef(null);
@@ -485,7 +489,7 @@ export default function StickyDock() {
   }, []);
 
   /* =============== classes =============== */
-  const dockClass = `dock${isLegal ? " is-legal" : ""}${isElectro ? " is-electro" : ""}${(isContact || isAuthPage) ? " is-contact" : ""}${isAccount ? " is-account" : ""}${inObject ? " is-object" : ""}`;
+  const dockClass = `dock${isLegal ? " is-legal" : ""}${isElectro ? " is-electro" : ""}${isProjects ? " is-projects" : ""}${(isContact || isAuthPage) ? " is-contact" : ""}${isAccount ? " is-account" : ""}${inObject ? " is-object" : ""}`;
 
   /* =============== render =============== */
   return (
@@ -536,7 +540,7 @@ export default function StickyDock() {
       <div id="dock-panel" ref={panelRef} className={dockClass} style={dockVars}>
         <div className="dock__inner">
           {/* левый ромб / бренд. На legal и на детальной странице услуги — стрелка «назад» */}
-          {(isLegal || isServiceDetail || objectNumber) ? (
+          {(isLegal || isServiceDetail || objectNumber || isProjects) ? (
             <button
               type="button"
               className="dock__brand"
@@ -565,7 +569,7 @@ export default function StickyDock() {
           )}
 
           {/* центр — скрыт в компактных сервисах и аккаунте */}
-          <div className="dock__group" role="tablist" aria-label="Dock" style={(isElectro || isContact || isAccount || isAuthPage) ? { display: "none" } : undefined}>
+          <div className="dock__group" role="tablist" aria-label="Dock" style={(isElectro || isProjects || isContact || isAccount || isAuthPage) ? { display: "none" } : undefined}>
             {pills.map((t, i) => (
               <button
                 key={t}
@@ -632,10 +636,10 @@ export default function StickyDock() {
               Объекты
             </a>
           ) : (!isLegal && !isContact && !isAuthPage && (
-            isElectro ? (
+            (isElectro || isProjects) ? (
               <a
                 href="/contact"
-                onClick={onElectroCta}
+                onClick={isProjects ? (e) => { e.preventDefault(); go("/contact"); } : onElectroCta}
                 className="electro-cta"
                 role="button"
               >
@@ -822,24 +826,31 @@ export default function StickyDock() {
 
         /* ===== компактные режимы: ровная рамка 6px со всех сторон (как на главной) ===== */
         .dock.is-electro,
+        .dock.is-projects,
         .dock.is-contact{ padding: 6px; }
         /* в компактных режимах убираем сдвиг главной (иначе рамка кривая) */
         .dock.is-electro a.dock__brand,
+        .dock.is-projects button.dock__brand,
         .dock.is-contact a.dock__brand{ left: 0; }
-        .dock.is-electro .dock__inner{
+        .dock.is-electro .dock__inner,
+        .dock.is-projects .dock__inner{
           grid-template-columns: var(--dock-left-tile) auto;  /* c. + кнопка рядом */
           column-gap: 6px;
         }
-        .dock.is-electro .dock__group{ display: none; }
-        .dock.is-electro .electro-cta{
+        .dock.is-electro .dock__group,
+        .dock.is-projects .dock__group{ display: none; }
+        .dock.is-electro .electro-cta,
+        .dock.is-projects .electro-cta{
           width: 121px; height: 60px;
           display: inline-grid; place-items: center;
           background: #FA5D29; color: #000;
           border: 1px solid #FA5D29; border-radius: 6px;
           font-weight: 600; text-decoration: none; white-space: nowrap;
         }
-        .dock.is-electro .electro-cta:hover{ filter: brightness(0.96); }
-        .dock.is-electro .electro-cta:active{ filter: brightness(0.92); }
+        .dock.is-electro .electro-cta:hover,
+        .dock.is-projects .electro-cta:hover{ filter: brightness(0.96); }
+        .dock.is-electro .electro-cta:active,
+        .dock.is-projects .electro-cta:active{ filter: brightness(0.92); }
 
         /* ===== страница «Контакты»: только плитка c. на прозрачной плашке ===== */
         .dock.is-contact .dock__inner{

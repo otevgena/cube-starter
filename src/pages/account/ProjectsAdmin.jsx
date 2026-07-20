@@ -14,6 +14,7 @@ import React from "react";
 import { FLabel, UnderInput, PrimaryBtn } from "@/pages/account/objects/ObjectsSection.jsx";
 import { ProjectCardResponsive } from "@/components/blocks/Projects.jsx";
 import { getProjects, addProject, updateProject, removeProject, moveProject, resetProjects, uploadProjectImage } from "@/data/projects.js";
+import { confirmDialog } from "@/components/common/Confirm.jsx";
 
 const UI = "'Inter Tight','Inter',system-ui";
 const TEXT = "#111";
@@ -192,8 +193,14 @@ function ShotsUploader({ value, onChange }) {
   );
 }
 
-function Field({ label, children }) {
-  return <div style={{ marginBottom: 16 }}><FLabel>{label}</FLabel>{children}</div>;
+function Field({ label, hint, children }) {
+  return (
+    <div style={{ marginBottom: 16 }}>
+      <FLabel>{label}</FLabel>
+      {children}
+      {hint ? <div style={{ marginTop: 6, fontSize: 12, color: MUTED, lineHeight: 1.4 }}>{hint}</div> : null}
+    </div>
+  );
 }
 
 // Форма создания/редактирования одного проекта. При editId != null — режим правки.
@@ -209,8 +216,15 @@ function ProjectForm({ editId, initial, onDone, onCancel }) {
   }), [f, editId]);
 
   const save = () => {
-    if (!f.objectTitle.trim() && !f.name.trim()) { setErr("Укажите хотя бы название объекта или заказчика."); return; }
-    const payload = { ...f, days: Number(f.days) || 0 };
+    if (!f.objectTitle.trim() && !f.customer.trim()) { setErr("Укажите хотя бы название объекта или заказчика."); return; }
+    // Название/заказчик заполняются один раз — дублируем их в поля таблицы (name/client),
+    // чтобы карточка и строка на главной совпадали без повторного ввода.
+    const payload = {
+      ...f,
+      days: Number(f.days) || 0,
+      name: f.customer.trim(),
+      client: f.objectTitle.trim(),
+    };
     try {
       if (editId) updateProject(editId, payload);
       else addProject(payload);
@@ -229,23 +243,28 @@ function ProjectForm({ editId, initial, onDone, onCancel }) {
           <Field label="Логотип заказчика"><LogoUploader value={f.logo} onChange={set("logo")} /></Field>
           <Field label="Снимки объекта (карусель)"><ShotsUploader value={f.shots} onChange={set("shots")} /></Field>
 
-          <div style={{ fontSize: 15, fontWeight: 600, color: TEXT, margin: "24px 0 14px" }}>Карточка</div>
+          <div style={{ fontSize: 15, fontWeight: 600, color: TEXT, margin: "24px 0 4px" }}>Карточка и таблица</div>
+          <div style={{ marginBottom: 14, fontSize: 12.5, color: MUTED, lineHeight: 1.5 }}>
+            Название и заказчик заполняются один раз — они идут и в карточку витрины, и в строку таблицы на главной.
+          </div>
           <Field label="Город"><UnderInput value={f.location} onChange={set("location")} placeholder="Например: Ноябрьск" /></Field>
-          <Field label="Название объекта (крупно на карточке)"><UnderInput value={f.objectTitle} onChange={set("objectTitle")} placeholder="Например: Учебный центр" /></Field>
-          <Field label="Заказчик (подпись под названием)"><UnderInput value={f.customer} onChange={set("customer")} placeholder="Например: Газпром нефть" /></Field>
+          <Field label="Название объекта" hint="Крупный заголовок на карточке и колонка «Название» в таблице.">
+            <UnderInput value={f.objectTitle} onChange={set("objectTitle")} placeholder="Например: Учебный центр" />
+          </Field>
+          <Field label="Заказчик" hint="Подпись на карточке и колонка «Заказчик» в таблице (рядом с логотипом).">
+            <UnderInput value={f.customer} onChange={set("customer")} placeholder="Например: Газпром нефть" />
+          </Field>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-            <Field label="Подпись услуг"><UnderInput value={f.servicesLabel} onChange={set("servicesLabel")} placeholder="Например: 5 услуг" /></Field>
+            <Field label="Год"><UnderInput value={f.year} onChange={set("year")} placeholder="2025" /></Field>
             <Field label="Дней"><UnderInput value={f.days} onChange={(v) => set("days")(v.replace(/[^\d]/g, ""))} placeholder="94" /></Field>
           </div>
-
-          <div style={{ fontSize: 15, fontWeight: 600, color: TEXT, margin: "24px 0 14px" }}>Строка в таблице</div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-            <Field label="Заказчик (таблица)"><UnderInput value={f.name} onChange={set("name")} placeholder="Газпромнефть" /></Field>
-            <Field label="Название (таблица)"><UnderInput value={f.client} onChange={set("client")} placeholder="Учебный центр" /></Field>
-            <Field label="Год"><UnderInput value={f.year} onChange={set("year")} placeholder="2025" /></Field>
-            <Field label="Метка (сноска)"><UnderInput value={f.badge} onChange={set("badge")} placeholder="ННГ" /></Field>
+            <Field label="Подпись услуг" hint="Мелко в углу карточки."><UnderInput value={f.servicesLabel} onChange={set("servicesLabel")} placeholder="Например: 5 услуг" /></Field>
+            <Field label="Метка / сноска" hint="Надстрочная пометка у заказчика в таблице."><UnderInput value={f.badge} onChange={set("badge")} placeholder="ННГ" /></Field>
           </div>
-          <Field label="Услуги"><UnderInput value={f.services} onChange={set("services")} placeholder="СКС, ОПС, ЭО" /></Field>
+          <Field label="Услуги" hint="Колонка «Услуги» в таблице на главной.">
+            <UnderInput value={f.services} onChange={set("services")} placeholder="СКС, ОПС, ЭО" />
+          </Field>
 
           {err && <div style={{ marginTop: 4, marginBottom: 12, fontSize: 13, color: CARROT }}>{err}</div>}
           <div style={{ display: "flex", gap: 12, alignItems: "center", marginTop: 8 }}>
@@ -380,7 +399,7 @@ function ProjectsList({ projects, onEdit, canManage }) {
               {canManage && (
                 <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0, opacity: hov ? 1 : 0, transition: "opacity .14s ease", pointerEvents: hov ? "auto" : "none" }}>
                   <HoverCapsule small onClick={() => onEdit(p.id)}>Изменить</HoverCapsule>
-                  <TrashBtn onClick={() => { if (window.confirm("Удалить проект из витрины?")) removeProject(p.id); }} title="Удалить проект" />
+                  <TrashBtn onClick={async () => { if (await confirmDialog({ title: "Удалить проект?", message: "Проект будет убран из витрины на сайте.", confirmText: "Удалить" })) removeProject(p.id); }} title="Удалить проект" />
                 </div>
               )}
             </div>

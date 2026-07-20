@@ -19,6 +19,7 @@ import HomeMain from '@/components/blocks/HomeMain.jsx'
 import ModalsHost from "@/components/common/Modals.jsx"
 // ⬇️ Хост всплывающих подсказок (тостов)
 import ToastHost from "@/components/common/Toast.jsx"
+import ConfirmHost from "@/components/common/Confirm.jsx"
 
 // ⬇️ LEGAL-страницы
 import TermsPage from '@/pages/legal/terms.jsx'
@@ -554,6 +555,7 @@ export default function App(){
       <StickyDock />
       <ModalsHost />
       <ToastHost />
+      <ConfirmHost />
       {loading && <Preloader onReady={() => setLoading(false)} minMs={1200} />}
       <style>{`
         body.hero-zone .dock__pill.is-active,

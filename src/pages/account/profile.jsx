@@ -4,6 +4,7 @@ import ObjectsSection, { EmployeesModule, TemplatesModule, CreateObjectForm, Und
 import { AccessSheetModal } from "@/components/documents/AccessSheet.jsx";
 import { BTN as MBTN, inputCls, ErrorSlot as MErrorSlot, FancyCheckbox, Label as MLabel, FormShell } from "@/components/common/Modals.jsx";
 import Spinner, { CenterSpinner } from "@/components/common/Spinner.jsx";
+import { confirmDialog } from "@/components/common/Confirm.jsx";
 import ProjectsAdmin from "@/pages/account/ProjectsAdmin.jsx";
 import * as DB from "@/data/objects.js";
 import { setMyAuth, can as permCan, ROLE_LABELS, PERMISSIONS, PERM_GROUP_LABELS, effectivePerms } from "@/lib/perms.js";
@@ -1736,7 +1737,7 @@ function AdminPanelCore({ token, filterGroup }) {
   }, [token, q, filterGroup, reload]);
 
   const del = async (u) => {
-    if (!window.confirm(`Удалить учётную запись «${u.name || u.email}»? Действие необратимо.`)) return;
+    if (!await confirmDialog({ title: "Удалить учётную запись?", message: `Учётная запись «${u.name || u.email}» будет удалена. Действие необратимо.`, confirmText: "Удалить" })) return;
     const id = u.id ?? u._id ?? u.userId ?? u.email;
     const res = await apiAdminDeleteUser(token, id);
     if (!res || res.ok === false) { window.showDockToast?.("Не удалось удалить (проверьте доступ)"); return; }
