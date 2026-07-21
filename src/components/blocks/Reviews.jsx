@@ -25,6 +25,8 @@ const REVIEWS = [
     company: "",
     date: "",
     city: "",
+    // второго отзыва пока нет — кнопка «Читать отзыв» здесь пустышка (ничего не делает)
+    disabled: true,
   },
 ];
 
@@ -139,7 +141,7 @@ function ReviewCard({ review, onRead }) {
         <div className="mt-9">
           <button
             type="button"
-            onClick={onRead}
+            onClick={review.disabled ? undefined : onRead}
             className="inline-flex h-[72px] w-[179px] items-center justify-center rounded-[10px] text-lg text-white ring-[0.5px] ring-inset ring-white transition-colors hover:bg-white hover:text-black"
           >
             Читать отзыв
@@ -179,14 +181,23 @@ function MobileReviewCard({ review, onRead }) {
             </React.Fragment>
           ))}
         </div>
-        <a
-          href={review.pdf}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="mt-7 inline-flex h-[56px] items-center justify-center rounded-[10px] px-6 text-base text-white ring-[0.5px] ring-inset ring-white transition-colors hover:bg-white hover:text-black"
-        >
-          Читать отзыв
-        </a>
+        {review.disabled ? (
+          <button
+            type="button"
+            className="mt-7 inline-flex h-[56px] items-center justify-center rounded-[10px] px-6 text-base text-white ring-[0.5px] ring-inset ring-white transition-colors hover:bg-white hover:text-black"
+          >
+            Читать отзыв
+          </button>
+        ) : (
+          <a
+            href={review.pdf}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-7 inline-flex h-[56px] items-center justify-center rounded-[10px] px-6 text-base text-white ring-[0.5px] ring-inset ring-white transition-colors hover:bg-white hover:text-black"
+          >
+            Читать отзыв
+          </a>
+        )}
         <div className="mt-10 text-right text-sm font-light leading-6">
           Хотите оставить свой?{" "}
           <a href="/contact" className="underline-offset-2 hover:underline">Напишите нам</a>
@@ -220,14 +231,23 @@ function TabletReviewCard({ review, onRead }) {
             </React.Fragment>
           ))}
         </div>
-        <a
-          href={review.pdf}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="mt-7 inline-flex h-[56px] w-[176px] items-center justify-center rounded-[10px] text-base text-white ring-[0.5px] ring-inset ring-white transition-colors hover:bg-white hover:text-black"
-        >
-          Читать отзыв
-        </a>
+        {review.disabled ? (
+          <button
+            type="button"
+            className="mt-7 inline-flex h-[56px] w-[176px] items-center justify-center rounded-[10px] text-base text-white ring-[0.5px] ring-inset ring-white transition-colors hover:bg-white hover:text-black"
+          >
+            Читать отзыв
+          </button>
+        ) : (
+          <a
+            href={review.pdf}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-7 inline-flex h-[56px] w-[176px] items-center justify-center rounded-[10px] text-base text-white ring-[0.5px] ring-inset ring-white transition-colors hover:bg-white hover:text-black"
+          >
+            Читать отзыв
+          </a>
+        )}
         <div className="mt-auto pt-10 text-sm font-light leading-7">
           Хотите оставить свой?{" "}
           <a href="/contact" className="underline-offset-2 hover:underline">Напишите нам</a>

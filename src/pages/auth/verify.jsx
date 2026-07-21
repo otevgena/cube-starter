@@ -111,7 +111,7 @@ export default function VerifyEmailPage({ _preview = null }) {
             <button
               type="button"
               onClick={goLogin}
-              className="block h-[60px] w-[210px] rounded-[10px] bg-black text-sm font-semibold uppercase tracking-[0.02em] text-white transition-colors hover:bg-neutral-800"
+              className="block h-[60px] w-[210px] rounded-[10px] bg-[#1c1c1c] text-sm font-semibold uppercase tracking-[0.02em] text-white transition-colors hover:bg-[#2a2a2a]"
             >
               Войти
             </button>

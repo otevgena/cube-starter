@@ -237,7 +237,7 @@ function SearchField({ className = "", white = false, value, onChange, onFocus, 
         white ? "bg-white" : "bg-field"
       } ${className}`}
     >
-      <Search size={18} className="shrink-0 text-neutral-500" />
+      <Search size={18} strokeWidth={2} className="shrink-0 text-[#222222]" />
       <input
         type="text"
         placeholder="Поиск"
@@ -247,7 +247,7 @@ function SearchField({ className = "", white = false, value, onChange, onFocus, 
         onFocus={onFocus}
         autoFocus={autoFocus}
         readOnly={readOnly}
-        className="w-full min-w-0 bg-transparent text-sm leading-[28px] text-ink outline-none placeholder:text-neutral-500"
+        className="w-full min-w-0 bg-transparent text-[14px] font-light leading-[28px] text-[#222222] outline-none placeholder:text-[#222222]"
       />
     </label>
   );

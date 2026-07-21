@@ -40,13 +40,18 @@ export default function ModalsHost() {
     return () => document.body.classList.remove("has-modal");
   }, [view]);
 
-  // блокируем скролл под модалкой без «прыжка» (html overflow + scrollbar-gutter:stable)
+  // Блокируем скролл фона под модалкой ТОЛЬКО через overflow:hidden на <html>.
+  // Раньше здесь дополнительно ставили body{position:fixed} (чтобы клавиатура на телефоне
+  // не таскала фон), но именно это ломало центрирование: WebKit/iPadOS Safari позиционирует
+  // fixed-оверлей относительно fixed-body (высотой во всю страницу), а не вьюпорта, и карточка
+  // уезжала вниз. Теперь скролл ведёт сам оверлей (он overflow-y:auto), фону скроллить нечего,
+  // поэтому body не трогаем. scrollbar-gutter:stable из index.css не даёт странице дёрнуться.
   React.useEffect(() => {
     if (!view) return;
     const root = document.documentElement;
     // !important — иначе html{overflow-y:scroll !important} из index.css не даст залочить скролл
     root.style.setProperty("overflow", "hidden", "important");
-    return () => { root.style.removeProperty("overflow"); };
+    return () => root.style.removeProperty("overflow");
   }, [view]);
 
   if (!view) return null;
@@ -66,7 +71,7 @@ export default function ModalsHost() {
 
 /* ===== Общие классы ===== */
 export const BTN =
-  "h-[72px] rounded-[10px] bg-black px-[18px] text-[18px] font-semibold tracking-[.02em] text-white transition-colors hover:bg-[#2f2f2f] active:translate-y-px disabled:opacity-60";
+  "h-[72px] rounded-[10px] bg-[#1c1c1c] px-[18px] text-[18px] font-semibold tracking-[.02em] text-white transition-colors hover:bg-[#2f2f2f] active:translate-y-px disabled:opacity-60";
 // подчёркивание как у «Генеральный директор»: серая база + выезжающая тёмная линия
 export const LINK =
   "relative inline-block pb-0.5 font-semibold text-[#111] no-underline " +
@@ -122,15 +127,21 @@ function ModalShell({ children, onClose, width }) {
     <div
       aria-modal="true"
       role="dialog"
-      className="fixed inset-0 z-[1000] animate-svcfade bg-black/55 font-tight md:flex md:items-center md:justify-center md:p-6"
+      className="fixed inset-0 z-[1000] animate-svcfade overflow-y-auto overflow-x-hidden bg-black/55 font-tight"
       onClick={onClose}
     >
-      <div
-        className="relative h-full w-full overflow-y-auto overflow-x-hidden bg-white text-[#111] md:h-auto md:max-h-[calc(100dvh-48px)] md:w-[var(--mw)] md:overflow-hidden md:rounded-[10px] md:border md:border-[#dcdcdc] md:shadow-[0_16px_48px_rgba(0,0,0,.35)]"
-        style={{ ["--mw"]: `min(${width || 980}px, calc(100vw - 48px))` }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {children}
+      {/* Обёртка-центровщик: min-h-full гарантирует высоту не меньше вьюпорта →
+          короткая карточка центрируется (md:items-center), а если контент выше экрана,
+          обёртка растёт и оверлей её прокручивает — карточка НИКОГДА не «залипает» внизу.
+          На телефоне (base) items-stretch растягивает лист на весь экран. */}
+      <div className="flex min-h-full w-full items-stretch justify-center md:items-center md:p-6">
+        <div
+          className="relative w-full overflow-x-hidden bg-white text-[#111] md:my-auto md:h-auto md:w-[var(--mw)] md:rounded-[10px] md:border md:border-[#dcdcdc] md:shadow-[0_16px_48px_rgba(0,0,0,.35)]"
+          style={{ ["--mw"]: `min(${width || 980}px, calc(100vw - 48px))` }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {children}
+        </div>
       </div>
 
       {/* крестик — мобилка: тёмный квадрат в правом верхнем углу (как awwwards) */}

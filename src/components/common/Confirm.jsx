@@ -48,6 +48,7 @@ function settle(id, value) {
 
 export default function ConfirmHost() {
   const [dlg, setDlg] = React.useState(null); // { id, title, message, confirmText, cancelText, tone }
+  const [phone, setPhone] = React.useState(false);
   const confirmRef = React.useRef(null);
   const cancelRef = React.useRef(null);
 
@@ -55,6 +56,15 @@ export default function ConfirmHost() {
     const on = (e) => setDlg(e.detail || null);
     window.addEventListener(OPEN_EVT, on);
     return () => window.removeEventListener(OPEN_EVT, on);
+  }, []);
+
+  React.useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return;
+    const mq = window.matchMedia("(max-width: 640px)");
+    const on = () => setPhone(mq.matches);
+    on();
+    try { mq.addEventListener("change", on); } catch { mq.addListener(on); }
+    return () => { try { mq.removeEventListener("change", on); } catch { mq.removeListener(on); } };
   }, []);
 
   const close = React.useCallback((value) => {
@@ -98,34 +108,35 @@ export default function ConfirmHost() {
         aria-label={dlg.title}
         style={{
           width: "min(94vw, 420px)",
-          background: "#fff",
-          borderRadius: 16,
+          // Фон карточки — как у страницы сайта (#f8f8f8), не белый.
+          background: "#f8f8f8",
+          borderRadius: 12,
           boxShadow: "0 24px 64px rgba(0,0,0,.28)",
           border: "1px solid rgba(0,0,0,.06)",
-          padding: "24px 24px 20px",
+          padding: phone ? "20px 18px 18px" : "24px 24px 20px",
           fontFamily: UI,
           animation: "cubeConfirmIn .2s cubic-bezier(.2,.8,.2,1)",
         }}
       >
-        <div style={{ fontSize: 18, fontWeight: 600, color: "#111", lineHeight: 1.3 }}>{dlg.title}</div>
+        <div style={{ fontSize: phone ? 17 : 18, fontWeight: 600, color: "#111", lineHeight: 1.3 }}>{dlg.title}</div>
         {dlg.message ? (
           <div style={{ marginTop: 10, fontSize: 14.5, fontWeight: 400, color: "#666", lineHeight: 1.5 }}>{dlg.message}</div>
         ) : null}
 
-        <div style={{ marginTop: 22, display: "flex", justifyContent: "flex-end", gap: 10 }}>
+        <div style={{ marginTop: 22, display: "flex", flexDirection: phone ? "column-reverse" : "row", justifyContent: "flex-end", gap: 10 }}>
           <button
             ref={cancelRef}
             type="button"
             onClick={() => close(false)}
             style={{
-              appearance: "none", cursor: "pointer",
+              appearance: "none", cursor: "pointer", width: phone ? "100%" : undefined,
               fontFamily: UI, fontSize: 14, fontWeight: 500, color: "#111",
-              padding: "10px 18px", borderRadius: 10,
-              background: "#fff", border: "1px solid rgba(0,0,0,.16)",
-              transition: "background .14s ease, border-color .14s ease",
+              padding: phone ? "13px 18px" : "10px 18px", borderRadius: 10,
+              background: "transparent", border: "none",
+              transition: "background .14s ease",
             }}
-            onMouseEnter={(e) => { e.currentTarget.style.background = "#f4f4f4"; }}
-            onMouseLeave={(e) => { e.currentTarget.style.background = "#fff"; }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(0,0,0,.06)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
           >
             {dlg.cancelText}
           </button>
@@ -134,9 +145,9 @@ export default function ConfirmHost() {
             type="button"
             onClick={() => close(true)}
             style={{
-              appearance: "none", cursor: "pointer",
-              fontFamily: UI, fontSize: 14, fontWeight: 600, color: danger ? "#fff" : "#fff",
-              padding: "10px 18px", borderRadius: 10,
+              appearance: "none", cursor: "pointer", width: phone ? "100%" : undefined,
+              fontFamily: UI, fontSize: 14, fontWeight: 600, color: "#fff",
+              padding: phone ? "13px 18px" : "10px 18px", borderRadius: 10,
               background: danger ? CARROT : "#111",
               border: `1px solid ${danger ? CARROT : "#111"}`,
               transition: "filter .14s ease",

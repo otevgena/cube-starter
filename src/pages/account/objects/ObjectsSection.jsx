@@ -30,7 +30,7 @@ const backBtn = { border: "none", background: "none", padding: 0, cursor: "point
 const secLabel = { fontSize: 12, fontWeight: 600, letterSpacing: ".05em", textTransform: "uppercase", color: MUTED };
 const h1 = { fontSize: 24, fontWeight: 600, color: TEXT };
 const inputStyle = { height: 40, padding: "0 12px", borderRadius: 8, border: `1px solid ${LINE}`, background: "#fff", fontFamily: UI, fontSize: 14, color: TEXT, outline: "none", minWidth: 0, width: "100%" };
-const darkBtn = { height: 40, padding: "0 16px", borderRadius: 8, border: "none", background: "#111", color: "#fff", fontFamily: UI, fontSize: 13, fontWeight: 600, cursor: "pointer", flexShrink: 0, transition: "background-color .15s ease" };
+const darkBtn = { height: 40, padding: "0 16px", borderRadius: 8, border: "none", background: "#1c1c1c", color: "#fff", fontFamily: UI, fontSize: 13, fontWeight: 600, cursor: "pointer", flexShrink: 0, transition: "background-color .15s ease" };
 // Чёрная кнопка с hover как у «Ищу работу» в шапке (#111 → #262626). Наследует darkBtn + любой override через style.
 function DarkBtn({ children, onClick, disabled, style, type = "button", ...rest }) {
   const base = { ...darkBtn, ...style };
@@ -209,11 +209,11 @@ function ListHead({ label, count }) {
   );
 }
 // Строка списка с hover-подсветкой и пунктиром снизу. onOpen делает всю строку «проваливаемой».
-function ListRow({ onOpen, children }) {
+function ListRow({ onOpen, children, className }) {
   const [h, setH] = React.useState(false);
   return (
     <>
-      <div onClick={onOpen} onMouseEnter={() => setH(true)} onMouseLeave={() => setH(false)}
+      <div onClick={onOpen} onMouseEnter={() => setH(true)} onMouseLeave={() => setH(false)} className={className}
         style={{ display: "flex", alignItems: "center", gap: 16, padding: "20px 8px", margin: "0 -8px", cursor: onOpen ? "pointer" : "default", background: h && onOpen ? "rgba(0,0,0,.02)" : "transparent", transition: "background-color .14s ease" }}>
         {children}
       </div>
@@ -273,10 +273,12 @@ function Select({ value, options, onChange, placeholder = "выбрать", widt
 
 /* ---- кнопка с hover-заливкой (как «Оставить заявку») ---- */
 // Кнопка-капсула — идентична «Подробнее» в услугах: контур → чёрная заливка на hover, текст белый.
-export function FillBtn({ children, onClick, href, download, fill = "#111", tiny, big }) {
+export function FillBtn({ children, onClick, href, download, fill = "#111", tiny, big, full, flat }) {
   const [h, setH] = React.useState(false);
   const height = big ? 44 : tiny ? 34 : 42;
-  const st = { display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, height, padding: tiny ? "0 14px" : "0 18px", borderRadius: 12, border: `1px solid ${fill}`, background: h ? fill : "transparent", color: h ? "#fff" : fill, fontFamily: UI, fontSize: tiny ? 13 : 14, fontWeight: 400, cursor: "pointer", textDecoration: "none", userSelect: "none", transition: "background-color .16s ease, color .16s ease", flexShrink: 0, whiteSpace: "nowrap" };
+  // По умолчанию — тонкий контур (как было). flat — без контура (используем только в
+  // форме «Создать объект», где так смотрится чище). При наведении заливается цветом.
+  const st = { display: full ? "flex" : "inline-flex", width: full ? "100%" : undefined, alignItems: "center", justifyContent: "center", gap: 8, height, padding: tiny ? "0 14px" : "0 18px", borderRadius: 12, border: flat ? "none" : `1px solid ${fill}`, background: h ? fill : "transparent", color: h ? "#fff" : fill, fontFamily: UI, fontSize: tiny ? 13 : 14, fontWeight: 400, cursor: "pointer", textDecoration: "none", userSelect: "none", transition: "background-color .16s ease, color .16s ease", flexShrink: 0, whiteSpace: "nowrap" };
   const on = { onMouseEnter: () => setH(true), onMouseLeave: () => setH(false) };
   if (href) return <a href={href} download={download} style={st} {...on}>{children}</a>;
   return <button type="button" onClick={onClick} style={st} {...on}>{children}</button>;
@@ -300,6 +302,25 @@ function IconTrash({ size = 18, color = "currentColor" }) {
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M3 6h18" /><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M10 11v6M14 11v6" />
     </svg>
+  );
+}
+/* ---- иконки действий над документом (мобилка): без контуров ---- */
+function IconEye({ size = 21 }) { return (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z" /><circle cx="12" cy="12" r="3" /></svg>); }
+function IconEyeOff({ size = 21 }) { return (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M17.9 17.9A10.1 10.1 0 0 1 12 20C5 20 1 12 1 12a18.5 18.5 0 0 1 5.1-5.9m3.8-1.9A9.1 9.1 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.2 3.2m-6.7-1.1a3 3 0 1 1-4.2-4.2" /><path d="M1 1l22 22" /></svg>); }
+function IconDownload({ size = 21 }) { return (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><path d="M7 10l5 5 5-5" /><path d="M12 15V3" /></svg>); }
+function IconOpen({ size = 21 }) { return (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h6v6" /><path d="M9 21H3v-6" /><path d="M21 3l-8 8" /><path d="M3 21l8-8" /></svg>); }
+function IconPencil({ size = 20 }) { return (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" /></svg>); }
+function IconReset({ size = 20 }) { return (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8" /><path d="M3 3v5h5" /></svg>); }
+/* Иконочная кнопка действия (без рамки) — единый стиль с верхними иконками
+   (лог/уведомления): мягкий серый значок, скруглённый ховер-фон. */
+function DocIconBtn({ onClick, title, color = "#666", children }) {
+  return (
+    <button type="button" onClick={onClick} title={title} aria-label={title}
+      style={{ width: 40, height: 40, display: "grid", placeItems: "center", borderRadius: 10, border: "none", background: "transparent", color, cursor: "pointer", padding: 0, flexShrink: 0, transition: "background-color .15s ease" }}
+      onMouseEnter={(e) => { e.currentTarget.style.background = "#efefee"; }}
+      onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}>
+      {children}
+    </button>
   );
 }
 function IconAction({ onClick, children, prompt }) {
@@ -334,7 +355,7 @@ function canPreview(doc) {
 
 /* ---- кнопка «Скачать/Открыть»: presigned-ссылка (key) или legacy base64 (url) ----
    preview=true — открыть просмотрщик в модалке, иначе — скачивание (attachment). ---- */
-function DownloadBtn({ doc, label = "Скачать", preview = false }) {
+function DownloadBtn({ doc, label = "Скачать", preview = false, icon = false, fill }) {
   const [busy, setBusy] = React.useState(false);
   const [viewing, setViewing] = React.useState(false);
   const download = async () => {
@@ -358,10 +379,12 @@ function DownloadBtn({ doc, label = "Скачать", preview = false }) {
     if (preview) { if (doc.key || doc.url) setViewing(true); else window.showDockToast?.("Файл не прикреплён", 3000, "error"); }
     else download();
   };
-  if (busy) return <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", height: 34, minWidth: 44, flexShrink: 0 }}><Spinner size={18} /></span>;
+  if (busy) return <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", height: icon ? 38 : 34, width: icon ? 40 : undefined, minWidth: icon ? 40 : 44, flexShrink: 0 }}><Spinner size={18} /></span>;
   return (
     <>
-      <FillBtn tiny onClick={onClick}>{label}</FillBtn>
+      {icon
+        ? <DocIconBtn onClick={onClick} title={label}>{preview ? <IconOpen /> : <IconDownload />}</DocIconBtn>
+        : <FillBtn tiny fill={fill} onClick={onClick}>{label}</FillBtn>}
       {viewing && <DocViewer doc={doc} onClose={() => setViewing(false)} />}
     </>
   );
@@ -379,6 +402,7 @@ function dataUrlToArrayBuffer(dataUrl) {
 function DocViewer({ doc, onClose }) {
   const ext = extOf(doc.type || doc.file || doc.title);
   const name = doc.file || doc.title || "Документ";
+  const phone = useIsPhone();
   const [st, setSt] = React.useState({ loading: true, error: "", kind: "", url: "", html: "", text: "", sheets: null });
   const [sheet, setSheet] = React.useState(0);
 
@@ -429,9 +453,13 @@ function DocViewer({ doc, onClose }) {
     } catch { window.showDockToast?.("Не удалось скачать файл", 3000, "error"); }
   };
 
-  const frame = { border: `1px solid ${LINE}`, borderRadius: 10, background: "#fff", width: "100%", height: "72vh" };
-  return (
-    <Modal title={name} onClose={onClose} width={960}>
+  // На телефоне вьюер — на весь экран, поэтому контент тянется по высоте вьюпорта
+  // (за вычетом верхней панели с крестом); на ПК — прежние 72vh внутри модалки.
+  const vh = phone ? "calc(100dvh - 128px)" : "72vh";
+  const frame = { border: phone ? "none" : `1px solid ${LINE}`, borderRadius: phone ? 0 : 10, background: "#fff", width: "100%", height: vh };
+
+  const content = (
+    <>
       <style>{`
         .doc-view img{ max-width:100%; height:auto; }
         .doc-view table{ border-collapse:collapse; width:100%; }
@@ -443,7 +471,7 @@ function DocViewer({ doc, onClose }) {
         .doc-sheet tr:first-child td{ background:#f6f6f6; font-weight:600; }
       `}</style>
       {st.loading ? (
-        <CenterSpinner minHeight={320} label="Открываем документ…" />
+        <CenterSpinner minHeight={phone ? "60vh" : 320} label="Открываем документ…" />
       ) : st.error ? (
         <div style={{ minHeight: 200, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14, textAlign: "center" }}>
           <div style={{ fontSize: 14, fontWeight: 300, color: MUTED }}>Не удалось открыть файл в браузере.</div>
@@ -452,13 +480,13 @@ function DocViewer({ doc, onClose }) {
       ) : st.kind === "pdf" ? (
         <iframe title={name} src={st.url} style={frame} />
       ) : st.kind === "image" ? (
-        <div style={{ display: "flex", justifyContent: "center", background: "#f6f6f6", borderRadius: 10, padding: 12 }}>
-          <img src={st.url} alt={name} style={{ maxWidth: "100%", maxHeight: "72vh", objectFit: "contain" }} />
+        <div style={{ display: "flex", justifyContent: "center", background: "#f6f6f6", borderRadius: phone ? 0 : 10, padding: phone ? 0 : 12 }}>
+          <img src={st.url} alt={name} style={{ maxWidth: "100%", maxHeight: vh, objectFit: "contain" }} />
         </div>
       ) : st.kind === "text" ? (
-        <pre style={{ ...frame, height: "auto", maxHeight: "72vh", overflow: "auto", margin: 0, padding: 16, fontSize: 13, lineHeight: 1.5, whiteSpace: "pre-wrap", wordBreak: "break-word", fontFamily: "ui-monospace,Menlo,Consolas,monospace", color: TEXT }}>{st.text}</pre>
+        <pre style={{ ...frame, height: "auto", maxHeight: vh, overflow: "auto", margin: 0, padding: 16, fontSize: 13, lineHeight: 1.5, whiteSpace: "pre-wrap", wordBreak: "break-word", fontFamily: "ui-monospace,Menlo,Consolas,monospace", color: TEXT }}>{st.text}</pre>
       ) : st.kind === "html" ? (
-        <div className="doc-view" style={{ ...frame, height: "auto", maxHeight: "72vh", overflow: "auto", padding: "24px 28px", fontSize: 14, lineHeight: 1.6, color: TEXT }} dangerouslySetInnerHTML={{ __html: st.html }} />
+        <div className="doc-view" style={{ ...frame, height: "auto", maxHeight: vh, overflow: "auto", padding: phone ? "16px 16px 24px" : "24px 28px", fontSize: 14, lineHeight: 1.6, color: TEXT }} dangerouslySetInnerHTML={{ __html: st.html }} />
       ) : st.kind === "sheets" ? (
         <div>
           {st.sheets.length > 1 && (
@@ -469,7 +497,7 @@ function DocViewer({ doc, onClose }) {
               ))}
             </div>
           )}
-          <div className="doc-sheet" style={{ ...frame, height: "auto", maxHeight: "72vh", overflow: "auto", padding: 0 }} dangerouslySetInnerHTML={{ __html: st.sheets[sheet].html }} />
+          <div className="doc-sheet" style={{ ...frame, height: "auto", maxHeight: vh, overflow: "auto", padding: 0 }} dangerouslySetInnerHTML={{ __html: st.sheets[sheet].html }} />
         </div>
       ) : (
         <div style={{ minHeight: 200, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14, textAlign: "center" }}>
@@ -477,7 +505,35 @@ function DocViewer({ doc, onClose }) {
           <FillBtn onClick={downloadFallback}>Скачать файл</FillBtn>
         </div>
       )}
-    </Modal>
+    </>
+  );
+
+  if (phone) return <DocViewerFullscreen name={name} onClose={onClose}>{content}</DocViewerFullscreen>;
+  return <Modal title={name} onClose={onClose} width={960}>{content}</Modal>;
+}
+
+/* Полноэкранный вьюер для телефона: верхняя панель (имя файла + крест как при логине),
+   контент во всю оставшуюся высоту. Крест — квадрат сверху справа, как в мобильной модалке. */
+function DocViewerFullscreen({ name, onClose, children }) {
+  React.useEffect(() => { const f = (e) => { if (e.key === "Escape") onClose(); }; window.addEventListener("keydown", f); return () => window.removeEventListener("keydown", f); }, [onClose]);
+  React.useEffect(() => {
+    document.body.classList.add("has-modal");
+    const root = document.documentElement;
+    root.style.setProperty("overflow", "hidden", "important");
+    return () => { document.body.classList.remove("has-modal"); root.style.removeProperty("overflow"); };
+  }, []);
+  return createPortal(
+    <div className="animate-svcfade" style={{ position: "fixed", inset: 0, zIndex: 1000, background: "#fff", display: "flex", flexDirection: "column", fontFamily: UI }}>
+      <div style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 12, height: 56, paddingLeft: 16, borderBottom: `1px solid ${LINE}` }}>
+        <div style={{ flex: 1, minWidth: 0, fontSize: 15, fontWeight: 600, color: TEXT, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name}</div>
+        <button type="button" aria-label="Закрыть" title="Закрыть" onClick={onClose}
+          style={{ flexShrink: 0, width: 56, height: 56, display: "grid", placeItems: "center", background: "#111", color: "#fff", border: "none", cursor: "pointer" }}>
+          <svg viewBox="0 0 24 24" width="21" height="21" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
+        </button>
+      </div>
+      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: 16 }}>{children}</div>
+    </div>,
+    document.body
   );
 }
 
@@ -487,6 +543,26 @@ function Dotted() { return <div aria-hidden="true" style={{ height: 1, backgroun
 
 /* ---- фильтр-бар (стиль скрина: пилюли + счётчик + сброс) ---- */
 export function FilterBar({ search, filters, activeCount, onReset }) {
+  const lg = useIsLg();
+  // Мобилка: поля по ДВА на строку, РАВНОЙ ширины; внутренние отступы 6px везде;
+  // без счётчика применённых фильтров и без «Сбросить фильтры».
+  if (!lg) {
+    const cell = { flex: "1 1 calc(50% - 3px)", minWidth: 0 };
+    return (
+      <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", background: FILTER_BG, borderRadius: 10, padding: 6 }}>
+        {search && (
+          <div style={cell}>
+            <SearchInput value={search.value} onChange={search.onChange} placeholder={search.placeholder} width="100%" bare />
+          </div>
+        )}
+        {filters.map((f, i) => (
+          <div key={i} style={cell}>
+            <Select pill value={f.value} onChange={f.onChange} options={f.options} placeholder={f.placeholder} width="100%" />
+          </div>
+        ))}
+      </div>
+    );
+  }
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", background: FILTER_BG, borderRadius: 10, padding: 10 }}>
       {search && <SearchInput value={search.value} onChange={search.onChange} placeholder={search.placeholder} width={280} bare />}
@@ -500,6 +576,18 @@ export function FilterBar({ search, filters, activeCount, onReset }) {
       </div>
     </div>
   );
+}
+
+/* десктоп ЛК ≥1024px? (единый брейкпоинт lg — как в остальной мобильной адаптации) */
+function useIsLg() {
+  const [lg, setLg] = React.useState(() => (typeof window !== "undefined" ? window.innerWidth >= 1024 : true));
+  React.useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1024px)");
+    const on = () => setLg(mq.matches);
+    on(); mq.addEventListener("change", on);
+    return () => mq.removeEventListener("change", on);
+  }, []);
+  return lg;
 }
 
 /* десктоп ≥768px? (для единственного крестика — без конфликта Tailwind vs inline style) */
@@ -588,14 +676,16 @@ function AdminObjectsList() {
 
   return (
     <div style={{ fontFamily: UI, marginTop: 8 }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+      {/* ПК: заголовок слева + кнопка справа над фильтром. На мобилке весь ряд скрыт —
+          заголовок «Объекты» уже в шапке (aside), а кнопку показываем под фильтром. */}
+      <div className="hidden items-center justify-between gap-3 lg:flex">
         <div><div style={h1}>Объекты</div><div style={{ marginTop: 6, fontSize: 14, fontWeight: 300, color: MUTED }}>Управление объектами заказчиков.</div></div>
         <FillBtn big onClick={() => setCreating(true)}>+ Создать объект</FillBtn>
       </div>
 
-      <div style={{ marginTop: 18 }}>
+      <div className="mt-0 lg:mt-[18px]">
         <FilterBar
-          search={{ value: q, onChange: setQ, placeholder: "Поиск по объектам…" }}
+          search={{ value: q, onChange: setQ, placeholder: "Поиск..." }}
           filters={[
             { value: fStatus, onChange: setFStatus, width: 170, placeholder: "Статус", options: [{ value: "", label: "Все статусы" }, ...STATUS_OPTS] },
             { value: fResp, onChange: setFResp, width: 190, placeholder: "Ответственный", options: [{ value: "", label: "Все ответственные" }, ...resps.map((r) => ({ value: r, label: r }))] },
@@ -605,7 +695,12 @@ function AdminObjectsList() {
         />
       </div>
 
-      <div style={{ marginTop: 26 }}>
+      {/* Мобилка: «Создать объект» под фильтром, по центру. Отступ до кнопки = отступу под ней. */}
+      <div className="mt-3 flex justify-center lg:hidden">
+        <FillBtn flat big onClick={() => setCreating(true)}>+ Создать объект</FillBtn>
+      </div>
+
+      <div className="mt-3 lg:mt-[26px]">
         <ListHead label="Объекты" count={list.length} />
         <DottedLine />
         {list.map((o) => {
@@ -717,6 +812,7 @@ function AccountPicker({ accounts, value, onPick, loading }) {
 // и описание, при правке сохраняем недостающее поле.
 const stTitle = (s) => (typeof s === "string" ? s : (s && s.title) || "");
 const stDesc = (s) => (typeof s === "string" ? "" : (s && s.description) || "");
+const stStatus = (s) => (typeof s === "string" ? "not_started" : (s && s.status) || "not_started");
 
 // Поле «что входит в этап» — компактный триггер + выпадающая панель в нашем стиле.
 // Пункты вносятся отдельными строками (каждый как «— пункт»), хранятся строкой
@@ -900,12 +996,24 @@ function CoExecutorsField({ value, onChange, respId = "", respName = "", respRol
 // при наведении разворачивается список команды (наш стиль). Кружков нет — только имя.
 function RespHover({ name, coExecutors }) {
   const list = Array.isArray(coExecutors) ? coExecutors : [];
+  const phone = useIsPhone();
   const [hover, setHover] = React.useState(false);
+  // На телефоне поповер открывается ТАПом (наведения нет) — закрываем по тапу вне его.
+  React.useEffect(() => {
+    if (!phone || !hover) return;
+    const close = () => setHover(false);
+    const t = setTimeout(() => document.addEventListener("click", close), 0);
+    return () => { clearTimeout(t); document.removeEventListener("click", close); };
+  }, [phone, hover]);
   if (!name) return null;
   if (!list.length) return <span>{name}</span>;
+  // Внутри кликабельной строки списка: на телефоне гасим клик, чтобы тап по имени
+  // раскрывал соисполнителей, а не открывал объект.
+  const wrapProps = phone
+    ? { onClick: (e) => { e.stopPropagation(); e.preventDefault(); setHover((v) => !v); } }
+    : { onMouseEnter: () => setHover(true), onMouseLeave: () => setHover(false) };
   return (
-    <span style={{ position: "relative", display: "inline-block" }}
-      onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
+    <span style={{ position: "relative", display: "inline-block" }} {...wrapProps}>
       <span style={{ boxShadow: "inset 0 -1px 0 0 #d7d7d7", boxDecorationBreak: "clone", cursor: "pointer", borderBottom: "1px dotted transparent" }}>{name}</span>
       <span style={{ marginLeft: 5, color: "#b3b3b3", fontVariantNumeric: "tabular-nums" }}>+{list.length}</span>
       {hover && (
@@ -926,24 +1034,88 @@ function RespHover({ name, coExecutors }) {
   );
 }
 
+/* Телефон ≤640px — на нём этап рисуется карточкой (drag за ⠿ не работает на тач). */
+function useIsPhone() {
+  const [phone, setPhone] = React.useState(() => (typeof window !== "undefined" ? window.innerWidth <= 640 : false));
+  React.useEffect(() => {
+    const mq = window.matchMedia("(max-width: 640px)");
+    const on = () => setPhone(mq.matches);
+    on(); mq.addEventListener("change", on);
+    return () => mq.removeEventListener("change", on);
+  }, []);
+  return phone;
+}
+
+/* «Подвал» карточки этапа на мобилке: две крупные стрелки ↑/↓ во всю ширину, разделённые
+   тонкой чертой. Большие тап-цели вместо ⠿-drag (не срабатывает на тач). Над ним — наш пунктир. */
+/* Компактная квадратная кнопка-стрелка (перестановка в раскрытом этапе-аккордеоне). */
+function StepArrow({ dir, disabled, onClick, label }) {
+  return (
+    <button type="button" disabled={disabled} onClick={onClick} aria-label={label}
+      style={{ width: 44, height: 40, display: "grid", placeItems: "center", border: "none", background: "transparent", color: disabled ? "#d0d0d0" : "#5a5a5a", cursor: disabled ? "default" : "pointer", padding: 0 }}>
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: dir === "down" ? "rotate(180deg)" : "none" }}><path d="M6 15l6-6 6 6" /></svg>
+    </button>
+  );
+}
+function ReorderBar({ up, down }) {
+  const btn = (dir, o) => (
+    <button type="button" disabled={o.disabled} onClick={o.onClick} aria-label={o.label}
+      style={{ flex: 1, height: 40, display: "grid", placeItems: "center", border: "none", background: "transparent", color: o.disabled ? "#cdcdcd" : "#555", cursor: o.disabled ? "default" : "pointer", padding: 0 }}>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: dir === "down" ? "rotate(180deg)" : "none" }}><path d="M6 15l6-6 6 6" /></svg>
+    </button>
+  );
+  return (
+    <div style={{ marginTop: 10 }}>
+      <div aria-hidden="true" style={{ height: 1, backgroundImage: "repeating-linear-gradient(to right,#d3d3d3 0 1px,rgba(0,0,0,0) 1px 8px)" }} />
+      <div style={{ display: "flex", alignItems: "stretch" }}>
+        {btn("up", up)}
+        <span aria-hidden="true" style={{ width: 1, alignSelf: "center", height: 18, background: "#e0e0e0", flexShrink: 0 }} />
+        {btn("down", down)}
+      </div>
+    </div>
+  );
+}
+
 function StageListEditor({ stages, setStages }) {
+  const phone = useIsPhone();
+  const [openIdx, setOpenIdx] = React.useState(null); // раскрытый этап на мобилке (аккордеон) — как в StagesEditor
   const [newStage, setNewStage] = React.useState("");
-  const [pickOpen, setPickOpen] = React.useState(false);
   const addStage = () => { const s = newStage.trim(); if (!s) return; setStages((v) => [...v, s]); setNewStage(""); };
   const dragFrom = React.useRef(null);
   const [dragIdx, setDragIdx] = React.useState(null);
   const [overIdx, setOverIdx] = React.useState(null);
   const editAt = (i, val) => setStages((prev) => prev.map((x, j) => (j === i ? (typeof x === "string" ? val : { ...x, title: val }) : x)));
-  // Описание превращает строку-этап в объект {title, description} и обратно (пустое → снова строка).
-  const setDescAt = (i, desc) => setStages((prev) => prev.map((x, j) => {
+  // Описание/статус превращают строку-этап в объект и обратно (пустое описание при
+  // статусе «не начат» → снова строка, чтобы не тащить лишние поля).
+  const patchAt = (i, patch) => setStages((prev) => prev.map((x, j) => {
     if (j !== i) return x;
-    const title = stTitle(x);
-    return desc && desc.trim() ? { title, description: desc } : title;
+    const next = { title: stTitle(x), description: stDesc(x), status: stStatus(x), ...patch };
+    if (!next.description && next.status === "not_started") return next.title; // компактно
+    if (!next.description) delete next.description;
+    if (next.status === "not_started") delete next.status;
+    return next;
   }));
+  const setDescAt = (i, desc) => patchAt(i, { description: desc && desc.trim() ? desc : "" });
+  const setStatusAt = (i, status) => patchAt(i, { status });
+  // Ссылки на карточки этапов + удержание перемещённой карточки в поле зрения:
+  // раскрытый (высокий) этап при сдвиге ↑/↓ иначе «уезжал» из вида (скачок скролла).
+  const cardRefs = React.useRef({});
+  const [pendingScroll, setPendingScroll] = React.useState(null);
+  React.useLayoutEffect(() => {
+    if (pendingScroll == null) return;
+    const el = cardRefs.current[pendingScroll];
+    try { el && el.scrollIntoView && el.scrollIntoView({ block: "nearest" }); } catch {}
+    setPendingScroll(null);
+  }, [pendingScroll]);
   // Перестановка (кнопки ↑/↓ — надёжно и на тач-экране; drag — как дополнение).
   const move = (from, to) => {
     if (to < 0 || to >= stages.length || from === to) return;
     setStages((prev) => { const next = prev.slice(); const [m] = next.splice(from, 1); next.splice(to, 0, m); return next; });
+  };
+  // Сдвиг из аккордеона: двигаем, ведём раскрытие за этапом и держим его в кадре.
+  const reorder = (from, to) => {
+    if (to < 0 || to >= stages.length || from === to) return;
+    move(from, to); setOpenIdx(to); setPendingScroll(to);
   };
   const dropStage = (to) => {
     const from = dragFrom.current; dragFrom.current = null; setDragIdx(null); setOverIdx(null);
@@ -951,66 +1123,145 @@ function StageListEditor({ stages, setStages }) {
     move(from, to);
   };
   const addFromLibrary = (s) => setStages((prev) => [...prev, s.description ? { title: s.title, description: s.description } : s.title]);
-  const present = new Set(stages.map((s) => stTitle(s).toLowerCase()));
   return (
     <>
-      <div style={{ marginTop: 4 }}>
+      <div style={{ marginTop: phone ? 12 : 4 }}>
         {stages.length === 0 && <div style={{ padding: "4px 0 14px", color: MUTED, fontSize: 14, fontWeight: 300 }}>Без этапов — добавите позже.</div>}
         {stages.map((s, i) => {
+          const status = stStatus(s);
           const dragging = dragIdx === i;
           const over = overIdx === i && dragIdx !== i;
+          const numBadge = <span style={{ width: 20, textAlign: "center", fontSize: 12, fontWeight: 600, color: "#b0b0b0", flexShrink: 0 }}>{i + 1}</span>;
+          const dot = <span style={{ width: 10, height: 10, borderRadius: 999, background: status === "not_started" ? "#fff" : toneOf(STAGE_STATUSES, status), border: `2px solid ${toneOf(STAGE_STATUSES, status)}`, flexShrink: 0 }} />;
+          const titleInput = (
+            <input value={stTitle(s)} onChange={(e) => editAt(i, e.target.value)} placeholder="Название этапа"
+              style={{ flex: 1, minWidth: 0, height: 40, border: "none", outline: "none", background: "transparent", fontFamily: UI, fontSize: 15, fontWeight: 300, color: TEXT, padding: "0 2px" }} />
+          );
+          const statusSel = <UnderSelect value={status} options={STAGE_OPTS} onChange={(v) => setStatusAt(i, v)} />;
+          const trashBtn = (
+            <button type="button" onClick={() => setStages(stages.filter((_, j) => j !== i))} title="Удалить этап"
+              style={{ width: 34, height: 34, display: "grid", placeItems: "center", border: "none", background: "transparent", color: "#b0b0b0", cursor: "pointer", flexShrink: 0, borderRadius: 8, transition: "color .12s, background-color .12s" }}
+              onMouseEnter={(e) => { e.currentTarget.style.color = CARROT; e.currentTarget.style.background = "#faf1ee"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.color = "#b0b0b0"; e.currentTarget.style.background = "transparent"; }}><IconTrash size={17} /></button>
+          );
+          const stageItems = <StageItemsField value={stDesc(s)} onSave={(v) => setDescAt(i, v)} />;
+
+          // Телефон: этап — карточка-аккордеон (как в StagesEditor редактора объекта):
+          // свёрнуто № • точка • название • бейдж • шеврон; раскрыто — правка внутри.
+          if (phone) {
+            const open = openIdx === i;
+            const tone = toneOf(STAGE_STATUSES, status);
+            return (
+              <div key={`stage-${i}`} ref={(el) => { cardRefs.current[i] = el; }} className={`stage-card${open ? " stage-sel" : ""}`}
+                style={{ borderRadius: 12, background: "#f6f6f6", padding: open ? "6px 6px 12px" : 6, marginBottom: 10, transition: "background-color .16s ease" }}>
+                <button type="button" onClick={() => setOpenIdx(open ? null : i)}
+                  style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, border: "none", background: "transparent", cursor: "pointer", padding: "8px 6px", textAlign: "left", fontFamily: UI }}>
+                  {numBadge}{dot}
+                  <span style={{ flex: 1, minWidth: 0, fontSize: 15, fontWeight: 400, color: TEXT, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{stTitle(s) || "Без названия"}</span>
+                  <span style={{ flexShrink: 0 }}><Badge label={labelOf(STAGE_STATUSES, status)} tone={tone} /></span>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9a9a9a" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, transform: open ? "rotate(180deg)" : "none", transition: "transform .18s ease" }}><path d="M6 9l6 6 6-6" /></svg>
+                </button>
+                {open && (
+                  <div className="animate-svcfade" style={{ padding: "2px 6px 0" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>{titleInput}</div>
+                    <div style={{ marginTop: 6 }}>{statusSel}</div>
+                    <div style={{ marginTop: 10 }}>{stageItems}</div>
+                    <div aria-hidden="true" style={{ height: 1, margin: "12px 0 6px", backgroundImage: "repeating-linear-gradient(to right,#d3d3d3 0 1.5px,rgba(0,0,0,0) 1.5px 9px)" }} />
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      {trashBtn}
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <StepArrow dir="up" disabled={i === 0} onClick={() => reorder(i, i - 1)} label="Поднять этап выше" />
+                        <StepArrow dir="down" disabled={i === stages.length - 1} onClick={() => reorder(i, i + 1)} label="Опустить этап ниже" />
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          }
+
           return (
             <div key={`stage-${i}`}
               onDragOver={(e) => { e.preventDefault(); if (overIdx !== i) setOverIdx(i); }}
               onDrop={(e) => { e.preventDefault(); dropStage(i); }}
               style={{ padding: "8px 4px", boxShadow: `inset 0 -1px 0 0 ${UNDER}`, opacity: dragging ? 0.4 : 1, background: over ? "#fafafa" : "transparent", transition: "background-color .12s ease" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                 <span draggable
                   onDragStart={() => { dragFrom.current = i; setDragIdx(i); }}
                   onDragEnd={() => { dragFrom.current = null; setDragIdx(null); setOverIdx(null); }}
                   title="Перетащите"
                   style={{ cursor: "grab", color: "#c4c4c4", fontSize: 16, lineHeight: 1, userSelect: "none", flexShrink: 0 }}>⠿</span>
-                <span style={{ width: 20, textAlign: "center", fontSize: 12, fontWeight: 600, color: "#b0b0b0", flexShrink: 0 }}>{i + 1}</span>
+                {numBadge}
+                {dot}
                 {/* Управляемый инпут: при перестановке значение следует за state (иначе,
                     как было с defaultValue + ключами по индексу, текст «не двигался»). */}
-                <input value={stTitle(s)} onChange={(e) => editAt(i, e.target.value)} placeholder="Название этапа"
-                  style={{ flex: 1, minWidth: 0, height: 40, border: "none", outline: "none", background: "transparent", fontFamily: UI, fontSize: 15, fontWeight: 300, color: TEXT, padding: "0 2px" }} />
-                <button type="button" onClick={() => setStages(stages.filter((_, j) => j !== i))} title="Удалить этап"
-                  style={{ width: 34, height: 34, display: "grid", placeItems: "center", border: "none", background: "transparent", color: "#b0b0b0", cursor: "pointer", flexShrink: 0, borderRadius: 8, transition: "color .12s, background-color .12s" }}
-                  onMouseEnter={(e) => { e.currentTarget.style.color = CARROT; e.currentTarget.style.background = "#faf1ee"; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.color = "#b0b0b0"; e.currentTarget.style.background = "transparent"; }}><IconTrash size={17} /></button>
+                {titleInput}
+                <div style={{ width: 190, flexShrink: 0 }}>{statusSel}</div>
+                {trashBtn}
               </div>
-              <div style={{ paddingLeft: 44 }}>
-                <StageItemsField value={stDesc(s)} onSave={(v) => setDescAt(i, v)} />
-              </div>
+              <div style={{ paddingLeft: 52 }}>{stageItems}</div>
             </div>
           );
         })}
       </div>
-      <div style={{ marginTop: 18, display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-        <div style={{ flex: "1 1 240px", minWidth: 0 }}>
-          <input value={newStage} onChange={(e) => setNewStage(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addStage(); } }} placeholder="Добавить этап…" className="obj-ph"
-            style={{ width: "100%", height: 46, border: "none", outline: "none", borderRadius: 0, background: "#fff", color: TEXT, padding: "0 14px", fontFamily: UI, fontSize: 14, fontWeight: 300, boxShadow: `inset 0 -1px 0 0 ${UNDER}`, transition: "box-shadow .18s ease" }}
-            onFocus={(e) => { e.currentTarget.style.boxShadow = `inset 0 -1px 0 0 ${UNDER_FOCUS}`; }}
-            onBlur={(e) => { e.currentTarget.style.boxShadow = `inset 0 -1px 0 0 ${UNDER}`; }} />
-        </div>
-        <FillBtn onClick={addStage}>+ Добавить</FillBtn>
-        <div style={{ position: "relative" }}>
-          <FillBtn onClick={() => setPickOpen((o) => !o)}>+ Из типовых</FillBtn>
-          {pickOpen && (
-            <StagePickerPanel present={present} onPick={addFromLibrary} onClose={() => setPickOpen(false)} />
-          )}
-        </div>
-      </div>
+      {/* Добавление этапа — один в один как в редакторе объекта (StagesEditor):
+          «из типовых» селект • «или» • «своё название» + «+ Добавить». */}
+      {(() => {
+        const libSelect = (
+          <UnderSelect value="" placeholder="Выберите этап…" options={getStageLibrary().map((p) => ({ value: p.id, label: p.title }))}
+            onChange={(v) => { const p = getStageLibrary().find((x) => x.id === v); if (p) addFromLibrary(p); }} />
+        );
+        if (phone) {
+          return (
+            <div style={{ marginTop: 18 }}>
+              <FLabel>Добавить из типовых</FLabel>
+              {libSelect}
+              <div style={{ display: "flex", alignItems: "center", gap: 12, margin: "18px 0" }}>
+                <span aria-hidden="true" style={{ flex: 1, height: 1, backgroundImage: "repeating-linear-gradient(to right,#d3d3d3 0 1.5px,rgba(0,0,0,0) 1.5px 9px)" }} />
+                <span style={{ color: MUTED, fontSize: 13 }}>или</span>
+                <span aria-hidden="true" style={{ flex: 1, height: 1, backgroundImage: "repeating-linear-gradient(to right,#d3d3d3 0 1.5px,rgba(0,0,0,0) 1.5px 9px)" }} />
+              </div>
+              <FLabel>Своё название</FLabel>
+              <UnderInput value={newStage} onChange={setNewStage} placeholder="Например: Монтаж" />
+              <div style={{ marginTop: 14 }}><FillBtn full big onClick={addStage}>+ Добавить</FillBtn></div>
+            </div>
+          );
+        }
+        return (
+          <div style={{ marginTop: 18, display: "flex", gap: 16, alignItems: "flex-end", flexWrap: "wrap" }}>
+            <div style={{ flex: "1 1 240px", minWidth: 220 }}>
+              <FLabel>Добавить из типовых</FLabel>
+              {libSelect}
+            </div>
+            <span style={{ color: MUTED, fontSize: 13, paddingBottom: 10 }}>или</span>
+            <div style={{ flex: "1 1 240px", minWidth: 220 }}>
+              <FLabel>Своё название</FLabel>
+              <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                <div style={{ flex: 1, minWidth: 0 }}><UnderInput value={newStage} onChange={setNewStage} placeholder="Например: Монтаж" /></div>
+                <FillBtn onClick={addStage}>+ Добавить</FillBtn>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </>
   );
 }
 
 /* Выпадашка выбора типовых этапов (общая библиотека). Клик по этапу — добавить;
-   уже добавленные помечены галочкой. Данные — getStageLibrary() из data/objects. */
+   уже добавленные помечены галочкой. Данные — getStageLibrary() из data/objects.
+   На узком экране (≤860 — сюда же попадает перенос кнопки на свою строку) панель
+   становится нижним листом на всю ширину через портал, чтобы не уезжать за край. */
 function StagePickerPanel({ present, onPick, onClose }) {
   const ref = React.useRef(null);
   const lib = React.useMemo(() => getStageLibrary(), []);
+  const [narrow, setNarrow] = React.useState(() => (typeof window !== "undefined" ? window.innerWidth <= 860 : false));
+  React.useEffect(() => {
+    const mq = window.matchMedia("(max-width: 860px)");
+    const on = () => setNarrow(mq.matches);
+    on(); mq.addEventListener("change", on);
+    return () => mq.removeEventListener("change", on);
+  }, []);
   React.useEffect(() => {
     const onDoc = (e) => { if (ref.current && !ref.current.contains(e.target)) onClose(); };
     const onKey = (e) => { if (e.key === "Escape") onClose(); };
@@ -1018,16 +1269,15 @@ function StagePickerPanel({ present, onPick, onClose }) {
     window.addEventListener("keydown", onKey);
     return () => { document.removeEventListener("mousedown", onDoc); window.removeEventListener("keydown", onKey); };
   }, [onClose]);
-  return (
-    <div ref={ref} className="animate-svcfade"
-      style={{ position: "absolute", top: "calc(100% + 8px)", right: 0, zIndex: 90, width: "min(420px, 86vw)", maxHeight: 340, overflowY: "auto", background: "#fff", border: `1px solid ${LINE}`, borderRadius: 12, boxShadow: "0 16px 44px rgba(0,0,0,.16)", padding: "10px 8px" }}>
-      <div style={{ padding: "4px 8px 8px", fontSize: 12, fontWeight: 600, letterSpacing: ".05em", textTransform: "uppercase", color: MUTED }}>Типовые этапы</div>
+
+  const rows = (
+    <>
       {lib.length === 0 && <div style={{ padding: "10px 8px", fontSize: 13, fontWeight: 300, color: MUTED }}>Список пуст. Заполните его в «Шаблоны → Типовые этапы».</div>}
       {lib.map((s) => {
         const added = present.has(s.title.toLowerCase());
         return (
           <button key={s.id} type="button" onClick={() => onPick(s)}
-            style={{ width: "100%", textAlign: "left", display: "flex", alignItems: "center", gap: 10, padding: "9px 8px", border: "none", background: "transparent", cursor: "pointer", borderRadius: 8, fontFamily: UI, transition: "background-color .12s ease" }}
+            style={{ width: "100%", textAlign: "left", display: "flex", alignItems: "center", gap: 10, padding: narrow ? "12px 10px" : "9px 8px", border: "none", background: "transparent", cursor: "pointer", borderRadius: 8, fontFamily: UI, transition: "background-color .12s ease" }}
             onMouseEnter={(e) => { e.currentTarget.style.background = "#f6f6f6"; }}
             onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}>
             <span style={{ width: 18, height: 18, borderRadius: 5, border: `1px solid ${added ? "#111" : "#d9d9d9"}`, background: added ? "#111" : "#fff", display: "grid", placeItems: "center", flexShrink: 0 }}>
@@ -1041,11 +1291,39 @@ function StagePickerPanel({ present, onPick, onClose }) {
           </button>
         );
       })}
+    </>
+  );
+
+  // Узкий экран — нижний лист на всю ширину (портал в body, поверх всего).
+  if (narrow) {
+    return createPortal(
+      <div style={{ position: "fixed", inset: 0, zIndex: 2147483000, display: "flex", flexDirection: "column", justifyContent: "flex-end", fontFamily: UI }}>
+        <div onMouseDown={onClose} className="animate-svcfade" style={{ position: "absolute", inset: 0, background: "rgba(17,17,17,.42)" }} />
+        <div ref={ref} className="animate-svcfade" style={{ position: "relative", background: "#fff", borderTopLeftRadius: 16, borderTopRightRadius: 16, boxShadow: "0 -12px 40px rgba(0,0,0,.22)", padding: "8px 10px calc(14px + env(safe-area-inset-bottom))", maxHeight: "72vh", display: "flex", flexDirection: "column" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 8px 8px" }}>
+            <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: ".05em", textTransform: "uppercase", color: MUTED }}>Типовые этапы</span>
+            <button type="button" onClick={onClose} aria-label="Закрыть" style={{ width: 34, height: 34, display: "grid", placeItems: "center", border: "none", background: "transparent", color: "#888", cursor: "pointer", borderRadius: 8 }}>
+              <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
+            </button>
+          </div>
+          <div style={{ overflowY: "auto", WebkitOverflowScrolling: "touch" }}>{rows}</div>
+        </div>
+      </div>,
+      document.body
+    );
+  }
+
+  return (
+    <div ref={ref} className="animate-svcfade"
+      style={{ position: "absolute", top: "calc(100% + 8px)", right: 0, zIndex: 90, width: "min(420px, 86vw)", maxHeight: 340, overflowY: "auto", background: "#fff", border: `1px solid ${LINE}`, borderRadius: 12, boxShadow: "0 16px 44px rgba(0,0,0,.16)", padding: "10px 8px" }}>
+      <div style={{ padding: "4px 8px 8px", fontSize: 12, fontWeight: 600, letterSpacing: ".05em", textTransform: "uppercase", color: MUTED }}>Типовые этапы</div>
+      {rows}
     </div>
   );
 }
 
 export function CreateObjectForm({ onCancel, onCreated, fixedCustomer = null, embedded = false, submitLabel }) {
+  const phone = useIsPhone();
   const templates = React.useMemo(() => getTemplates(), []);
   const firstCode = (templates[0] && templates[0].code) || "free";
   const [tpl, setTpl] = React.useState(firstCode);
@@ -1141,13 +1419,13 @@ export function CreateObjectForm({ onCancel, onCreated, fixedCustomer = null, em
         </div>
 
         <div>
-          <FLabel>Этапы — перетащите за <span style={{ color: "#b8b8b8" }}>⠿</span></FLabel>
+          <FLabel>Этапы {phone ? <span style={{ color: "#b8b8b8" }}>— порядок кнопками ↑ ↓</span> : <>— перетащите за <span style={{ color: "#b8b8b8" }}>⠿</span></>}</FLabel>
           <div style={{ marginTop: 4 }}><StageListEditor stages={stages} setStages={setStages} /></div>
         </div>
 
         <div style={{ marginTop: 6, display: "flex", gap: 12 }}>
           <PrimaryBtn onClick={submit}>{submitLabel || "Создать объект"}</PrimaryBtn>
-          {onCancel ? <FillBtn big onClick={onCancel}>Отмена</FillBtn> : null}
+          {onCancel ? <FillBtn flat big onClick={onCancel}>Отмена</FillBtn> : null}
         </div>
       </div>
     </div>
@@ -1195,6 +1473,7 @@ function PublishBar({ dirty, onPublish, onDiscard }) {
 
 function AdminObjectEditor({ id, autoOpenMessages }) {
   const force = useForceUpdate();
+  const phone = useIsPhone();
   const obj = DB.getObject(id);
   React.useEffect(() => { DB.markObjectSeen(id); }, [id]);
   // Легаси-объект без снимка: фиксируем базу публикации = текущее состояние,
@@ -1212,9 +1491,21 @@ function AdminObjectEditor({ id, autoOpenMessages }) {
       const staff = new Set(getEmployees().map((e) => String(e.email || "").trim().toLowerCase()).filter(Boolean));
       setAccounts(list.filter((a) => !staff.has(String(a.email || "").trim().toLowerCase())));
       setAccLoading(false);
+      // Само-синхронизация: имя заказчика в объекте могло устареть (учётку
+      // переименовали). Подтягиваем текущее имя учётки → правим объект тихо,
+      // чтобы в шапке/списке/предпросмотре не мелькало старое ФИО.
+      const cur = DB.getObject(id);
+      if (cur) {
+        const m = cur.customerId
+          ? list.find((a) => a.id === cur.customerId)
+          : cur.customerEmail
+            ? list.find((a) => String(a.email || "").toLowerCase() === String(cur.customerEmail).toLowerCase())
+            : null;
+        if (m && m.name && m.name !== cur.customerName) { DB.syncCustomerName(id, m.name); force(); }
+      }
     })();
     return () => { alive = false; };
-  }, []);
+  }, [id]);
   // Пока объекты подгружаются с бэкенда (в т.ч. при переходе по ссылке из письма)
   // не мигаем «Объект не найден», а показываем кружок-загрузчик.
   if (!obj) return (
@@ -1242,16 +1533,19 @@ function AdminObjectEditor({ id, autoOpenMessages }) {
 
   return (
     <div style={{ fontFamily: UI, marginTop: 8 }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-        <button style={backBtn} onClick={() => navigate("/account/objects")}>← К объектам</button>
-        <FillBtn onClick={() => navigate(`/account/objects/${encodeURIComponent(id)}?preview=customer`)}>Предпросмотр как заказчик</FillBtn>
+      {/* Верхняя строка: слева «К объектам», справа «Предпросмотр как заказчик».
+          Кнопка держится справа на одной строке (и на телефоне) — при переходе в
+          предпросмотр «Вернуться к редактированию» встаёт РОВНО на её место. */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "nowrap" }}>
+        <button style={{ ...backBtn, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} onClick={() => navigate("/account/objects")}>← К объектам</button>
+        <FillBtn onClick={() => navigate(`/account/objects/${encodeURIComponent(id)}?preview=customer`)}>{phone ? "Предпросмотр" : "Предпросмотр как заказчик"}</FillBtn>
       </div>
 
       <PublishBar dirty={dirty} onPublish={publish} onDiscard={discard} />
 
       <div style={{ marginTop: 12 }}>
         <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: ".04em", color: MUTED, textTransform: "uppercase" }}>№ {obj.id}</div>
-        <div style={{ marginTop: 8, display: "grid", gridTemplateColumns: "minmax(0,1fr) 220px", alignItems: "end", gap: 18, maxWidth: 720 }}>
+        <div className="obj-collapse-1" style={{ marginTop: 8, display: "grid", gridTemplateColumns: "minmax(0,1fr) 220px", alignItems: "end", gap: 18, maxWidth: 720 }}>
           <input defaultValue={obj.title} onBlur={(e) => { e.currentTarget.style.boxShadow = `inset 0 -1px 0 0 ${UNDER}`; if (e.target.value !== (obj.title || "")) save({ title: e.target.value }); }} onFocus={(e) => { e.currentTarget.style.boxShadow = `inset 0 -1px 0 0 ${UNDER_FOCUS}`; }} placeholder="Название объекта"
             style={{ width: "100%", height: 46, border: "none", outline: "none", borderRadius: 0, background: "#fff", color: TEXT, padding: "0 2px", fontFamily: UI, fontSize: 16, fontWeight: 600, boxShadow: `inset 0 -1px 0 0 ${UNDER}`, transition: "box-shadow .18s ease" }} />
           <UnderSelect value={obj.status} options={STATUS_OPTS} onChange={(v) => save({ status: v })} />
@@ -1332,9 +1626,11 @@ function LabeledInput({ label, defaultValue, onCommit }) {
 
 /* --- Этапы: перетаскивание за ⠿, статус, удаление, добавление — единый подчёркнутый стиль --- */
 function StagesEditor({ id, obj, onChange }) {
+  const phone = useIsPhone();
   const dragFrom = React.useRef(null);
   const [dragId, setDragId] = React.useState(null);
   const [overId, setOverId] = React.useState(null);
+  const [openId, setOpenId] = React.useState(null); // раскрытый этап на мобилке (аккордеон)
   const stages = obj.stages || [];
   const drop = (to) => { const from = dragFrom.current; dragFrom.current = null; setDragId(null); setOverId(null); if (from == null || from === to) return; DB.reorderStages(id, from, to); onChange(); };
   return (
@@ -1345,6 +1641,61 @@ function StagesEditor({ id, obj, onChange }) {
         {stages.map((s, i) => {
           const dragging = dragId === s.id;
           const over = overId === s.id && dragId !== s.id;
+          const numBadge = <span style={{ width: 20, textAlign: "center", fontSize: 12, fontWeight: 600, color: "#b0b0b0", flexShrink: 0 }}>{i + 1}</span>;
+          const dot = <span style={{ width: 10, height: 10, borderRadius: 999, background: s.status === "not_started" ? "#fff" : toneOf(STAGE_STATUSES, s.status), border: `2px solid ${toneOf(STAGE_STATUSES, s.status)}`, flexShrink: 0 }} />;
+          const titleInput = (
+            <input defaultValue={s.title} onBlur={(e) => { if (e.target.value !== s.title) { DB.updateStage(id, s.id, { title: e.target.value }); onChange(); } }} placeholder="Название этапа"
+              style={{ flex: 1, minWidth: 0, height: 40, border: "none", outline: "none", background: "transparent", fontFamily: UI, fontSize: 15, fontWeight: 300, color: TEXT, padding: "0 2px" }} />
+          );
+          const statusSel = <UnderSelect value={s.status} options={STAGE_OPTS} onChange={(v) => { DB.updateStage(id, s.id, { status: v }); onChange(); }} />;
+          const trashBtn = (
+            <button type="button" onClick={async () => { if (await confirmDialog({ title: "Удалить этап?", message: `Этап «${s.title}» будет удалён.`, confirmText: "Удалить" })) { DB.removeStage(id, s.id); onChange(); } }} title="Удалить этап"
+              style={{ width: 34, height: 34, display: "grid", placeItems: "center", border: "none", background: "transparent", color: "#b0b0b0", cursor: "pointer", flexShrink: 0, borderRadius: 8, transition: "color .12s, background-color .12s" }}
+              onMouseEnter={(e) => { e.currentTarget.style.color = CARROT; e.currentTarget.style.background = "#faf1ee"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.color = "#b0b0b0"; e.currentTarget.style.background = "transparent"; }}><IconTrash size={17} /></button>
+          );
+          const stageItems = (
+            <StageItemsField value={s.description || ""} side="left"
+              onSave={(v) => { if (v !== (s.description || "")) { DB.updateStage(id, s.id, { description: v }); onChange(); } }} />
+          );
+
+          // Телефон: этап — карточка. Название+корзина сверху, статус ниже, «Что входит»
+          // внутри карточки; справа во всю высоту — крупные стрелки ↑/↓ (перестановка на тач).
+          if (phone) {
+            const open = openId === s.id;
+            const tone = toneOf(STAGE_STATUSES, s.status);
+            return (
+              <div key={s.id} className={`stage-card${open ? " stage-sel" : ""}`}
+                style={{ borderRadius: 12, background: "#f6f6f6", padding: open ? "6px 6px 12px" : 6, marginBottom: 10, transition: "background-color .16s ease" }}>
+                {/* Свёрнуто: № • название • статус • шеврон. Тап — раскрыть редактор. */}
+                <button type="button" onClick={() => setOpenId(open ? null : s.id)}
+                  style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, border: "none", background: "transparent", cursor: "pointer", padding: "8px 6px", textAlign: "left", fontFamily: UI }}>
+                  {numBadge}{dot}
+                  <span style={{ flex: 1, minWidth: 0, fontSize: 15, fontWeight: 400, color: TEXT, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.title || "Без названия"}</span>
+                  {/* Бейдж показываем ВСЕГДА (и в раскрытом виде) — иначе при раскрытии
+                      исчезает бейдж справа, название растягивается и «уезжает» вправо. */}
+                  <span style={{ flexShrink: 0 }}><Badge label={labelOf(STAGE_STATUSES, s.status)} tone={tone} /></span>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9a9a9a" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, transform: open ? "rotate(180deg)" : "none", transition: "transform .18s ease" }}><path d="M6 9l6 6 6-6" /></svg>
+                </button>
+                {open && (
+                  <div className="animate-svcfade" style={{ padding: "2px 6px 0" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>{titleInput}</div>
+                    <div style={{ marginTop: 6 }}>{statusSel}</div>
+                    <div style={{ marginTop: 10 }}>{stageItems}</div>
+                    <div aria-hidden="true" style={{ height: 1, margin: "12px 0 6px", backgroundImage: "repeating-linear-gradient(to right,#d3d3d3 0 1.5px,rgba(0,0,0,0) 1.5px 9px)" }} />
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      {trashBtn}
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <StepArrow dir="up" disabled={i === 0} onClick={() => { if (i > 0) { DB.reorderStages(id, i, i - 1); onChange(); } }} label="Поднять этап выше" />
+                        <StepArrow dir="down" disabled={i === stages.length - 1} onClick={() => { if (i < stages.length - 1) { DB.reorderStages(id, i, i + 1); onChange(); } }} label="Опустить этап ниже" />
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          }
+
           return (
             <div key={s.id}
               onDragOver={(e) => { e.preventDefault(); if (overId !== s.id) setOverId(s.id); }}
@@ -1352,40 +1703,64 @@ function StagesEditor({ id, obj, onChange }) {
               style={{ padding: "8px 4px", boxShadow: `inset 0 -1px 0 0 ${UNDER}`, opacity: dragging ? 0.4 : 1, background: over ? "#fafafa" : "transparent", transition: "background-color .12s ease" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                 <span draggable onDragStart={() => { dragFrom.current = i; setDragId(s.id); }} onDragEnd={() => { dragFrom.current = null; setDragId(null); setOverId(null); }} title="Перетащите" style={{ cursor: "grab", color: "#c4c4c4", fontSize: 16, lineHeight: 1, userSelect: "none", flexShrink: 0 }}>⠿</span>
-                <span style={{ width: 20, textAlign: "center", fontSize: 12, fontWeight: 600, color: "#b0b0b0", flexShrink: 0 }}>{i + 1}</span>
-                <span style={{ width: 10, height: 10, borderRadius: 999, background: s.status === "not_started" ? "#fff" : toneOf(STAGE_STATUSES, s.status), border: `2px solid ${toneOf(STAGE_STATUSES, s.status)}`, flexShrink: 0 }} />
-                <input defaultValue={s.title} onBlur={(e) => { if (e.target.value !== s.title) { DB.updateStage(id, s.id, { title: e.target.value }); onChange(); } }} placeholder="Название этапа"
-                  style={{ flex: 1, minWidth: 0, height: 40, border: "none", outline: "none", background: "transparent", fontFamily: UI, fontSize: 15, fontWeight: 300, color: TEXT, padding: "0 2px" }} />
-                <div style={{ width: 190, flexShrink: 0 }}><UnderSelect value={s.status} options={STAGE_OPTS} onChange={(v) => { DB.updateStage(id, s.id, { status: v }); onChange(); }} /></div>
-                <button type="button" onClick={async () => { if (await confirmDialog({ title: "Удалить этап?", message: `Этап «${s.title}» будет удалён.`, confirmText: "Удалить" })) { DB.removeStage(id, s.id); onChange(); } }} title="Удалить этап"
-                  style={{ width: 34, height: 34, display: "grid", placeItems: "center", border: "none", background: "transparent", color: "#b0b0b0", cursor: "pointer", flexShrink: 0, borderRadius: 8, transition: "color .12s, background-color .12s" }}
-                  onMouseEnter={(e) => { e.currentTarget.style.color = CARROT; e.currentTarget.style.background = "#faf1ee"; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.color = "#b0b0b0"; e.currentTarget.style.background = "transparent"; }}><IconTrash size={17} /></button>
+                {numBadge}
+                {dot}
+                {titleInput}
+                <div style={{ width: 190, flexShrink: 0 }}>{statusSel}</div>
+                {trashBtn}
               </div>
               {/* «Что входит» — компактный триггер + выпадающая панель (высота строки стабильна,
                   перетаскивать этапы удобно). Заказчику покажем списком через тире, когда этап «В работе». */}
-              <div style={{ paddingLeft: 52 }}>
-                <StageItemsField value={s.description || ""} side="left"
-                  onSave={(v) => { if (v !== (s.description || "")) { DB.updateStage(id, s.id, { description: v }); onChange(); } }} />
-              </div>
+              <div style={{ paddingLeft: 52 }}>{stageItems}</div>
             </div>
           );
         })}
       </div>
-      <div style={{ marginTop: 18, display: "flex", gap: 16, alignItems: "flex-end", flexWrap: "wrap" }}>
-        <div style={{ flex: "1 1 240px", minWidth: 220 }}>
-          <FLabel>Добавить из типовых</FLabel>
+      {(() => {
+        const libSelect = (
           <UnderSelect value="" placeholder="Выберите этап…" options={getStageLibrary().map((p) => ({ value: p.id, label: p.title }))} onChange={(v) => { const p = getStageLibrary().find((x) => x.id === v); if (p) { DB.addStage(id, { title: p.title, description: p.description || "" }); onChange(); } }} />
-        </div>
-        <span style={{ color: MUTED, fontSize: 13, paddingBottom: 10 }}>или</span>
-        <AddCustomStage id={id} onChange={onChange} />
-      </div>
+        );
+        // Мобилка: стек — «из типовых», разделитель «или» нашим пунктиром, «своё название» + кнопка во всю ширину.
+        if (phone) {
+          return (
+            <div style={{ marginTop: 18 }}>
+              <FLabel>Добавить из типовых</FLabel>
+              {libSelect}
+              <div style={{ display: "flex", alignItems: "center", gap: 12, margin: "18px 0" }}>
+                <span aria-hidden="true" style={{ flex: 1, height: 1, backgroundImage: "repeating-linear-gradient(to right,#d3d3d3 0 1.5px,rgba(0,0,0,0) 1.5px 9px)" }} />
+                <span style={{ color: MUTED, fontSize: 13 }}>или</span>
+                <span aria-hidden="true" style={{ flex: 1, height: 1, backgroundImage: "repeating-linear-gradient(to right,#d3d3d3 0 1.5px,rgba(0,0,0,0) 1.5px 9px)" }} />
+              </div>
+              <AddCustomStage id={id} onChange={onChange} phone />
+            </div>
+          );
+        }
+        return (
+          <div style={{ marginTop: 18, display: "flex", gap: 16, alignItems: "flex-end", flexWrap: "wrap" }}>
+            <div style={{ flex: "1 1 240px", minWidth: 220 }}>
+              <FLabel>Добавить из типовых</FLabel>
+              {libSelect}
+            </div>
+            <span style={{ color: MUTED, fontSize: 13, paddingBottom: 10 }}>или</span>
+            <AddCustomStage id={id} onChange={onChange} />
+          </div>
+        );
+      })()}
     </div>
   );
 }
-function AddCustomStage({ id, onChange }) {
+function AddCustomStage({ id, onChange, phone }) {
   const [v, setV] = React.useState("");
   const add = () => { if (!v.trim()) return; DB.addStage(id, { title: v.trim() }); setV(""); onChange(); };
+  if (phone) {
+    return (
+      <div>
+        <FLabel>Своё название</FLabel>
+        <UnderInput value={v} onChange={setV} placeholder="Например: Монтаж" />
+        <div style={{ marginTop: 14 }}><FillBtn full big onClick={add}>+ Добавить</FillBtn></div>
+      </div>
+    );
+  }
   return (
     <div style={{ flex: "1 1 240px", minWidth: 220 }}>
       <FLabel>Своё название</FLabel>
@@ -1399,6 +1774,7 @@ function AddCustomStage({ id, onChange }) {
 
 /* --- Одна категория документов: hover-подсветка области + пунктир-разделитель --- */
 function DocCategory({ id, cat, docs, uploadDoc, onChange }) {
+  const phone = useIsPhone();
   const inputRef = React.useRef(null);
   const [hover, setHover] = React.useState(false);
   const [uploading, setUploading] = React.useState(false);
@@ -1427,14 +1803,28 @@ function DocCategory({ id, cat, docs, uploadDoc, onChange }) {
               return (
                 <React.Fragment key={d.id}>
                   {i > 0 && <Dotted />}
-                  <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", background: hidden ? "#fbfbfb" : "#fff" }}>
+                  {phone ? (
+                    // Мобилка: badge + имя + компактный ряд иконок (открыть/скачать/скрыть/удалить) — без контуров.
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", background: hidden ? "#fbfbfb" : "#fff" }}>
+                      <ExtBadge ext={d.type || d.file} />
+                      <div style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 500, color: TEXT, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{d.title}{hidden && <span style={{ marginLeft: 6, fontSize: 11, color: "#c05621" }}>· скрыто</span>}</div>
+                      <div style={{ display: "flex", alignItems: "center", flexShrink: 0 }}>
+                        {canPreview(d) && <DownloadBtn doc={d} label="Открыть" preview icon />}
+                        <DownloadBtn doc={d} label="Скачать" icon />
+                        <DocIconBtn onClick={() => { DB.updateDocument(id, d.id, { status: hidden ? "published" : "hidden" }); onChange(); }} title={hidden ? "Показать заказчику" : "Скрыть от заказчика"}>{hidden ? <IconEye /> : <IconEyeOff />}</DocIconBtn>
+                        <DocIconBtn color={CARROT} onClick={async () => { if (await confirmDialog({ title: "Удалить документ?", message: `Документ «${d.title}» будет удалён.`, confirmText: "Удалить" })) { if (d.key) DB.deleteFile(d.key); DB.removeDocument(id, d.id); onChange(); } }} title="Удалить"><IconTrash size={21} /></DocIconBtn>
+                      </div>
+                    </div>
+                  ) : (
+                  <div className="obj-row-wrap" style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", background: hidden ? "#fbfbfb" : "#fff" }}>
                     <ExtBadge ext={d.type || d.file} />
-                    <div style={{ minWidth: 0, flex: 1, fontSize: 14, fontWeight: 500, color: TEXT, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{d.title}{hidden && <span style={{ marginLeft: 8 }}><Badge label="Скрыто" tone="#c05621" /></span>}</div>
+                    <div style={{ minWidth: 120, flex: 1, fontSize: 14, fontWeight: 500, color: TEXT, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{d.title}{hidden && <span style={{ marginLeft: 8 }}><Badge label="Скрыто" tone="#c05621" /></span>}</div>
                     {canPreview(d) && <DownloadBtn doc={d} label="Открыть" preview />}
                     <DownloadBtn doc={d} label="Скачать" />
                     <FillBtn tiny onClick={() => { DB.updateDocument(id, d.id, { status: hidden ? "published" : "hidden" }); onChange(); }}>{hidden ? "Показать" : "Скрыть"}</FillBtn>
                     <FillBtn tiny fill={CARROT} onClick={async () => { if (await confirmDialog({ title: "Удалить документ?", message: `Документ «${d.title}» будет удалён.`, confirmText: "Удалить" })) { if (d.key) DB.deleteFile(d.key); DB.removeDocument(id, d.id); onChange(); } }}>Удалить</FillBtn>
                   </div>
+                  )}
                 </React.Fragment>
               );
             })}
@@ -1936,6 +2326,7 @@ function NewPill() {
 }
 
 function ChangeLogButton({ events }) {
+  const phone = useIsPhone();
   const [open, setOpen] = React.useState(false);
   const list = Array.isArray(events) ? events : [];
   React.useEffect(() => {
@@ -1947,7 +2338,7 @@ function ChangeLogButton({ events }) {
   return (
     <>
       <button type="button" onClick={() => setOpen(true)} title="История изменений по объекту" aria-label="История изменений по объекту"
-        style={{ ...iconBtnStyle, color: TEXT }}
+        style={{ ...iconBtnStyle, color: phone ? "#666" : TEXT }}
         onMouseEnter={(e) => { e.currentTarget.style.background = "#efefee"; }}
         onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}>
         <TrackIcon />
@@ -2005,60 +2396,51 @@ function stageDescItems(desc) {
 }
 const joinDesc = (arr) => arr.map((x) => x.trim()).filter(Boolean).join(", ");
 
-// Этапы у заказчика — плоский список слева. У этапа «В работе» с описанием при
-// НАВЕДЕНИИ справа в той же рамке всплывает блок «что входит»: пунктирный контур,
-// фон = фон страницы, без бейджа и названия внутри (они уже слева). Список слева
-// фиксированной ширины — не сдвигается при появлении блока; длинный текст
-// переносится внутри самого блока. На мобилке будет тап (сделаем позже).
+// Этапы у заказчика — плоский список. У этапа «В работе» с описанием при НАВЕДЕНИИ
+// под названием всплывает поповер «что входит» (пунктирный контур, фон страницы) —
+// как всплывашка «Соисполнители». Поповер не зависит от ширины колонки (раньше был
+// боковой блок, который на узком макете (maxWidth 820) схлопывался в ноль). На
+// мобилке будет тап (сделаем позже).
 function CustomerStages({ stages, stageUnseen }) {
   const list = (stages || []).slice().sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
   const hasDesc = (s) => s.status === "in_progress" && !!(s.description && s.description.trim());
   const [hoverId, setHoverId] = React.useState(null);
-  const sel = list.find((s) => s.id === hoverId && hasDesc(s)) || null;
 
   if (list.length === 0) return <div style={{ marginTop: 12, color: MUTED, fontSize: 14, fontWeight: 300 }}>Этапы не заданы.</div>;
 
   return (
-    <div onMouseLeave={() => setHoverId(null)}
-      style={{ marginTop: 12, display: "flex", gap: 24, alignItems: "flex-start" }}>
-      {/* Список — фиксированная ширина, не реагирует на появление блока справа */}
-      <div style={{ flex: "0 0 auto", width: "min(560px, 100%)", display: "grid", gap: 12 }}>
-        {list.map((s) => {
-          const sst = STAGE_STATUSES.find((x) => x.code === s.status) || {};
-          const clickable = hasDesc(s);
-          return (
-            <div key={s.id}
-              style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <span style={{ width: 12, height: 12, borderRadius: 999, flexShrink: 0, background: s.status === "not_started" ? "#fff" : sst.tone, border: `2px solid ${s.status === "not_started" ? "#d0d0d0" : sst.tone}` }} />
-              <span
-                onMouseEnter={() => clickable && setHoverId(s.id)}
-                style={{ fontSize: 15, fontWeight: s.status === "in_progress" ? 600 : 400, color: s.status === "not_started" ? MUTED : TEXT, cursor: clickable ? "pointer" : "default" }}>{s.title}</span>
-              <Badge label={sst.label} tone={sst.tone} />
-              {stageUnseen[s.id] && <NewBadge size={8} />}
-            </div>
-          );
-        })}
-      </div>
+    <div style={{ marginTop: 12, display: "grid", gap: 12 }}>
+      <style>{`@keyframes stageDescIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}`}</style>
+      {list.map((s) => {
+        const sst = STAGE_STATUSES.find((x) => x.code === s.status) || {};
+        const clickable = hasDesc(s);
+        const showDesc = clickable && hoverId === s.id;
+        return (
+          <div key={s.id} style={{ position: "relative", display: "flex", alignItems: "center", gap: 12 }}
+            onMouseEnter={() => clickable && setHoverId(s.id)} onMouseLeave={() => setHoverId((v) => (v === s.id ? null : v))}>
+            <span style={{ width: 12, height: 12, borderRadius: 999, flexShrink: 0, background: s.status === "not_started" ? "#fff" : sst.tone, border: `2px solid ${s.status === "not_started" ? "#d0d0d0" : sst.tone}` }} />
+            <span style={{ fontSize: 15, fontWeight: s.status === "in_progress" ? 600 : 400, color: s.status === "not_started" ? MUTED : TEXT, cursor: clickable ? "pointer" : "default" }}>{s.title}</span>
+            <Badge label={sst.label} tone={sst.tone} />
+            {stageUnseen[s.id] && <NewBadge size={8} />}
 
-      {/* Блок описания — присутствует всегда (ширина колонки постоянна), наполняется по наведению */}
-      <div style={{ flex: "1 1 0", minWidth: 0, alignSelf: "stretch" }}>
-        {sel && (
-          <div key={sel.id}>
-            <style>{`@keyframes stageDescIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}`}</style>
-            <div style={{ animation: "stageDescIn .24s cubic-bezier(.2,.8,.2,1)", background: CTRL_REST, border: "1.5px dotted #c7c7c7", borderRadius: 12, padding: "16px 18px" }}>
-              <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: ".05em", textTransform: "uppercase", color: MUTED }}>Что входит в этап</div>
-              <div style={{ marginTop: 10, display: "grid", gap: 6 }}>
-                {stageDescItems(sel.description).map((it, i) => (
-                  <div key={i} style={{ display: "flex", gap: 9, fontSize: 14.5, fontWeight: 300, lineHeight: 1.5, color: "#333" }}>
-                    <span style={{ color: MUTED, flexShrink: 0 }}>—</span>
-                    <span style={{ wordBreak: "break-word" }}>{it}</span>
-                  </div>
-                ))}
+            {/* Поповер «что входит» — под строкой этапа, поверх остального (как «Соисполнители») */}
+            {showDesc && (
+              <div className="animate-svcfade"
+                style={{ position: "absolute", top: "calc(100% + 8px)", left: 24, zIndex: 90, minWidth: 260, maxWidth: "min(420px, 82vw)", background: CTRL_REST, border: "1.5px dotted #c7c7c7", borderRadius: 12, padding: "14px 16px", cursor: "default", animation: "stageDescIn .22s cubic-bezier(.2,.8,.2,1)" }}>
+                <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: ".05em", textTransform: "uppercase", color: MUTED }}>Что входит в этап</div>
+                <div style={{ marginTop: 9, display: "grid", gap: 6 }}>
+                  {stageDescItems(s.description).map((it, i) => (
+                    <div key={i} style={{ display: "flex", gap: 9, fontSize: 14, fontWeight: 300, lineHeight: 1.5, color: "#333" }}>
+                      <span style={{ color: MUTED, flexShrink: 0 }}>—</span>
+                      <span style={{ wordBreak: "break-word" }}>{it}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
           </div>
-        )}
-      </div>
+        );
+      })}
     </div>
   );
 }
@@ -2069,6 +2451,7 @@ function CustomerStages({ stages, stageUnseen }) {
 // (таблица object_subs); локальный кэш даёт мгновенную отрисовку. Реальная
 // рассылка уходит при публичных событиях по объекту (см. server/functions/objects).
 function SubscribeButton({ objId, userEmail }) {
+  const phone = useIsPhone();
   const [on, setOn] = React.useState(() => DB.isSubscribedLocal(objId));
   const [busy, setBusy] = React.useState(false);
   const [hint, setHint] = React.useState("");
@@ -2102,7 +2485,7 @@ function SubscribeButton({ objId, userEmail }) {
     <div style={{ position: "relative" }}>
       <button type="button" onClick={toggle} aria-pressed={on} aria-label="Подписка на e-mail-уведомления"
         title={on ? "Уведомления на e-mail включены — нажмите, чтобы отключить" : "Получать уведомления об изменениях на e-mail"}
-        style={{ ...iconBtnStyle, color: on ? CARROT : TEXT }}
+        style={{ ...iconBtnStyle, color: on ? CARROT : (phone ? "#666" : TEXT) }}
         onMouseEnter={(e) => { if (!on) e.currentTarget.style.background = "#efefee"; }}
         onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}>
         <ExtIcon />
@@ -2122,6 +2505,7 @@ function SubscribeButton({ objId, userEmail }) {
    весь блок, строки в белой карточке с пунктиром. Только чтение; ширина берётся
    от контейнера заказчика (уже, чем у админа) — намеренно не трогаем. */
 function CustDocCategory({ cat, docs, refAtOpen }) {
+  const phone = useIsPhone();
   const [hover, setHover] = React.useState(false);
   return (
     <>
@@ -2134,14 +2518,16 @@ function CustDocCategory({ cat, docs, refAtOpen }) {
           {docs.map((d, i) => (
             <React.Fragment key={d.id}>
               {i > 0 && <Dotted />}
-              <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px" }}>
+              <div className="obj-row-wrap" style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px" }}>
                 <ExtBadge ext={d.type || d.file} />
-                <div style={{ minWidth: 0, flex: 1, display: "flex", alignItems: "center", gap: 8, overflow: "hidden" }}>
+                <div style={{ minWidth: 120, flex: 1, display: "flex", alignItems: "center", gap: 8, overflow: "hidden" }}>
                   <span style={{ minWidth: 0, fontSize: 14, fontWeight: 500, color: TEXT, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{d.title}</span>
                   {(d.publishedTs || 0) > refAtOpen + 1000 && <NewPill />}
                 </div>
-                {canPreview(d) && <DownloadBtn doc={d} label="Открыть" preview />}
-                <DownloadBtn doc={d} label="Скачать" />
+                <div style={{ display: "flex", alignItems: "center", gap: phone ? 0 : 8, flexShrink: 0 }}>
+                  {canPreview(d) && <DownloadBtn doc={d} label="Открыть" preview icon={phone} />}
+                  <DownloadBtn doc={d} label="Скачать" icon={phone} />
+                </div>
               </div>
             </React.Fragment>
           ))}
@@ -2153,6 +2539,7 @@ function CustDocCategory({ cat, docs, refAtOpen }) {
 }
 
 function CustomerObjectView({ id, preview, autoOpenMessages, userEmail }) {
+  const phone = useIsPhone();
   // Предпросмотр админом («preview») показывает ЧЕРНОВИК (draft:true) — то, что он
   // только что наредактировал; реальный заказчик видит последнюю публикацию.
   const o = DB.getCustomerView(id, { draft: !!preview });
@@ -2193,9 +2580,16 @@ function CustomerObjectView({ id, preview, autoOpenMessages, userEmail }) {
 
   return (
     <div style={{ fontFamily: UI, marginTop: 8 }}>
-      {preview && <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "10px 14px", borderRadius: 10, background: "#fff4ef", border: "1px solid #f6c9b6", marginBottom: 14, flexWrap: "wrap" }}>
-        <span style={{ fontSize: 13, fontWeight: 600, color: "#b0451f" }}>Предпросмотр как заказчик.</span>
-        <FillBtn tiny onClick={() => navigate(`/account/objects/${encodeURIComponent(id)}`)}>← Вернуться к редактированию</FillBtn>
+      {/* Строка предпросмотра зеркалит верх редактора: слева оранжевая «пилюля»
+          режима (где в редакторе «К объектам»), справа «Вернуться к редактированию»
+          — той же кнопкой FillBtn и в той же точке, что «Предпросмотр как заказчик».
+          nowrap + пилюля с многоточием держат их на одном уровне и на телефоне. */}
+      {preview && <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 14, flexWrap: "nowrap" }}>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 8, minWidth: 0, height: 34, padding: "0 14px", borderRadius: 999, background: "#fff4ef", border: "1px solid #f6c9b6", color: "#b0451f", fontSize: 13, fontWeight: 600, whiteSpace: "nowrap" }}>
+          <span style={{ width: 7, height: 7, borderRadius: 999, background: CARROT, flexShrink: 0 }} />
+          <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{phone ? "Предпросмотр" : "Предпросмотр как заказчик"}</span>
+        </span>
+        <FillBtn onClick={() => navigate(`/account/objects/${encodeURIComponent(id)}`)}>← {phone ? "Редактировать" : "Вернуться к редактированию"}</FillBtn>
       </div>}
       {!preview && <button style={backBtn} onClick={() => navigate("/account/objects")}>← К объектам</button>}
 
@@ -2204,7 +2598,7 @@ function CustomerObjectView({ id, preview, autoOpenMessages, userEmail }) {
         <div>
         <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: ".04em", color: MUTED, textTransform: "uppercase" }}>№ {o.id}</div>
         <div style={{ marginTop: 4, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-          <span style={{ fontSize: 26, fontWeight: 600, color: TEXT }}>{o.customerName} — {o.title}</span>
+          <span style={{ fontSize: phone ? 19 : 26, lineHeight: phone ? 1.25 : 1.15, fontWeight: 600, color: TEXT, wordBreak: "break-word" }}>{o.customerName} — {o.title}</span>
         </div>
         <div style={{ marginTop: 6, display: "flex", flexWrap: "wrap", gap: "6px 18px", fontSize: 14, fontWeight: 300, color: "#444", alignItems: "center" }}>
           {o.address && <span>{o.address}</span>}
@@ -2272,10 +2666,14 @@ function CustomerObjectsList({ email, accountId }) {
   const activeCount = (fStatus ? 1 : 0) + (t ? 1 : 0);
   return (
     <div style={{ fontFamily: UI, marginTop: 8 }}>
-      <div style={h1}>Объекты</div>
-      <div style={{ marginTop: 6, fontSize: 14, fontWeight: 300, color: MUTED }}>Ваши объекты и документы по ним.</div>
-      <div style={{ marginTop: 18 }}>
-        <FilterBar search={{ value: q, onChange: setQ, placeholder: "Поиск: название, адрес, договор…" }}
+      {/* На мобилке заголовок «Объекты» уже есть в шапке страницы (aside) — здесь его прячем,
+          чтобы фильтр шёл сразу. На ПК оставляем как было. */}
+      <div className="hidden lg:block">
+        <div style={h1}>Объекты</div>
+        <div style={{ marginTop: 6, fontSize: 14, fontWeight: 300, color: MUTED }}>Ваши объекты и документы по ним.</div>
+      </div>
+      <div className="mt-0 lg:mt-[18px]">
+        <FilterBar search={{ value: q, onChange: setQ, placeholder: "Поиск..." }}
           filters={[{ value: fStatus, onChange: setFStatus, width: 180, placeholder: "Статус", options: [{ value: "", label: "Все статусы" }, ...STATUS_OPTS] }]}
           activeCount={activeCount} onReset={() => { setQ(""); setFStatus(""); }} />
       </div>
@@ -2469,6 +2867,7 @@ function EmployeeForm({ emp, accounts, onCancel, onSaved }) {
 
 export function EmployeesModule({ backTo }) {
   const force = useForceUpdate();
+  const phone = useIsPhone();
   const [q, setQ] = React.useState("");
   const [accounts, setAccounts] = React.useState([]);
   const [view, setView] = React.useState(null);   // null=список | {emp:null}=добавить | {emp}=редактировать
@@ -2536,10 +2935,17 @@ export function EmployeesModule({ backTo }) {
                   {e.role === "admin" ? "Полный доступ" : (e.perms.length === 0 ? "Прав не выдано" : e.perms.map((p) => permLabel(p)).join("  ·  "))}
                 </div>
               </div>
-              <div onClick={(ev) => ev.stopPropagation()} style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-                <FillBtn onClick={() => setView({ emp: e })}>Права</FillBtn>
-                <FillBtn fill={CARROT} onClick={() => demote(e)} disabled={busy}>{busy ? "…" : "Убрать"}</FillBtn>
-              </div>
+              {phone ? (
+                <div onClick={(ev) => ev.stopPropagation()} style={{ display: "flex", alignItems: "center", flexShrink: 0 }}>
+                  <DocIconBtn onClick={() => setView({ emp: e })} title="Права"><IconPencil /></DocIconBtn>
+                  <DocIconBtn color={CARROT} onClick={() => demote(e)} title="Убрать из сотрудников">{busy ? <span style={{ fontSize: 18 }}>…</span> : <IconTrash size={21} />}</DocIconBtn>
+                </div>
+              ) : (
+                <div onClick={(ev) => ev.stopPropagation()} style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+                  <FillBtn onClick={() => setView({ emp: e })}>Права</FillBtn>
+                  <FillBtn fill={CARROT} onClick={() => demote(e)} disabled={busy}>{busy ? "…" : "Убрать"}</FillBtn>
+                </div>
+              )}
             </ListRow>
           );
         })}
@@ -2598,6 +3004,7 @@ function TemplateForm({ tpl, onCancel, onSaved }) {
 
 export function TemplatesModule({ backTo }) {
   const force = useForceUpdate();
+  const phone = useIsPhone();
   const [q, setQ] = React.useState("");
   const [view, setView] = React.useState(null);   // null=список | {tpl:null}=создать | {tpl}=редактировать
   const [section, setSection] = React.useState("templates"); // templates | library
@@ -2616,7 +3023,11 @@ export function TemplatesModule({ backTo }) {
           <div style={h1}>Шаблоны объектов</div>
           <div style={{ marginTop: 6, fontSize: 14, fontWeight: 300, color: MUTED }}>Тип работ задаёт префикс для № объекта и типовые этапы при создании.</div>
         </div>
-        {section === "templates" && <FillBtn big onClick={() => setView({ tpl: null })}>+ Новый шаблон</FillBtn>}
+        {/* Кнопку держим в потоке всегда (на «Типовых этапах» — прячем через
+            visibility), чтобы шапка и вкладки ниже не прыгали при переключении. */}
+        <span style={{ visibility: section === "templates" ? "visible" : "hidden" }} aria-hidden={section !== "templates"}>
+          <FillBtn big onClick={() => setView({ tpl: null })}>+ Новый шаблон</FillBtn>
+        </span>
       </div>
 
       {/* Переключатель разделов — как «Кабинет заказчика / Кабинет команды» в Справке */}
@@ -2644,17 +3055,34 @@ export function TemplatesModule({ backTo }) {
               const modified = x.base && isTemplateModified(x.code);
               return (
                 <ListRow key={x.code} onOpen={() => setView({ tpl: x })}>
-                  <span style={{ flexShrink: 0, fontSize: 12, fontWeight: 700, letterSpacing: ".06em", color: "#fff", background: "#111", padding: "5px 10px", borderRadius: 7 }}>{x.prefix}</span>
-                  <div style={{ minWidth: 0, flex: 1 }}>
-                    <div style={{ fontSize: 17, fontWeight: 500, color: TEXT, lineHeight: 1.3 }}>{x.label}</div>
-                    <div style={{ marginTop: 3, fontSize: 13, fontWeight: 300, color: MUTED }}>{x.base ? "Базовый" : "Свой"}{modified ? " · изменён" : ""} · № вида {x.prefix}-… · этапов: {x.stages.length}</div>
-                    {x.stages.length > 0 && <div style={{ marginTop: 8, fontSize: 11, letterSpacing: ".04em", textTransform: "uppercase", fontWeight: 400, color: "#888", lineHeight: 1.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{x.stages.map(stTitle).join("  ·  ")}</div>}
+                  <div style={{ display: "flex", alignItems: "flex-start", gap: 16, minWidth: 0, flex: 1 }}>
+                    <span style={{ flexShrink: 0, fontSize: 12, fontWeight: 700, letterSpacing: ".06em", color: "#fff", background: "#111", padding: "5px 10px", borderRadius: 7 }}>{x.prefix}</span>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div style={{ fontSize: 17, fontWeight: 500, color: TEXT, lineHeight: 1.3 }}>{x.label}</div>
+                      <div style={{ marginTop: 3, fontSize: 13, fontWeight: 300, color: MUTED }}>{x.base ? "Базовый" : "Свой"}{modified ? " · изменён" : ""} · № вида {x.prefix}-… · этапов: {x.stages.length}</div>
+                      {x.stages.length > 0 && <div style={{ marginTop: 8, fontSize: 11, letterSpacing: ".04em", textTransform: "uppercase", fontWeight: 400, color: "#888", lineHeight: 1.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{x.stages.map(stTitle).join("  ·  ")}</div>}
+                    </div>
                   </div>
-                  <div onClick={(ev) => ev.stopPropagation()} style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-                    <FillBtn onClick={() => setView({ tpl: x })}>Редактировать</FillBtn>
-                    {modified && <FillBtn onClick={() => { resetTemplate(x.code); force(); }}>Сбросить</FillBtn>}
-                    <FillBtn fill={CARROT} onClick={async () => { if (await confirmDialog(x.base ? { title: "Скрыть шаблон?", message: `Базовый шаблон «${x.label}» будет скрыт.`, confirmText: "Скрыть" } : { title: "Удалить шаблон?", message: `Шаблон «${x.label}» будет удалён.`, confirmText: "Удалить" })) { removeTemplate(x.code); force(); } }}>{x.base ? "Скрыть" : "Удалить"}</FillBtn>
-                  </div>
+                  {(() => {
+                    const editAction = () => setView({ tpl: x });
+                    const removeAction = async () => { if (await confirmDialog(x.base ? { title: "Скрыть шаблон?", message: `Базовый шаблон «${x.label}» будет скрыт.`, confirmText: "Скрыть" } : { title: "Удалить шаблон?", message: `Шаблон «${x.label}» будет удалён.`, confirmText: "Удалить" })) { removeTemplate(x.code); force(); } };
+                    // Мобилка: компактный ряд иконок (как действия над документом);
+                    // десктоп: текстовые кнопки как были.
+                    if (phone) {
+                      return (
+                        <div onClick={(ev) => ev.stopPropagation()} style={{ display: "flex", alignItems: "center", flexShrink: 0 }}>
+                          <DocIconBtn onClick={editAction} title="Редактировать"><IconPencil /></DocIconBtn>
+                          <DocIconBtn color={CARROT} onClick={removeAction} title={x.base ? "Скрыть шаблон" : "Удалить шаблон"}>{x.base ? <IconEyeOff /> : <IconTrash size={21} />}</DocIconBtn>
+                        </div>
+                      );
+                    }
+                    return (
+                      <div onClick={(ev) => ev.stopPropagation()} style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+                        <FillBtn onClick={editAction}>Редактировать</FillBtn>
+                        <FillBtn fill={CARROT} onClick={removeAction}>{x.base ? "Скрыть" : "Удалить"}</FillBtn>
+                      </div>
+                    );
+                  })()}
                 </ListRow>
               );
             })}
@@ -2732,10 +3160,44 @@ export default function ObjectsSection({ userEmail, userId, isAdmin }) {
   const mObj = p.match(/\/account\/objects\/([^/?#]+)/);
   const objId = mObj ? decodeURIComponent(mObj[1]) : null;
 
+  let child;
   if (objId) {
-    if (isAdmin && !preview) return <AdminObjectEditor id={objId} autoOpenMessages={openMsg} />;
-    return <CustomerObjectView id={objId} preview={isAdmin && preview} autoOpenMessages={openMsg} userEmail={userEmail} />;
+    child = (isAdmin && !preview)
+      ? <AdminObjectEditor id={objId} autoOpenMessages={openMsg} />
+      : <CustomerObjectView id={objId} preview={isAdmin && preview} autoOpenMessages={openMsg} userEmail={userEmail} />;
+  } else if (isAdmin) {
+    child = <AdminObjectsList />;
+  } else {
+    child = <CustomerObjectsList email={userEmail} accountId={userId} />;
   }
-  if (isAdmin) return <AdminObjectsList />;
-  return <CustomerObjectsList email={userEmail} accountId={userId} />;
+  return <>{child}<ObjMobileCSS /></>;
+}
+
+/* Мобильная адаптация раскладок (файл на инлайн-стилях; !important перебивает inline).
+   ≤640px: двухколоночные шапки → одна колонка; ряды документов переносятся.
+   Этапы на телефоне рисуются отдельной карточкой (StagesEditor/StageListEditor,
+   ветка useIsPhone) — им CSS-перенос не нужен. */
+function ObjMobileCSS() {
+  return (
+    <style>{`
+      @media (max-width: 640px){
+        .obj-collapse-1{ grid-template-columns: 1fr !important; }
+        .obj-row-wrap{ flex-wrap: wrap !important; }
+      }
+      /* Перемещённый/выбранный этап на мобилке — статичная пунктирная рамка нашими точками
+         (паттерн как у разделителей), без анимации. */
+      .stage-card{ position: relative; }
+      .stage-card.stage-sel::after{
+        content:""; position:absolute; inset:0; border-radius:12px; pointer-events:none;
+        background-image:
+          repeating-linear-gradient(90deg,#9a9a9a 0 1.5px,transparent 1.5px 9px),
+          repeating-linear-gradient(90deg,#9a9a9a 0 1.5px,transparent 1.5px 9px),
+          repeating-linear-gradient(180deg,#9a9a9a 0 1.5px,transparent 1.5px 9px),
+          repeating-linear-gradient(180deg,#9a9a9a 0 1.5px,transparent 1.5px 9px);
+        background-size: 100% 1.5px, 100% 1.5px, 1.5px 100%, 1.5px 100%;
+        background-position: 0 0, 0 100%, 0 0, 100% 0;
+        background-repeat: no-repeat;
+      }
+    `}</style>
+  );
 }

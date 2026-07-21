@@ -1207,7 +1207,7 @@ function useLocationPathname() {
 function SettingsRow({ title, desc, action, children, danger = false, first = false }) {
   return (
     <div
-      className="grid grid-cols-1 lg:grid-cols-[360px_714px_78px_277px]"
+      className="grid grid-cols-1 xl:grid-cols-[360px_714px_78px_277px]"
       style={{
         columnGap: 0,
         alignItems: "start",
@@ -1217,7 +1217,7 @@ function SettingsRow({ title, desc, action, children, danger = false, first = fa
       }}
     >
       {/* ЛЕВО — заголовок + описание */}
-      <div className="lg:pr-10">
+      <div className="xl:pr-10">
         <div style={{ fontSize: 24, fontWeight: 600, lineHeight: 1.2, color: danger ? "#e2571f" : TEXT }}>
           {title}
         </div>
@@ -1229,15 +1229,15 @@ function SettingsRow({ title, desc, action, children, danger = false, first = fa
       </div>
 
       {/* ЦЕНТР — поля / контент */}
-      <div className="mt-5 lg:mt-0" style={{ maxWidth: MID_COL }}>
+      <div className="mt-5 xl:mt-0" style={{ maxWidth: MID_COL }}>
         {children}
       </div>
 
       {/* ПРОМЕЖУТОК */}
-      <div className="hidden lg:block" />
+      <div className="hidden xl:block" />
 
       {/* ПРАВО — основная кнопка секции */}
-      <div className="mt-5 lg:mt-0">{action}</div>
+      <div className="mt-5 xl:mt-0">{action}</div>
     </div>
   );
 }
@@ -1250,15 +1250,12 @@ function SectionButton({ onClick, disabled, children, variant = "solid" }) {
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="w-full lg:w-[277px]"
+      className="h-12 w-full rounded-lg text-sm xl:h-[72px] xl:w-[277px] xl:rounded-xl xl:text-[18px]"
       style={{
-        height: 72,
-        borderRadius: 12,
-        background: solid ? "#111" : "#fff",
+        background: solid ? "#1c1c1c" : "#fff",
         color: solid ? "#fff" : TEXT,
         border: solid ? "none" : "1px solid #d9d9d9",
         fontFamily: UI,
-        fontSize: 18,
         fontWeight: 300,
         cursor: disabled ? "not-allowed" : "pointer",
         opacity: disabled ? 0.85 : 1,
@@ -1266,11 +1263,11 @@ function SectionButton({ onClick, disabled, children, variant = "solid" }) {
       }}
       onMouseEnter={(e) => {
         if (disabled) return;
-        if (solid) e.currentTarget.style.backgroundColor = "#262626";
+        if (solid) e.currentTarget.style.backgroundColor = "#2a2a2a";
         else e.currentTarget.style.borderColor = "#000";
       }}
       onMouseLeave={(e) => {
-        if (solid) e.currentTarget.style.backgroundColor = "#111";
+        if (solid) e.currentTarget.style.backgroundColor = "#1c1c1c";
         else e.currentTarget.style.borderColor = "#d9d9d9";
       }}
     >
@@ -1282,7 +1279,7 @@ function SectionButton({ onClick, disabled, children, variant = "solid" }) {
 /* Спиннер на месте кнопки секции: занимает тот же бокс (72×277) и центрирует наш круглишок. */
 function SectionBusy() {
   return (
-    <div className="w-full lg:w-[277px]" style={{ height: 72, display: "flex", alignItems: "center", justifyContent: "center" }}>
+    <div className="h-12 w-full xl:h-[72px] xl:w-[277px]" style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
       <Spinner size={30} />
     </div>
   );
@@ -1360,25 +1357,71 @@ function TabsBar({ active, isAdmin, canPartner, canSupplier, onNavigate, lineWid
   // иначе виден кадр под «Профиль» (left:0), что выглядит как рывок.
   const [measured, setMeasured] = React.useState(false);
 
+  // ===== Мобильные вкладки (карусель-центрирование) =====
+  // Секции листаются горизонтально; вкладка, доехавшая до ЦЕНТРА, крупнеет и становится
+  // текущей после остановки скролла. Переключение свайпом ИЛИ тапом (тап центрирует).
+  const isMobile = !isDesktop;
+  const vibrate = React.useCallback((ms) => {
+    try { if (typeof navigator !== "undefined" && navigator.vibrate) navigator.vibrate(ms); } catch {}
+  }, []);
+  const [focusCode, setFocusCode] = React.useState(active); // вкладка по центру (живая подсветка/рост при свайпе)
+  React.useEffect(() => { setFocusCode(active); }, [active]);
+  // focusCode держим ещё и в ref: measure() читает его БЕЗ пересоздания, иначе большой
+  // эффект-центрирование (deps: measure) перезапускался на каждый тик свайпа и дёргал скролл.
+  const focusCodeRef = React.useRef(active);
+  React.useEffect(() => { focusCodeRef.current = focusCode; }, [focusCode]);
+  const commitTimerRef = React.useRef(null);
+
   const TABS_DEF = React.useMemo(() => {
-    return [
-      { code: "profile",  label: "Профиль",  adminOnly: false, locked: false },
-      { code: "objects",  label: "Объекты",  adminOnly: false, locked: false },
-      { code: "partner",  label: "Партнёр",  adminOnly: false, locked: !canPartner },
-      { code: "supplier", label: "Поставщик",adminOnly: false, locked: !canSupplier },
-      { code: "personal", label: "Настройки", adminOnly: false, locked: false }, // ← Переименовано
-      { code: "admin",    label: "Администратор", adminOnly: true, locked: false },
-      // Заказчику (нет доступа к админке) на месте «Администратор» показываем «Помощь» —
-      // ведёт в справку «Кабинет заказчика». Сотрудники/админы видят «Администратор»,
-      // а справка у них лежит внутри админ-модулей.
-      { code: "help",     label: "Помощь", customerOnly: true, locked: false },
-    ].filter(t => (t.adminOnly ? isAdmin : t.customerOnly ? !isAdmin : true));
+    const profile  = { code: "profile",  label: "Профиль",   locked: false };
+    const objects  = { code: "objects",  label: "Объекты",   locked: false };
+    const partner  = { code: "partner",  label: "Партнёр",   locked: !canPartner };
+    const supplier = { code: "supplier", label: "Поставщик", locked: !canSupplier };
+    const personal = { code: "personal", label: "Настройки", locked: false };
+    const admin    = { code: "admin",    label: "Администратор", locked: false };
+    const help     = { code: "help",     label: "Помощь",    locked: false };
+    // Админ/сотрудник: привычный порядок + «Администратор».
+    if (isAdmin) return [profile, objects, partner, supplier, personal, admin];
+    // Заказчик: «Партнёр» и «Поставщик» (обычно недоступны) — в конец, чтобы не
+    // мешали частым «Настройки»/«Помощь». Вместо «Администратора» — «Помощь».
+    return [profile, objects, personal, help, partner, supplier];
   }, [isAdmin, canPartner, canSupplier]);
 
+  // Код вкладки ближе всего к ЦЕНТРУ ряда. Заблокированные (Партнёр/Поставщик
+  // у заказчика) пропускаем — на них свайпом/тапом не «встать».
+  const centeredCode = React.useCallback(() => {
+    const wrap = wrapRef.current; if (!wrap) return null;
+    const rWrap = wrap.getBoundingClientRect();
+    const cX = rWrap.left + rWrap.width / 2;
+    let cur = null, best = Infinity;
+    for (const t of TABS_DEF) {
+      if (t.locked) continue;
+      const el = tabRefs.current.get(t.code);
+      if (!el || !el.isConnected) continue;
+      const r = el.getBoundingClientRect();
+      const d = Math.abs(r.left + r.width / 2 - cX);
+      if (d < best) { best = d; cur = t.code; }
+    }
+    return cur;
+  }, [TABS_DEF]);
+
   const measure = React.useCallback(() => {
-    const el = tabRefs.current.get(active);
     const wrap = wrapRef.current;
-    if (!el || !wrap) return;
+    if (!wrap) return;
+    // Мобилка: активная вкладка всегда в ЦЕНТРЕ ряда → полоску тоже закрепляем по центру
+    // (ширина = центральной/фокусной вкладки). Так при свайпе она не «ездит», а стоит под
+    // крупной центральной надписью — ширина плавно подстраивается под новую вкладку.
+    if (isMobile) {
+      const el = tabRefs.current.get(focusCodeRef.current) || tabRefs.current.get(active);
+      if (!el) return;
+      const w = Math.max(24, el.getBoundingClientRect().width);
+      const rWrap = wrap.getBoundingClientRect();
+      setUnderline({ left: Math.max(0, rWrap.width / 2 - w / 2), width: w });
+      setMeasured(true);
+      return;
+    }
+    const el = tabRefs.current.get(active);
+    if (!el) return;
     const rTab = el.getBoundingClientRect();
     const rWrap = wrap.getBoundingClientRect();
     setUnderline({
@@ -1386,13 +1429,14 @@ function TabsBar({ active, isAdmin, canPartner, canSupplier, onNavigate, lineWid
       width: Math.max(24, rTab.width),
     });
     setMeasured(true);
-  }, [active]);
+  }, [active, isMobile]);
 
   React.useEffect(() => {
     // Прокрутить активную вкладку в зону видимости (важно при переходе из поповера)
     try {
       const el = tabRefs.current.get(active);
-      el?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
+      // Активную вкладку выводим в центр ряда (карусель).
+      el?.scrollIntoView?.({ block: "nearest", inline: "center" });
     } catch {}
 
     // Многократный замер: layout/шрифты могут «доехать» уже после mount,
@@ -1445,24 +1489,60 @@ function TabsBar({ active, isAdmin, canPartner, canSupplier, onNavigate, lineWid
   const onClickTab = (e, tab) => {
     e.preventDefault();
     if (tab.locked) return;
+    if (!isDesktop) { setFocusCode(tab.code); vibrate(10); } // мгновенная отдача + подсветка
     try {
       window.history.pushState({}, "", toPath(tab.code));
       onNavigate?.(tab.code);
     } catch {}
   };
 
+  // Свайп: пока листаешь — центральная вкладка крупнеет/подсвечивается (тик-вибро при
+  // смене); когда скролл остановился — переходим на неё (как при тапе).
+  React.useEffect(() => {
+    if (isDesktop) return;
+    const wrap = wrapRef.current; if (!wrap) return;
+    const onScroll = () => {
+      const code = centeredCode();
+      if (code) setFocusCode((prev) => { if (code !== prev) vibrate(5); return code; });
+      if (commitTimerRef.current) clearTimeout(commitTimerRef.current);
+      commitTimerRef.current = setTimeout(() => {
+        const c = centeredCode();
+        if (!c || c === active) return;
+        const t = TABS_DEF.find((x) => x.code === c);
+        if (!t || t.locked) return;
+        try { window.history.pushState({}, "", toPath(c)); onNavigate?.(c); } catch {}
+      }, 160);
+    };
+    wrap.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      wrap.removeEventListener("scroll", onScroll);
+      if (commitTimerRef.current) clearTimeout(commitTimerRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isDesktop, active, TABS_DEF, centeredCode, vibrate]);
+
   return (
-    <div className="relative mt-[46px] pb-[18px] lg:-mt-[35px]">
+    <div className="relative mt-[24px] pb-[18px] xl:-mt-[35px]">
       <div
         ref={wrapRef}
         className="[scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-        style={{ display: "flex", alignItems: "center", gap: 24, fontSize: 14, overflowX: "auto" }}
+        style={{
+          display: "flex", alignItems: "center", gap: isMobile ? 22 : 24, fontSize: 14, overflowX: "auto",
+          ...(isMobile ? { WebkitOverflowScrolling: "touch", minHeight: 40, scrollSnapType: "x proximity" } : null),
+        }}
       >
+        {/* Начальная распорка: чтобы первая вкладка могла доехать до центра */}
+        {isMobile ? <span aria-hidden style={{ flex: "0 0 calc(50% - 40px)" }} /> : null}
         {TABS_DEF.map((t) => {
           const isActive = t.code === active;
-          const refCb = (el) => { if (el) tabRefs.current.set(t.code, el); };
-          const color = isActive ? TEXT : "#777";
-          const weight = isActive ? 600 : 300;
+          const isLockedTab = isMobile && t.locked; // заказчику Партнёр/Поставщик недоступны — серые, не растут
+          // Пока свайпаешь: центральная вкладка крупнеет и темнеет (карусель).
+          const isFocused = isMobile && !isLockedTab && t.code === focusCode;
+          const refCb = (el) => { if (el) tabRefs.current.set(t.code, el); else tabRefs.current.delete(t.code); };
+          const color = isMobile
+            ? (isLockedTab ? "#c2c2c2" : (isActive || isFocused) ? TEXT : "#9a9a9a")
+            : (isActive ? TEXT : "#777");
+          const weight = isMobile ? ((isActive || isFocused) && !isLockedTab ? 600 : 400) : (isActive ? 600 : 300);
           return (
             <a
               key={t.code}
@@ -1479,6 +1559,13 @@ function TabsBar({ active, isAdmin, canPartner, canSupplier, onNavigate, lineWid
                 color,
                 fontWeight: weight,
                 cursor: t.locked ? "default" : "pointer",
+                ...(isMobile ? {
+                  // вкладка по центру крупнеет до размера заголовка «Профиль» (22px); остальные 16px
+                  fontSize: (isActive || isFocused) && !isLockedTab ? 22 : 16,
+                  lineHeight: 1,
+                  scrollSnapAlign: "center",
+                  transition: "font-size .18s ease, color .18s ease",
+                } : null),
               }}
               aria-current={isActive ? "page" : undefined}
               aria-disabled={t.locked || undefined}
@@ -1489,6 +1576,8 @@ function TabsBar({ active, isAdmin, canPartner, canSupplier, onNavigate, lineWid
             </a>
           );
         })}
+        {/* Хвостовая распорка: чтобы последняя вкладка тоже могла доехать до центра */}
+        {isMobile ? <span aria-hidden style={{ flex: "0 0 calc(50% - 40px)" }} /> : null}
       </div>
 
       <div
@@ -1510,6 +1599,7 @@ function TabsBar({ active, isAdmin, canPartner, canSupplier, onNavigate, lineWid
             width: underline.width,
             height: 2,
             background: "#000",
+            display: "block", // мобилка: полоска закреплена по центру (как на ПК под активной вкладкой)
             opacity: measured ? 1 : 0,
             transition: animate ? "left .18s ease, width .18s ease" : "none",
           }}
@@ -1547,6 +1637,7 @@ function AcctAction({ children, onClick, accent }) {
 }
 function AcctRow({ u, onOpen, onDelete }) {
   const [h, setH] = React.useState(false);
+  const phone = useIsPhone();
   const roleLabel = ROLE_LABEL[String(u.role || "customer").toLowerCase()] || ROLE_LABELS.customer;
   return (
     <>
@@ -1559,9 +1650,18 @@ function AcctRow({ u, onOpen, onDelete }) {
             Группа: {labelByCode(toCode(u.group)) || "—"}{" · "}Роль: {roleLabel}{u.inn ? ` · ИНН ${u.inn}` : ""}
           </div>
         </div>
-        <div onClick={(ev) => ev.stopPropagation()} style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-          <AcctAction onClick={onOpen}>Открыть</AcctAction>
-          <AcctAction accent onClick={onDelete}>Удалить</AcctAction>
+        <div onClick={(ev) => ev.stopPropagation()} style={{ display: "flex", alignItems: "center", gap: phone ? 2 : 8, flexShrink: 0 }}>
+          {phone ? (
+            <>
+              <RefDocIconBtn title="Открыть" onClick={onOpen}>{RefMiniIcon.open}</RefDocIconBtn>
+              <RefDocIconBtn title="Удалить" color="#fa5d29" onClick={onDelete}>{RefMiniIcon.trash}</RefDocIconBtn>
+            </>
+          ) : (
+            <>
+              <AcctAction onClick={onOpen}>Открыть</AcctAction>
+              <AcctAction accent onClick={onDelete}>Удалить</AcctAction>
+            </>
+          )}
         </div>
       </div>
       <AcctDotted />
@@ -1571,6 +1671,7 @@ function AcctRow({ u, onOpen, onDelete }) {
 
 /* Карточка одной учётки: просмотр данных (ИНН, организация), смена группы/роли, удаление. */
 function AccountDetail({ token, user, onBack, onChanged, onDeleted }) {
+  const narrow = useIsPhone();
   const id = user.id ?? user._id ?? user.userId ?? user.email;
   const [full, setFull] = React.useState(user);
   const [name, setName] = React.useState(user.name || "");
@@ -1660,7 +1761,7 @@ function AccountDetail({ token, user, onBack, onChanged, onDeleted }) {
       <div style={{ marginTop: 26, maxWidth: 560, display: "grid", gap: 18 }}>
         <div>
           <div style={secLbl}>Доступ</div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+          <div style={{ display: "grid", gridTemplateColumns: narrow ? "1fr" : "1fr 1fr", gap: 14 }}>
             <Field label="Группа"><GroupSelect value={group} onChange={setGroup} canPickLocked /></Field>
             <Field label="Роль доступа"><AccessRoleSelect value={role} onChange={setRole} /></Field>
           </div>
@@ -1678,7 +1779,7 @@ function AccountDetail({ token, user, onBack, onChanged, onDeleted }) {
           <div style={secLbl}>Организация</div>
           <div style={{ display: "grid", gap: 14 }}>
             <Field label="Организация"><Input value={org} onChange={setOrg} placeholder="—" /></Field>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+            <div style={{ display: "grid", gridTemplateColumns: narrow ? "1fr" : "1fr 1fr", gap: 14 }}>
               <Field label={innBusy ? "ИНН — подтягиваем…" : "ИНН"}><Input value={inn} onChange={onInnChange} placeholder="Введите ИНН — данные подтянутся" /></Field>
               <Field label="КПП"><Input value={kpp} onChange={setKpp} placeholder="—" /></Field>
             </div>
@@ -1852,7 +1953,7 @@ function AdminLauncher() {
       <div style={{ marginTop: 24, display: "grid", gap: 16, gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))" }}>
         {cards.map((c) => (
           <a key={c.to} href={c.to} onClick={(e) => { e.preventDefault(); adminNav(c.to); }}
-            style={{ display: "flex", flexDirection: "column", textDecoration: "none", color: "inherit", border: "none", borderRadius: 12, padding: 30, background: "#e9e9e9", minHeight: 210, transition: "background-color .18s ease, box-shadow .18s ease, transform .18s ease" }}
+            style={{ display: "flex", flexDirection: "column", textDecoration: "none", color: "inherit", border: "none", borderRadius: 12, padding: 30, background: "#e9e9e9", minHeight: 123, transition: "background-color .18s ease, box-shadow .18s ease, transform .18s ease" }}
             onMouseEnter={(e) => { e.currentTarget.style.background = "#fff"; e.currentTarget.style.boxShadow = "0 12px 32px rgba(0,0,0,.08)"; e.currentTarget.style.transform = "translateY(-2px)"; }}
             onMouseLeave={(e) => { e.currentTarget.style.background = "#e9e9e9"; e.currentTarget.style.boxShadow = "none"; e.currentTarget.style.transform = "none"; }}>
             <span style={{ color: TEXT, display: "inline-flex" }}>{c.icon}</span>
@@ -1949,7 +2050,7 @@ const REF_ARTICLES = {
     ] },
     { h: "Этапы работ" },
     { ul: [
-      "Этапы можно перетаскивать за ручку, переименовывать и менять статус: Не начат / В работе / Завершён / На паузе / Ожидает заказчика.",
+      "Этапы можно переставлять (на компьютере — перетаскиванием за ручку ⠿, на телефоне — кнопками ↑/↓), переименовывать и менять статус: Не начат / В работе / Завершён / На паузе / Ожидает заказчика.",
       "В поле «Что входит в этап» перечисляются пункты — заказчик увидит их списком, когда этап «В работе».",
       "Типовые этапы подставляются из шаблона, можно добавить свои.",
     ] },
@@ -1961,7 +2062,7 @@ const REF_ARTICLES = {
     { ul: [
       "Сгруппированы по категориям: Договоры, Отчёты, Сметы, Исполнительная, Схемы, Акты, Фото, Прочее.",
       "Загрузка — по кнопке «+ Добавить» в категории; файл уходит в защищённое хранилище.",
-      "У каждого документа: «Открыть» (просмотр), «Скачать», «Показать/Скрыть» для заказчика, «Удалить». Хранится история версий.",
+      "У каждого документа: «Открыть» (просмотр), «Скачать», «Показать/Скрыть» для заказчика, «Удалить». Хранится история версий. На телефоне эти действия — компактные иконки в строке документа.",
       "Заказчик видит только опубликованные и видимые документы; внутренние комментарии и черновики ему не показываются.",
     ] },
     { buttons: [
@@ -2100,7 +2201,7 @@ const REF_ARTICLES = {
     ] },
     { demo: "perm" },
     { h: "Убрать из штата" },
-    { note: "«Убрать» понижает учётку до заказчика — сотрудник перестаёт быть штатным, но сама учётная запись сохраняется (не удаляется)." },
+    { note: "«Убрать» понижает учётку до заказчика — сотрудник перестаёт быть штатным, но сама учётная запись сохраняется (не удаляется). В списке сотрудников «Права» и «Убрать» на компьютере — кнопки, на телефоне — иконки в строке (карандаш и корзина)." },
     { link: { label: "Открыть «Сотрудники»", to: "/account/admin/employees", sub: "Управление штатом и правами." } },
   ],
   accounts: [
@@ -2119,6 +2220,7 @@ const REF_ARTICLES = {
       "Организация: название, ИНН (с автоподстановкой), КПП, адрес.",
       "«Сохранить изменения»; удаление учётки — в «опасной зоне».",
     ] },
+    { note: "В списке учётных записей действия «Открыть» и «Удалить» на компьютере — текстовые кнопки, на телефоне — иконки в строке.", noteTitle: "На телефоне" },
     { link: { label: "Открыть «Учётные записи»", to: "/account/admin/accounts", sub: "Все пользователи кабинета." } },
   ],
   create: [
@@ -2146,7 +2248,7 @@ const REF_ARTICLES = {
     { ul: [
       "Сначала список объектов, у которых есть загруженные файлы: «Заказчик — Название», номер, статус, ИНН, город, ответственный.",
       "Панель фильтров: поиск (объект, заказчик, ИНН, город, файл) и фильтры по статусу, ответственному и городу.",
-      "Клик по объекту открывает таблицу его файлов: документ, файл, тип, размер, дата, статус. Колонки сортируются кликом по заголовку.",
+      "Клик по объекту открывает таблицу его файлов: документ, файл, тип, размер, дата, статус. Колонки сортируются кликом по заголовку. На телефоне вместо таблицы — карточки файлов с кнопкой скачивания.",
     ] },
     { h: "Скачивание" },
     { ul: [
@@ -2190,8 +2292,8 @@ const REF_ARTICLES = {
     ] },
     { h: "Порядок, правка и удаление" },
     { ul: [
-      "Порядок меняется перетаскиванием за ручку ⠿ — как этапы в объекте.",
-      "«Изменить» и «Удалить» появляются при наведении курсора на строку проекта.",
+      "Порядок меняется перестановкой строк — как этапы в объекте (на компьютере — перетаскиванием за ручку ⠿, на телефоне — кнопками ↑/↓).",
+      "«Изменить» и «Удалить» доступны в строке проекта: на компьютере — при наведении, на телефоне — постоянными иконками.",
       "«Сбросить к заводскому набору» возвращает два стартовых проекта (добавленные удаляются).",
     ] },
     { h: "Кто может" },
@@ -2210,9 +2312,9 @@ const REF_ARTICLES = {
       "Справа в шапке — две иконки: «История изменений по объекту» (три соединённые точки) и «Подписка на e-mail-уведомления» (квадрат со стрелкой). Никакого колокольчика у вас нет.",
       "Прогресс по этапам: сколько выполнено и что идёт прямо сейчас.",
       "«Что входит в этап» — детализация текущего этапа появляется, когда он «В работе».",
-      "Документы — только те, что команда открыла для вас: можно открыть в просмотрщике и скачать.",
+      "Документы — только те, что команда открыла для вас: можно открыть в просмотрщике и скачать (на телефоне — иконки в строке документа).",
       "Реестр «Коммуникация по объекту» и кнопка «Задать вопрос».",
-      "Панель-док снизу с номером, статусом, прогрессом и mint-кнопкой «Задать вопрос».",
+      "Панель-док снизу с номером, статусом, прогрессом и mint-кнопкой «Задать вопрос» (на компьютере; на телефоне дока нет — кнопка «Задать вопрос» остаётся в самой карточке).",
     ] },
     { demo: "customer-object" },
     { h: "История изменений и статусы" },
@@ -2236,7 +2338,7 @@ const REF_ARTICLES = {
     { ul: [
       "Морковная точка «новое» рядом с объектом в списке — по нему есть что посмотреть.",
       "Метка «New» на свежем документе, который команда только что открыла вам.",
-      "Пульсирующая точка на mint-кнопке в доке снизу — есть новое по этому объекту.",
+      "Пульсирующая точка на mint-кнопке в доке снизу (на компьютере) — есть новое по этому объекту.",
       "Точка у иконки учётной записи в шапке сайта и у пункта «Объекты» в её меню.",
       "Письмо на электронную почту (если она указана в профиле). Иконка «Подписка на e-mail» (квадрат со стрелкой) в шапке объекта включает или выключает письма именно по нему.",
     ] },
@@ -2280,7 +2382,9 @@ function RefCheck({ on }) {
   );
 }
 function ReferenceRoles({ onBack }) {
+  const phone = useIsPhone();
   const [refTab, setRefTab] = React.useState("roles"); // roles | matrix | groups
+  const [mRole, setMRole] = React.useState(0); // выбранная роль в мобильной матрице
   const roleSets = React.useMemo(() => REF_ROLES.map((r) => effectivePerms(r, null)), []);
   const secLbl = { fontSize: 12, letterSpacing: ".08em", textTransform: "uppercase", color: "#a7a7a7", fontWeight: 300 };
 
@@ -2313,7 +2417,7 @@ function ReferenceRoles({ onBack }) {
       </div>
 
       {/* Табы */}
-      <div style={{ marginTop: 22, display: "flex", gap: 20, borderBottom: "1px solid #eee" }}>
+      <div style={{ marginTop: 22, display: "flex", gap: phone ? 16 : 20, borderBottom: "1px solid #eee" }}>
         <TabBtn id="roles">Роли</TabBtn>
         <TabBtn id="matrix">Права по ролям</TabBtn>
         <TabBtn id="groups">Группы</TabBtn>
@@ -2323,8 +2427,8 @@ function ReferenceRoles({ onBack }) {
       {refTab === "roles" && (
         <div style={{ marginTop: 18, display: "flex", flexDirection: "column", gap: 14, maxWidth: 720 }}>
           {REF_ROLES.map((r) => (
-            <div key={r} style={{ display: "flex", gap: 14, alignItems: "baseline" }}>
-              <div style={{ minWidth: 132, fontSize: 15, fontWeight: 500, color: TEXT }}>{ROLE_LABELS[r]}</div>
+            <div key={r} style={{ display: "flex", flexDirection: phone ? "column" : "row", gap: phone ? 2 : 14, alignItems: phone ? "stretch" : "baseline" }}>
+              <div style={{ minWidth: phone ? 0 : 132, fontSize: 15, fontWeight: 500, color: TEXT }}>{ROLE_LABELS[r]}</div>
               <div style={{ fontSize: 14, fontWeight: 300, color: "#333" }}>{REF_ROLE_DESC[r]}</div>
             </div>
           ))}
@@ -2335,7 +2439,42 @@ function ReferenceRoles({ onBack }) {
       )}
 
       {/* Матрица прав × роли */}
-      {refTab === "matrix" && (
+      {refTab === "matrix" && (phone ? (
+        /* Телефон: широкую таблицу не показываем — выбираем роль, ниже её права по группам */
+        <div style={{ marginTop: 18 }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            {REF_ROLES.map((r, i) => (
+              <button key={r} type="button" onClick={() => setMRole(i)}
+                style={{ border: mRole === i ? "1px solid " + TEXT : "1px solid #e0e0e0", background: mRole === i ? TEXT : "#fff",
+                  color: mRole === i ? "#fff" : "#333", borderRadius: 999, padding: "7px 14px", fontFamily: UI, fontSize: 13,
+                  fontWeight: mRole === i ? 600 : 300, cursor: "pointer" }}>
+                {ROLE_LABELS[r]}
+              </button>
+            ))}
+          </div>
+          <div style={{ marginTop: 16 }}>
+            {Object.keys(PERMISSIONS).map((ns) => (
+              <div key={ns} style={{ marginBottom: 14 }}>
+                <div style={{ fontSize: 11, letterSpacing: ".05em", textTransform: "uppercase", color: "#999", fontWeight: 600, marginBottom: 4 }}>
+                  {PERM_GROUP_LABELS[ns] || ns}
+                </div>
+                {PERMISSIONS[ns].map(([perm, label]) => {
+                  const has = roleSets[mRole].has(perm);
+                  return (
+                    <div key={perm} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderTop: "1px solid #f0f0f0" }}>
+                      <span style={{ display: "inline-flex", flexShrink: 0 }}><RefCheck on={has} /></span>
+                      <span style={{ fontSize: 14, fontWeight: 300, color: has ? "#333" : "#bbb" }}>{label}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+          <div style={{ fontSize: 13, fontWeight: 300, color: "#888", marginTop: 4 }}>
+            Пресеты можно докручивать поштучно в модуле «Сотрудники» (галочки поверх роли).
+          </div>
+        </div>
+      ) : (
         <div style={{ marginTop: 18, overflowX: "auto" }}>
           <table style={{ borderCollapse: "collapse", width: "100%", maxWidth: 760, fontSize: 13 }}>
             <thead>
@@ -2370,7 +2509,7 @@ function ReferenceRoles({ onBack }) {
             Пресеты можно докручивать поштучно в модуле «Сотрудники» (галочки поверх роли).
           </div>
         </div>
-      )}
+      ))}
 
       {/* Группы */}
       {refTab === "groups" && (
@@ -2409,7 +2548,12 @@ function AdminReference({ customer = false }) {
   cats.sort((a, b) => REF_CAT_ORDER.indexOf(a.cat) - REF_CAT_ORDER.indexOf(b.cat));
 
   return (
-    <div style={{ fontFamily: UI, marginTop: 8 }}>
+    // Справка = единая читаемая колонка. Статьи внутри уже кэпятся maxWidth:760 (стр. ~2751);
+    // лендинг тем раньше был во всю ширину — на iPad Pro (широкая одноколоночная раскладка ЛК)
+    // строки-темы растягивались, а статьи — нет, из-за чего справка выглядела «не чётко».
+    // Единый maxWidth:760 держит и лендинг, и статьи одной аккуратной колонкой (телефон/iPad Air
+    // <760 — no-op, ширину не режет). Колонка левоприжата к краю шапки, как и формы ЛК.
+    <div style={{ fontFamily: UI, marginTop: 8, maxWidth: 760 }}>
       <RefKeyframes />
       {customer ? null : (
         <button type="button" onClick={() => adminNav("/account/admin")} style={{ border: "none", background: "none", padding: 0, cursor: "pointer", fontFamily: UI, fontSize: 14, fontWeight: 300, color: "#777" }}>← К модулям</button>
@@ -2475,8 +2619,88 @@ function RefTopicRow({ title, sub, onOpen, badge }) {
   );
 }
 
+/* Хук «это телефон» (matchMedia max-width:640) — тот же брейкпоинт, на котором
+   в разделе «Объекты» включается мобильная раскладка (карточки этапов, иконки). */
+function useIsPhone() {
+  const [phone, setPhone] = React.useState(() => { try { return window.matchMedia("(max-width: 640px)").matches; } catch { return false; } });
+  React.useEffect(() => {
+    let mql; try { mql = window.matchMedia("(max-width: 640px)"); } catch { return; }
+    const on = () => setPhone(mql.matches); on();
+    mql.addEventListener ? mql.addEventListener("change", on) : mql.addListener(on);
+    return () => { mql.removeEventListener ? mql.removeEventListener("change", on) : mql.removeListener(on); };
+  }, []);
+  return phone;
+}
+
+/* Хук «планшет и уже» (matchMedia max-width:1279) — тот же порог, на котором
+   сам личный кабинет (isDesktop, ≥1280) переключается с фиксированной 3-колоночной
+   раскладки на текучую. Модули админки (Файлы, Витрина) и их демо в справке
+   на планшете (iPad Air 820, iPad Pro portrait 1024, 11" landscape 1194) должны
+   отдавать мобильную раскладку, а не десктопную таблицу/строку. */
+function useIsTabletDown() {
+  const [v, setV] = React.useState(() => { try { return window.matchMedia("(max-width: 1279px)").matches; } catch { return false; } });
+  React.useEffect(() => {
+    let mql; try { mql = window.matchMedia("(max-width: 1279px)"); } catch { return; }
+    const on = () => setV(mql.matches); on();
+    mql.addEventListener ? mql.addEventListener("change", on) : mql.addListener(on);
+    return () => { mql.removeEventListener ? mql.removeEventListener("change", on) : mql.removeListener(on); };
+  }, []);
+  return v;
+}
+
+/* Мини-иконки — точь-в-точь как действия в карточке объекта на телефоне. */
+const RefMiniIcon = {
+  open: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h6v6" /><path d="M9 21H3v-6" /><path d="M21 3l-8 8" /><path d="M3 21l8-8" /></svg>,
+  download: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><path d="M7 10l5 5 5-5" /><path d="M12 15V3" /></svg>,
+  eye: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z" /><circle cx="12" cy="12" r="3" /></svg>,
+  eyeOff: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M17.9 17.9A10.1 10.1 0 0 1 12 20C5 20 1 12 1 12a18.5 18.5 0 0 1 5.1-5.9m3.8-1.9A9.1 9.1 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.2 3.2m-6.7-1.1a3 3 0 1 1-4.2-4.2" /><path d="M1 1l22 22" /></svg>,
+  trash: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18" /><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M10 11v6M14 11v6" /></svg>,
+  arrowUp: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 15l6-6 6 6" /></svg>,
+  arrowDown: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: "rotate(180deg)" }}><path d="M6 15l6-6 6 6" /></svg>,
+  edit: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z" /></svg>,
+};
+
+/* Иконочная кнопка действия над документом (мобилка) — как DocIconBtn в объекте:
+   мягкий серый значок без рамки, скруглённый ховер-фон. */
+function RefDocIconBtn({ onClick, title, children, color = "#666", disabled = false }) {
+  const [h, setH] = React.useState(false);
+  return (
+    <button type="button" onClick={onClick} title={title} aria-label={title} disabled={disabled}
+      style={{ flexShrink: 0, display: "inline-flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 9, border: "none", background: h && !disabled ? "#f1f1f1" : "transparent", color: disabled ? "#d0d0d0" : color, cursor: disabled ? "default" : "pointer", padding: 0, transition: "background-color .15s ease" }}
+      onMouseEnter={() => setH(true)} onMouseLeave={() => setH(false)}>
+      {children}
+    </button>
+  );
+}
+
+/* Колонка перестановки для мобильных демо-этапов — точь-в-точь ReorderCol в объекте:
+   две КРУПНЫЕ кнопки ↑/↓ во всю высоту карточки (на тач ⠿-перетаскивание не работает). */
+function RefReorderBtn({ dir, disabled, onClick }) {
+  const [h, setH] = React.useState(false);
+  return (
+    <button type="button" onClick={onClick} disabled={disabled}
+      aria-label={dir === "up" ? "Поднять этап" : "Опустить этап"}
+      onMouseEnter={() => setH(true)} onMouseLeave={() => setH(false)}
+      style={{ flex: 1, width: 44, minHeight: 34, border: "none", borderRadius: 10, padding: 0,
+        background: disabled ? "#f7f7f7" : h ? "#e9e9e9" : "#f1f1f1",
+        color: disabled ? "#d2d2d2" : "#555", cursor: disabled ? "default" : "pointer",
+        display: "grid", placeItems: "center", transition: "background-color .15s ease" }}>
+      {dir === "up" ? RefMiniIcon.arrowUp : RefMiniIcon.arrowDown}
+    </button>
+  );
+}
+function RefReorderCol({ onUp, onDown, upDisabled, downDisabled }) {
+  return (
+    <div style={{ alignSelf: "stretch", display: "flex", flexDirection: "column", gap: 6, flexShrink: 0 }}>
+      <RefReorderBtn dir="up" disabled={upDisabled} onClick={onUp} />
+      <RefReorderBtn dir="down" disabled={downDisabled} onClick={onDown} />
+    </div>
+  );
+}
+
 /* ===== Справка: рендерер статьи из блоков (данные в REF_ARTICLES) ===== */
 function RefBlock({ b }) {
+  const phone = useIsPhone();
   if (b.h) return <div style={{ marginTop: 28, fontSize: 16, fontWeight: 600, color: TEXT }}>{b.h}</div>;
   if (b.p != null) return <p style={{ marginTop: 12, fontSize: 14, fontWeight: 300, lineHeight: 1.7, color: "#333" }}>{b.p}</p>;
   if (b.ul) return (
@@ -2504,9 +2728,9 @@ function RefBlock({ b }) {
   if (b.kv) return (
     <div style={{ marginTop: 14 }}>
       {b.kv.map(([k, v], i) => (
-        <div key={i} style={{ display: "flex", flexWrap: "wrap", gap: "2px 16px", padding: "10px 0", borderTop: i ? "1px dotted #e4e4e4" : "1px dotted #e4e4e4", fontSize: 14, lineHeight: 1.55 }}>
-          <span style={{ flexShrink: 0, width: 200, color: TEXT, fontWeight: 500 }}>{k}</span>
-          <span style={{ flex: 1, minWidth: 220, color: "#444", fontWeight: 300 }}>{v}</span>
+        <div key={i} style={{ display: "flex", flexWrap: "wrap", gap: phone ? "1px 0" : "2px 16px", padding: "10px 0", borderTop: i ? "1px dotted #e4e4e4" : "1px dotted #e4e4e4", fontSize: 14, lineHeight: 1.55 }}>
+          <span style={{ flexShrink: 0, width: phone ? "100%" : 200, color: TEXT, fontWeight: 500 }}>{k}</span>
+          <span style={{ flex: 1, minWidth: phone ? "100%" : 220, color: "#444", fontWeight: 300 }}>{v}</span>
         </div>
       ))}
     </div>
@@ -2566,27 +2790,32 @@ function RefKeyframes() {
 function RefPill({ code }) {
   const s = (DB.OBJECT_STATUSES || []).find((x) => x.code === code) || { label: code, tone: "#999" };
   return (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: 7, fontSize: 12.5, fontWeight: 400, color: "#333" }}>
-      <span style={{ width: 8, height: 8, borderRadius: 3, background: s.tone }} />{s.label}
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 7, flexShrink: 0, whiteSpace: "nowrap", fontSize: 12.5, fontWeight: 400, color: "#333" }}>
+      <span style={{ width: 8, height: 8, borderRadius: 3, background: s.tone, flexShrink: 0 }} />{s.label}
     </span>
   );
 }
 
 /* Рамка «Попробуйте» — пунктир, лейбл с живой точкой, кнопка сброса. */
 function DemoFrame({ label, hint, onReset, children }) {
+  const phone = useIsPhone();
   return (
-    <div style={{ marginTop: 18, border: "1px dashed #d6d6d6", borderRadius: 14, background: "#fafafa", padding: 18 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 11, fontWeight: 700, letterSpacing: ".08em", textTransform: "uppercase", color: "#111" }}>
-          <span className="ref-live" /> Попробуйте
-        </span>
-        {label ? <span style={{ fontSize: 13, fontWeight: 300, color: "#888" }}>· {label}</span> : null}
-        {onReset ? (
-          <button type="button" onClick={onReset} style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 6, border: "none", background: "none", padding: 0, cursor: "pointer", fontFamily: UI, fontSize: 12.5, fontWeight: 300, color: "#888" }}>
-            Сбросить
-            <svg viewBox="0 0 24 24" width="14" height="14"><path d="M20 11a8 8 0 1 0-2 5.3" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /><path d="M20 5v5h-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
-          </button>
-        ) : null}
+    <div style={{ marginTop: 18, border: "1px dashed #d6d6d6", borderRadius: 14, background: "#fafafa", padding: phone ? 12 : 18 }}>
+      <div style={{ marginBottom: 14 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 11, fontWeight: 700, letterSpacing: ".08em", textTransform: "uppercase", color: "#111" }}>
+            <span className="ref-live" /> Попробуйте
+          </span>
+          {/* на десктопе подпись раздела идёт в ту же строку; на телефоне — отдельной строкой ниже, чтобы не переносилась посреди фразы */}
+          {label && !phone ? <span style={{ fontSize: 13, fontWeight: 300, color: "#888" }}>· {label}</span> : null}
+          {onReset ? (
+            <button type="button" onClick={onReset} style={{ marginLeft: "auto", flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 6, border: "none", background: "none", padding: 0, cursor: "pointer", fontFamily: UI, fontSize: 12.5, fontWeight: 300, color: "#888" }}>
+              Сбросить
+              <svg viewBox="0 0 24 24" width="14" height="14"><path d="M20 11a8 8 0 1 0-2 5.3" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /><path d="M20 5v5h-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+            </button>
+          ) : null}
+        </div>
+        {label && phone ? <div style={{ marginTop: 6, fontSize: 13, fontWeight: 300, color: "#888" }}>{label}</div> : null}
       </div>
       {children}
       {hint ? <div style={{ marginTop: 14, fontSize: 12, fontWeight: 300, color: "#a0a0a0", lineHeight: 1.5 }}>{hint}</div> : null}
@@ -2650,6 +2879,8 @@ const _SHEET_ORANGE = "#F1571F";
    та же кнопка. Без записи в базу и без навигации. После создания — те же логин/пароль
    и «Лист доступа» с QR (иллюстрация того, что печатают и отдают заказчику). ── */
 function CreateAccountDemo() {
+  const phone = useIsPhone();
+  const narrow = useIsTabletDown(); // на планшете форму центрируем — как в реальном модуле
   const [mode, setMode] = React.useState("email");
   const [email, setEmail] = React.useState("");
   const [login, setLogin] = React.useState("");
@@ -2731,7 +2962,7 @@ function CreateAccountDemo() {
           </div>
         </div>
       ) : (
-        <div style={{ display: "grid", gap: 18, maxWidth: 520 }}>
+        <div style={{ display: "grid", gap: 18, maxWidth: 520, ...(narrow ? { marginLeft: "auto", marginRight: "auto" } : null) }}>
           <div>
             <div style={{ fontSize: 13, fontWeight: 300, color: "#777", marginBottom: 8 }}>Способ входа</div>
             <div style={{ display: "flex", gap: 4, padding: 4, background: "#f3f3f3", borderRadius: 10 }}>
@@ -2759,7 +2990,7 @@ function CreateAccountDemo() {
             {orgOn ? (
               <div className="animate-svcfade" style={{ marginTop: 14, display: "grid", gap: 14 }}>
                 <Field label="Организация"><Input value={org} onChange={setOrg} placeholder="Название организации" /></Field>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <div style={{ display: "grid", gridTemplateColumns: phone ? "1fr" : "1fr 1fr", gap: phone ? 14 : 12 }}>
                   <Field label="ИНН"><Input value={inn} onChange={onInnChange} placeholder="Введите ИНН — данные подтянутся" /></Field>
                   <Field label="КПП"><Input value={kpp} onChange={setKpp} placeholder="—" /></Field>
                 </div>
@@ -2772,7 +3003,7 @@ function CreateAccountDemo() {
             <div style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
               <div style={{ flex: 1 }}><Input value={pwd} onChange={setPwd} error={errors.pwd} /></div>
               <button type="button" onClick={() => setPwd(genPassword())} title="Сгенерировать новый"
-                style={{ height: FIELD_H, padding: "0 18px", borderRadius: 10, border: "none", background: "#111", color: "#fff", cursor: "pointer", fontFamily: UI, fontSize: 14, fontWeight: 300, whiteSpace: "nowrap" }}>↻ Другой</button>
+                style={{ height: FIELD_H, padding: "0 18px", borderRadius: 10, border: "none", background: "#1c1c1c", color: "#fff", cursor: "pointer", fontFamily: UI, fontSize: 14, fontWeight: 300, whiteSpace: "nowrap" }}>↻ Другой</button>
             </div>
           </Field>
           {errors.form ? <div style={{ fontSize: 13, color: ERR }}>{errors.form}</div> : null}
@@ -2789,38 +3020,82 @@ function CreateAccountDemo() {
 /* Мини-превью печатного «Листа доступа» (КУБ-ЛК-01): как выглядит страница с QR,
    которую отдают заказчику. Реальный лист формируется компонентом AccessSheet.jsx. */
 function RefAccessSheet({ loginLabel, password, name }) {
+  const phone = useIsPhone();
+  const infoLbl = { fontSize: 10, fontWeight: 700, letterSpacing: ".05em", textTransform: "uppercase", color: "#888", flexShrink: 0, width: phone ? 92 : 110 };
+  const InfoRow = ({ label, value, accent }) => (
+    <div style={{ display: "flex", gap: 10, padding: "7px 0", borderTop: "1px solid #eee" }}>
+      <span style={infoLbl}>{label}</span>
+      <span style={{ minWidth: 0, fontSize: 13, fontWeight: accent ? 700 : 400, color: accent ? _SHEET_ORANGE : TEXT, wordBreak: "break-word" }}>{value}</span>
+    </div>
+  );
   return (
-    <div className="ref-pop" style={{ marginTop: 16, border: "1px solid #ececec", borderRadius: 14, overflow: "hidden", background: "#fff", maxWidth: 460 }}>
-      <div style={{ background: _SHEET_ORANGE, color: "#fff", padding: "14px 18px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <div>
-          <div style={{ fontSize: 15, fontWeight: 700, letterSpacing: ".04em" }}>ЛИСТ ДОСТУПА</div>
-          <div style={{ fontSize: 11, fontWeight: 400, opacity: .85, marginTop: 2 }}>КУБ-ЛК-01 · личный кабинет cube-tech.ru</div>
-        </div>
-        <div style={{ fontSize: 20, fontWeight: 800, letterSpacing: ".08em" }}>CUBE</div>
-      </div>
-      <div style={{ padding: 18, display: "flex", gap: 18, alignItems: "flex-start" }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".06em", textTransform: "uppercase", color: "#aaa" }}>Заказчик</div>
-          <div style={{ fontSize: 14, fontWeight: 500, color: TEXT, marginTop: 2, wordBreak: "break-word" }}>{name}</div>
-          <div style={{ marginTop: 12, display: "grid", gap: 8 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 10, fontSize: 13 }}><span style={{ color: "#888" }}>Логин</span><span style={{ color: TEXT, fontWeight: 500, wordBreak: "break-word" }}>{loginLabel}</span></div>
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 10, fontSize: 13 }}><span style={{ color: "#888" }}>Пароль</span><span style={{ color: TEXT, fontWeight: 500, fontFamily: "ui-monospace,Menlo,monospace" }}>{password}</span></div>
+    <div className="ref-pop" style={{ marginTop: 16, border: "1px solid #ececec", borderRadius: 14, overflow: "hidden", background: "#fff", maxWidth: 480 }}>
+      {/* Шапка как в реальном листе: марка «C.» + «Документ для заказчика» слева, реквизиты ООО «КУБ» справа */}
+      <div style={{ padding: phone ? "14px 16px 0" : "16px 20px 0" }}>
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+            <span style={{ fontSize: 24, fontWeight: 800, lineHeight: 1, letterSpacing: "-.02em", color: "#111", flexShrink: 0 }}>C<span style={{ color: "#111" }}>.</span></span>
+            <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: ".09em", textTransform: "uppercase", color: "#8a8a8a" }}>Документ<br />для заказчика</span>
+          </div>
+          <div style={{ textAlign: "right", lineHeight: 1.45 }}>
+            <div style={{ fontSize: 12.5, fontWeight: 700, color: TEXT }}>ООО «КУБ»</div>
+            <div style={{ fontSize: 9.5, color: "#999" }}>ИНН 8905070217</div>
+            {!phone ? <div style={{ fontSize: 9.5, color: "#999" }}>info@cube-tech.ru</div> : null}
+            <div style={{ fontSize: 9.5, color: "#999" }}>cube-tech.ru</div>
           </div>
         </div>
-        <div style={{ textAlign: "center", flexShrink: 0 }}>
-          <RefQR />
-          <div style={{ marginTop: 6, fontSize: 10.5, fontWeight: 400, color: "#999" }}>QR → ваш объект</div>
+        <div style={{ height: 2.5, background: _SHEET_ORANGE, borderRadius: 2, marginTop: 12 }} />
+      </div>
+
+      {/* Центрованный заголовок */}
+      <div style={{ textAlign: "center", padding: "14px 16px 0" }}>
+        <div style={{ fontSize: phone ? 20 : 23, fontWeight: 800, letterSpacing: ".01em", lineHeight: 1, color: TEXT }}>ЛИСТ ДОСТУПА</div>
+        <div style={{ fontSize: phone ? 12 : 13, fontWeight: 700, color: "#3a3a3a", marginTop: 3 }}>К ЛИЧНОМУ КАБИНЕТУ ОБЪЕКТА</div>
+        <div style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: ".1em", textTransform: "uppercase", color: "#9a9a9a", marginTop: 6 }}>QR-код · Учётная запись · Документы</div>
+      </div>
+
+      {/* Данные объекта */}
+      <div style={{ padding: phone ? "14px 16px 0" : "16px 20px 0" }}>
+        <InfoRow label="Заказчик" value={name} />
+        <InfoRow label="Объект №" value="KRT-02-2026" accent />
+        <InfoRow label="Наименование" value="Фасад" />
+        <InfoRow label="Адрес" value="Ноябрьск" />
+      </div>
+
+      {/* Данные для входа + QR */}
+      <div style={{ padding: phone ? "16px 16px 0" : "18px 20px 0" }}>
+        <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: ".01em", color: TEXT }}>ДАННЫЕ ДЛЯ ВХОДА</div>
+        <div style={{ marginTop: 10, display: "flex", gap: 16, alignItems: "flex-start", flexDirection: phone ? "column" : "row" }}>
+          <div style={{ flex: 1, minWidth: 0, width: phone ? "100%" : undefined, display: "grid", gap: 8 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 10, fontSize: 13 }}><span style={{ color: "#888" }}>Имя учётной записи</span><span style={{ color: TEXT, fontWeight: 500, wordBreak: "break-word", textAlign: "right" }}>{name}</span></div>
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 10, fontSize: 13 }}><span style={{ color: "#888" }}>Логин</span><span style={{ color: TEXT, fontWeight: 700, fontFamily: "ui-monospace,Menlo,monospace", wordBreak: "break-word", textAlign: "right" }}>{loginLabel}</span></div>
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 10, fontSize: 13, background: "#fff3ee", borderRadius: 6, padding: "6px 10px" }}><span style={{ color: "#888" }}>Временный пароль</span><span style={{ color: _SHEET_ORANGE, fontWeight: 700, fontFamily: "ui-monospace,Menlo,monospace" }}>{password}</span></div>
+          </div>
+          <div style={{ textAlign: "center", flexShrink: 0, alignSelf: phone ? "center" : "flex-start" }}>
+            <RefQR />
+            <div style={{ marginTop: 6, fontSize: 10, fontWeight: 400, color: "#999" }}>Наведите камеру<br />на QR-код</div>
+          </div>
         </div>
       </div>
-      <div style={{ padding: "0 18px 18px" }}>
-        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".06em", textTransform: "uppercase", color: "#aaa", marginBottom: 8 }}>Как войти</div>
+
+      {/* Как войти */}
+      <div style={{ padding: phone ? "16px 16px 0" : "18px 20px 0" }}>
+        <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: ".01em", color: TEXT, marginBottom: 8 }}>КАК ВОЙТИ</div>
         <div style={{ display: "grid", gap: 6 }}>
-          {[["01", "Откройте cube-tech.ru или отсканируйте QR-код."], ["02", "Войдите по логину и паролю выше."], ["03", "Откроется ваш объект — статус, этапы и документы."]].map(([n, t]) => (
+          {[["01", "Отсканируйте QR-код камерой телефона."], ["02", "Войдите по логину и временному паролю."], ["03", "Откроется ваш объект — статус, этапы и документы."]].map(([n, t]) => (
             <div key={n} style={{ display: "flex", gap: 10, fontSize: 12.5, fontWeight: 300, color: "#555" }}>
               <span style={{ fontWeight: 700, color: _SHEET_ORANGE, flexShrink: 0 }}>{n}</span>{t}
             </div>
           ))}
         </div>
+      </div>
+
+      {/* Важно + подвал */}
+      <div style={{ margin: phone ? "16px 16px 0" : "18px 20px 0", background: "#f6f6f6", borderLeft: `3px solid ${_SHEET_ORANGE}`, padding: "10px 12px" }}>
+        <div style={{ fontSize: 11, lineHeight: 1.45, color: "#333" }}><span style={{ color: _SHEET_ORANGE, fontWeight: 700 }}>ВАЖНО. </span>QR-код ведёт только на страницу объекта и не содержит пароль. Не пересылайте документ третьим лицам.</div>
+      </div>
+      <div style={{ marginTop: 14, borderTop: "1px solid #eee", padding: "8px 16px", display: "flex", justifyContent: "space-between", fontSize: 8.5, letterSpacing: ".08em", textTransform: "uppercase", color: "#b0b0b0" }}>
+        <span>Форма КУБ-ЛК-01</span><span>Лист 1 из 1</span>
       </div>
     </div>
   );
@@ -2847,21 +3122,24 @@ const _REF_USERS = [
   { id: "u4", name: "Анна Сидорова", email: "sidorova@cube-tech.ru", phone: "+7 902 333-11-22", group: "user", role: "executor", org: "", inn: "", kpp: "", legalAddress: "" },
 ];
 function AccountsListDemo() {
+  const phone = useIsPhone();
   const [users, setUsers] = React.useState(_REF_USERS);
   const [q, setQ] = React.useState("");
   const [open, setOpen] = React.useState(null);
   const reset = () => { setUsers(_REF_USERS); setQ(""); setOpen(null); };
   const ql = q.trim().toLowerCase();
   const filtered = users.filter((u) => !ql || [u.name, u.email, u.phone].some((f) => String(f || "").toLowerCase().includes(ql)));
-  const del = (u) => { setUsers((p) => p.filter((x) => x.id !== u.id)); setOpen(null); };
+  const delNow = (u) => { setUsers((p) => p.filter((x) => x.id !== u.id)); setOpen(null); };
+  // Из списка удаление — через тот же модальный confirmDialog, что и в боевом разделе.
+  const delFromList = async (u) => { if (await confirmDialog({ title: "Удалить учётную запись?", message: `Учётная запись «${u.name || u.email}» будет удалена. Действие необратимо.`, confirmText: "Удалить" })) delNow(u); };
 
   return (
     <DemoFrame label="учётные записи" onReset={reset}
       hint="Это точная копия раздела «Администратор → Учётные записи». Здесь виден каждый пользователь кабинета: имя, e-mail, группа и роль. Поиск сверху фильтрует список. «Открыть» — карточка с данными, где можно сменить группу или роль доступа. «Удалить» — убирает доступ (в справке трогается только этот пример).">
       {open ? (
-        <RefAccountDetail user={open} onBack={() => setOpen(null)} onDelete={() => del(open)} />
+        <RefAccountDetail user={open} onBack={() => setOpen(null)} onDelete={() => delNow(open)} />
       ) : (
-        <div style={{ background: "#fff", border: "1px solid #ececec", borderRadius: 14, padding: "18px 20px" }}>
+        <div style={{ background: "#fff", border: "1px solid #ececec", borderRadius: 14, padding: phone ? "14px 13px" : "18px 20px" }}>
           <div style={{ fontSize: 18, fontWeight: 600, color: TEXT }}>Зарегистрированные учётные записи</div>
           <div style={{ marginTop: 6, fontSize: 13, fontWeight: 300, color: "#777" }}>Нажмите на запись — посмотреть данные, изменить группу/роль или удалить.</div>
           <div style={{ marginTop: 16 }}><UnderSearch value={q} onChange={setQ} placeholder="Поиск по имени, e-mail или телефону…" /></div>
@@ -2874,7 +3152,7 @@ function AccountsListDemo() {
             {filtered.length === 0 ? (
               <div style={{ padding: "24px 8px", color: "#777", fontSize: 14, fontWeight: 300 }}>Ничего не найдено.</div>
             ) : filtered.map((u, i) => (
-              <RefAcctRow key={u.id} u={u} onOpen={() => setOpen(u)} onDelete={() => del(u)} hint={i === 0} />
+              <RefAcctRow key={u.id} u={u} onOpen={() => setOpen(u)} onDelete={() => delFromList(u)} hint={i === 0} />
             ))}
           </div>
         </div>
@@ -2884,6 +3162,7 @@ function AccountsListDemo() {
 }
 function RefAcctRow({ u, onOpen, onDelete, hint }) {
   const [h, setH] = React.useState(false);
+  const phone = useIsPhone();
   const roleLabel = ROLE_LABEL[String(u.role || "customer").toLowerCase()] || ROLE_LABELS.customer;
   return (
     <>
@@ -2896,10 +3175,19 @@ function RefAcctRow({ u, onOpen, onDelete, hint }) {
             Группа: {labelByCode(toCode(u.group)) || "—"}{" · "}Роль: {roleLabel}{u.inn ? ` · ИНН ${u.inn}` : ""}
           </div>
         </div>
-        <div onClick={(ev) => ev.stopPropagation()} style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-          {hint ? <RefHintRight style={{ marginRight: 2 }}>нажмите — открыть</RefHintRight> : null}
-          <AcctAction onClick={onOpen}>Открыть</AcctAction>
-          <AcctAction accent onClick={onDelete}>Удалить</AcctAction>
+        <div onClick={(ev) => ev.stopPropagation()} style={{ display: "flex", alignItems: "center", gap: phone ? 2 : 8, flexShrink: 0 }}>
+          {hint ? <RefHintRight style={{ marginRight: 2 }}>{phone ? "нажмите" : "нажмите — открыть"}</RefHintRight> : null}
+          {phone ? (
+            <>
+              <RefDocIconBtn title="Открыть" onClick={onOpen}>{RefMiniIcon.open}</RefDocIconBtn>
+              <RefDocIconBtn title="Удалить" color="#fa5d29" onClick={onDelete}>{RefMiniIcon.trash}</RefDocIconBtn>
+            </>
+          ) : (
+            <>
+              <AcctAction onClick={onOpen}>Открыть</AcctAction>
+              <AcctAction accent onClick={onDelete}>Удалить</AcctAction>
+            </>
+          )}
         </div>
       </div>
       <AcctDotted />
@@ -2907,6 +3195,7 @@ function RefAcctRow({ u, onOpen, onDelete, hint }) {
   );
 }
 function RefAccountDetail({ user, onBack, onDelete }) {
+  const narrow = useIsPhone();
   const [name, setName] = React.useState(user.name || "");
   const [phone, setPhone] = React.useState(user.phone || "");
   const [group, setGroup] = React.useState(toCode(user.group || "user"));
@@ -2928,7 +3217,7 @@ function RefAccountDetail({ user, onBack, onDelete }) {
       <div style={{ marginTop: 22, maxWidth: 560, display: "grid", gap: 18 }}>
         <div>
           <div style={secLbl}>Доступ</div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+          <div style={{ display: "grid", gridTemplateColumns: narrow ? "1fr" : "1fr 1fr", gap: 14 }}>
             <Field label="Группа"><GroupSelect value={group} onChange={setGroup} canPickLocked /></Field>
             <Field label="Роль доступа"><AccessRoleSelect value={role} onChange={setRole} /></Field>
           </div>
@@ -2944,7 +3233,7 @@ function RefAccountDetail({ user, onBack, onDelete }) {
           <div style={secLbl}>Организация</div>
           <div style={{ display: "grid", gap: 14 }}>
             <Field label="Организация"><Input value={org} onChange={setOrg} placeholder="—" /></Field>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+            <div style={{ display: "grid", gridTemplateColumns: narrow ? "1fr" : "1fr 1fr", gap: 14 }}>
               <Field label="ИНН"><Input value={inn} onChange={onInnChange} placeholder="Введите ИНН — данные подтянутся" /></Field>
               <Field label="КПП"><Input value={kpp} onChange={setKpp} placeholder="—" /></Field>
             </div>
@@ -2958,7 +3247,7 @@ function RefAccountDetail({ user, onBack, onDelete }) {
         <div style={{ borderTop: "1px solid #eee", paddingTop: 16, marginTop: 4 }}>
           <div style={secLbl}>Опасная зона</div>
           {!confirmDel ? (
-            <button type="button" onClick={() => setConfirmDel(true)} style={{ border: "none", background: "none", padding: 0, cursor: "pointer", fontFamily: UI, fontSize: 14, fontWeight: 400, color: REF_CARROT }}>Удалить учётную запись</button>
+            <IconLink onClick={() => setConfirmDel(true)} icon={<TrashIcon />} prompt="Удалить эту учётную запись?" danger>Удалить учётную запись</IconLink>
           ) : (
             <div className="animate-svcfade" style={{ border: "1px solid #e3b4ae", background: "#fdf7f6", borderRadius: 12, padding: 16 }}>
               <div style={{ fontSize: 14, fontWeight: 500, color: TEXT }}>Удалить учётную запись «{user.name || user.email}»?</div>
@@ -3024,7 +3313,7 @@ function PublishDemo() {
             <span style={{ width: 8, height: 8, borderRadius: 999, background: "#2f855a" }} />Опубликовано
           </div>
         )}
-        <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+        <div style={{ marginLeft: "auto", display: "flex", gap: 8, flexWrap: "wrap" }}>
           <span className={!touched ? "ref-coach" : undefined} style={{ borderRadius: 9 }}>
             <FileHoverBtn onClick={cycle}>Изменить статус</FileHoverBtn>
           </span>
@@ -3033,7 +3322,7 @@ function PublishDemo() {
         </div>
       </div>
 
-      <div style={{ marginTop: 16, display: "inline-flex", gap: 4, background: "#ededed", borderRadius: 10, padding: 4 }}>
+      <div style={{ marginTop: 16, display: "inline-flex", gap: 4, background: "#ededed", borderRadius: 10, padding: 4, flexWrap: "wrap" }}>
         {seg("staff", "Глазами сотрудника")}
         {seg("customer", "Глазами заказчика")}
       </div>
@@ -3154,8 +3443,14 @@ const _PRJ_SEED = [
   { id: "p4", obj: "Офис продаж", cust: "АО «Меркурий»", city: "Москва", year: "2023" },
 ];
 function ProjectsAdminDemo() {
+  // Порог 1023 (как у реальной «Витрины»): на iPad Air демо отдаёт мобильную строку.
+  const phone = useIsTabletDown();
   const [list, setList] = React.useState(_PRJ_SEED);
   const [touched, setTouched] = React.useState(false);
+  const move = (i, dir) => { const j = i + dir; if (j < 0 || j >= list.length) return; setList((prev) => { const n = prev.slice(); [n[i], n[j]] = [n[j], n[i]]; return n; }); setTouched(true); };
+  const remove = (id) => { setList((prev) => prev.filter((p) => p.id !== id)); setTouched(true); setNote(""); };
+  const [note, setNote] = React.useState(""); // «Изменить» в демо формы не открывает — поясняем строкой
+  const [hoverId, setHoverId] = React.useState(null);
   const dragFrom = React.useRef(null);
   const [dragId, setDragId] = React.useState(null);
   const [overId, setOverId] = React.useState(null);
@@ -3165,56 +3460,84 @@ function ProjectsAdminDemo() {
     setList((prev) => { const n = prev.slice(); const [m] = n.splice(from, 1); n.splice(to, 0, m); return n; });
     setTouched(true);
   };
-  const reset = () => { setList(_PRJ_SEED); setTouched(false); };
+  const reset = () => { setList(_PRJ_SEED); setTouched(false); setNote(""); };
   const homeLeft = list[0], homeRight = list[1];
 
   const HomeCard = ({ p, side }) => (
     <div className="ref-pop" style={{ flex: 1, minWidth: 0, background: "#111", borderRadius: 12, padding: "16px 16px 18px", color: "#fff" }}>
       <div style={{ fontSize: 10.5, fontWeight: 600, letterSpacing: ".08em", textTransform: "uppercase", color: side === "left" ? "#7ee0a0" : "#9fb8ff" }}>{side === "left" ? "Слева · новее" : "Справа"}</div>
-      <div style={{ marginTop: 10, fontSize: 16, fontWeight: 600, lineHeight: 1.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.obj}</div>
-      <div style={{ marginTop: 4, fontSize: 12, fontWeight: 300, color: "rgba(255,255,255,.72)" }}>{p.cust} · {p.city} · {p.year}</div>
+      {p ? (
+        <>
+          <div style={{ marginTop: 10, fontSize: 16, fontWeight: 600, lineHeight: 1.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.obj}</div>
+          <div style={{ marginTop: 4, fontSize: 12, fontWeight: 300, color: "rgba(255,255,255,.72)" }}>{p.cust} · {p.city} · {p.year}</div>
+        </>
+      ) : (
+        <div style={{ marginTop: 10, fontSize: 13, fontWeight: 300, color: "rgba(255,255,255,.5)" }}>— пусто —</div>
+      )}
     </div>
   );
 
   return (
     <DemoFrame label="порядок витрины" onReset={reset}
-      hint="Тащите проект за ⠿ вверх или вниз — ровно как этапы в объекте. Первые два всегда показываются на главной: верхний — слева и «новее», второй — справа. Остальные уходят на страницу «Смотреть работы». Действия «Изменить/Удалить» в кабинете появляются при наведении на строку.">
-      {/* Мини-витрина главной */}
+      hint={phone
+        ? "Меняйте порядок кнопками ↑/↓ справа — ровно как этапы в объекте. Первые два всегда показываются на главной: верхний — слева и «новее», второй — справа. Остальные уходят на страницу «Смотреть работы»."
+        : "Тащите проект за ⠿ вверх или вниз — ровно как этапы в объекте. Первые два всегда показываются на главной: верхний — слева и «новее», второй — справа. Остальные уходят на страницу «Смотреть работы». Действия «Изменить/Удалить» в кабинете появляются при наведении на строку."}>
+      {/* Мини-витрина главной — на телефоне карточки в столбик */}
       <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".07em", textTransform: "uppercase", color: "#999", marginBottom: 8 }}>Блок «Проекты» на главной</div>
-      <div style={{ display: "flex", gap: 12 }}>
+      <div style={{ display: "flex", flexDirection: phone ? "column" : "row", gap: 12 }}>
         <HomeCard p={homeLeft} side="left" />
         <HomeCard p={homeRight} side="right" />
       </div>
 
-      {/* Список-редактор */}
-      <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".07em", textTransform: "uppercase", color: "#999", margin: "18px 0 8px" }}>Список проектов (тащите за ⠿ — порядок решает, кто где)</div>
+      {/* Список-редактор — строки точь-в-точь как в кабинете (превью + порядок + действия) */}
+      <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".07em", textTransform: "uppercase", color: "#999", margin: "18px 0 8px" }}>Список проектов ({phone ? "кнопки ↑/↓" : "тащите за ⠿"} — порядок решает, кто где)</div>
       <div style={{ border: "1px dotted #dcdcdc", borderRadius: 12, background: "#fff", overflow: "hidden" }}>
+        {list.length === 0 ? <div style={{ padding: "16px 14px", fontSize: 14, fontWeight: 300, color: "#aaa" }}>Пока нет проектов. Нажмите «+ Новый проект».</div> : null}
         {list.map((p, i) => {
           const onHome = i < 2;
           const dragging = dragId === p.id;
           const over = overId === p.id && dragId !== p.id;
+          const hov = hoverId === p.id;
           return (
             <div key={p.id} className="ref-pop"
-              onDragOver={(e) => { e.preventDefault(); if (overId !== p.id) setOverId(p.id); }}
-              onDrop={(e) => { e.preventDefault(); drop(i); }}
-              style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 14px", borderTop: i ? "1px dotted #ececec" : "none", background: over ? "#f4f7ff" : onHome ? "rgba(46,139,87,.05)" : "transparent", opacity: dragging ? 0.4 : 1, transition: "background-color .12s ease" }}>
-              <span draggable
-                onDragStart={() => { dragFrom.current = i; setDragId(p.id); }}
-                onDragEnd={() => { dragFrom.current = null; setDragId(null); setOverId(null); }}
-                title="Перетащите" style={{ cursor: "grab", color: "#cdcdcd", fontSize: 15, lineHeight: 1, userSelect: "none", flexShrink: 0 }}>⠿</span>
-              <span style={{ flexShrink: 0, width: 18, textAlign: "center", fontSize: 12, fontWeight: 600, color: "#b0b0b0", fontVariantNumeric: "tabular-nums" }}>{i + 1}</span>
+              onMouseEnter={phone ? undefined : () => setHoverId(p.id)} onMouseLeave={phone ? undefined : () => setHoverId(null)}
+              onDragOver={phone ? undefined : (e) => { e.preventDefault(); if (overId !== p.id) setOverId(p.id); }}
+              onDrop={phone ? undefined : (e) => { e.preventDefault(); drop(i); }}
+              style={{ display: "flex", alignItems: "center", gap: phone ? 10 : 14, padding: phone ? "12px 12px" : "12px 14px", borderTop: i ? "1px dotted #ececec" : "none", background: over ? "#f4f7ff" : hov ? "rgba(0,0,0,.02)" : onHome ? "rgba(46,139,87,.05)" : "transparent", opacity: dragging ? 0.4 : 1, transition: "background-color .12s ease" }}>
+              {!phone ? (
+                <span draggable
+                  onDragStart={() => { dragFrom.current = i; setDragId(p.id); }}
+                  onDragEnd={() => { dragFrom.current = null; setDragId(null); setOverId(null); }}
+                  title="Перетащите" style={{ cursor: "grab", color: hov ? "#9a9a9a" : "#cdcdcd", fontSize: 16, lineHeight: 1, userSelect: "none", flexShrink: 0, transition: "color .12s ease" }}>⠿</span>
+              ) : null}
+              {/* мини-превью карточки (в кабинете тут фото/логотип объекта) */}
+              <div style={{ width: phone ? 66 : 96, height: phone ? 46 : 62, borderRadius: 8, overflow: "hidden", background: "#111", flexShrink: 0, display: "grid", placeItems: "center", color: "#666", fontSize: 11 }}>нет фото</div>
               <div style={{ minWidth: 0, flex: 1 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ fontSize: 13.5, fontWeight: 500, color: TEXT, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.obj}</span>
-                  {onHome && <span style={{ fontSize: 10.5, color: "#0a7d33", background: "#e3f4e8", borderRadius: 999, padding: "2px 8px", whiteSpace: "nowrap" }}>{i === 0 ? "главная · слева" : "главная · справа"}</span>}
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: phone ? "wrap" : "nowrap" }}>
+                  <span style={{ fontSize: phone ? 14 : 15, fontWeight: 600, color: TEXT, minWidth: 0, whiteSpace: phone ? "normal" : "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.obj}</span>
+                  {onHome && <span style={{ fontSize: 11, color: "#0a7d33", background: "#e3f4e8", borderRadius: 999, padding: "2px 8px", whiteSpace: "nowrap" }}>{i === 0 ? (phone ? "слева" : "На главной · слева") : (phone ? "справа" : "На главной · справа")}</span>}
                 </div>
-                <div style={{ marginTop: 2, fontSize: 11.5, fontWeight: 300, color: "#aaa", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.cust} · {p.city} · {p.year}</div>
+                <div style={{ marginTop: 3, fontSize: 13, fontWeight: 300, color: "#aaa", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.cust} · {p.city} · {p.year}</div>
               </div>
-              {i === 0 && !touched ? <RefHintLeft style={{ flexShrink: 0 }}>тащите за ⠿</RefHintLeft> : null}
+              {/* действия: телефон — всегда видимые иконки ↑ ↓ ✎ 🗑; десктоп — «Изменить»+корзина при наведении */}
+              {phone ? (
+                <div onClick={(ev) => ev.stopPropagation()} style={{ display: "flex", alignItems: "center", gap: 2, flexShrink: 0 }}>
+                  <RefDocIconBtn title="Выше" disabled={i === 0} onClick={() => move(i, -1)}>{RefMiniIcon.arrowUp}</RefDocIconBtn>
+                  <RefDocIconBtn title="Ниже" disabled={i === list.length - 1} onClick={() => move(i, 1)}>{RefMiniIcon.arrowDown}</RefDocIconBtn>
+                  <RefDocIconBtn title="Изменить" onClick={() => setNote("«Изменить» в кабинете открывает форму карточки — фото, логотип, заказчик, город, год.")}>{RefMiniIcon.edit}</RefDocIconBtn>
+                  <RefDocIconBtn title="Удалить проект" color="#fa5d29" onClick={() => remove(p.id)}>{RefMiniIcon.trash}</RefDocIconBtn>
+                </div>
+              ) : (
+                <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0, opacity: hov ? 1 : 0, transition: "opacity .14s ease", pointerEvents: hov ? "auto" : "none" }}>
+                  <RefDocIconBtn title="Изменить" onClick={() => setNote("«Изменить» в кабинете открывает форму карточки — фото, логотип, заказчик, город, год.")}>{RefMiniIcon.edit}</RefDocIconBtn>
+                  <RefDocIconBtn title="Удалить проект" color="#fa5d29" onClick={() => remove(p.id)}>{RefMiniIcon.trash}</RefDocIconBtn>
+                </div>
+              )}
             </div>
           );
         })}
       </div>
+      {note ? <div className="ref-pop" style={{ marginTop: 10, fontSize: 12.5, fontWeight: 400, color: "#dd7a1f" }}>{note}</div> : null}
       <div style={{ marginTop: 10, fontSize: 12, fontWeight: 300, color: "#a0a0a0", lineHeight: 1.5 }}>
         Новый проект через «+ Новый проект» встаёт наверх списка — то есть слева на главной, а тот, что был слева, сдвигается вправо.
       </div>
@@ -3488,6 +3811,7 @@ const _NOTIFY_EVENTS = {
 };
 const _NOTIFY_MAIL = { customer: "zakazchik@krt.ru", team: "ivanov@cube-tech.ru" };
 function NotifyDemo() {
+  const phone = useIsPhone();
   const [side, setSide] = React.useState("customer");
   const [list, setList] = React.useState([]);   // сработавшие события (новейшее — первым)
   const [idx, setIdx] = React.useState(0);       // какое событие смоделировать следующим
@@ -3506,14 +3830,21 @@ function NotifyDemo() {
 
   return (
     <DemoFrame label="уведомления" onReset={reset}
-      hint="Отдельного «центра уведомлений» с колокольчиком у нас нет. Нажмите «Смоделировать событие» — и увидите все три места, куда придёт сигнал: (1) сверху в шапке у иконки учётной записи, (2) на самом объекте — точка «новое», метка «New» у документа и пульсирующая точка на mint-кнопке дока, (3) письмом на почту. «Прочитать всё» гасит метки.">
+      hint={phone
+        ? "Отдельного «центра уведомлений» с колокольчиком у нас нет. Нажмите «Смоделировать событие» — и увидите все три места, куда придёт сигнал: (1) сверху в шапке у иконки учётной записи, (2) на самом объекте — точка «новое» у объекта и метка «New» у документа, (3) письмом на почту. «Прочитать всё» гасит метки."
+        : "Отдельного «центра уведомлений» с колокольчиком у нас нет. Нажмите «Смоделировать событие» — и увидите все три места, куда придёт сигнал: (1) сверху в шапке у иконки учётной записи, (2) на самом объекте — точка «новое», метка «New» у документа и пульсирующая точка на mint-кнопке дока, (3) письмом на почту. «Прочитать всё» гасит метки."}>
       <DemoSeg value={side} onChange={switchSide}
         options={[{ v: "customer", label: "Заказчику приходит" }, { v: "team", label: "Команде приходит" }]} />
 
       <div style={{ marginTop: 14, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
         <FileHoverBtn onClick={nextEvent}>Смоделировать событие</FileHoverBtn>
         <FileHoverBtn variant="dark" disabled={!hasNew} onClick={clear}>Прочитать всё</FileHoverBtn>
-        {last ? <span key={last.id} className="ref-pop" style={{ fontSize: 12, fontWeight: 300, color: "#888" }}>последнее: «{last.title}»</span> : null}
+      </div>
+      {/* Отдельная строка фиксированной высоты — чтобы появление «последнего» не сдвигало всё ниже. */}
+      <div style={{ marginTop: 8, minHeight: 17, fontSize: 12, fontWeight: 300, lineHeight: "17px", color: "#888" }}>
+        {last
+          ? <span key={last.id} className="ref-pop">последнее событие: «{last.title}»</span>
+          : <span style={{ color: "#c4c4c4" }}>Нажмите «Смоделировать событие» — увидите, где загорятся метки.</span>}
       </div>
 
       {/* ── МЕСТО 1: шапка сайта — иконка учётной записи справа сверху ── */}
@@ -3522,7 +3853,7 @@ function NotifyDemo() {
         <span style={{ fontSize: 12.5, fontWeight: 300, color: "#888" }}>{isCustomer ? "ООО «КРТ»" : "Иванов И."}</span>
         {/* аватар + точка «новое» поверх него */}
         <button type="button" onClick={() => setMenu((v) => !v)} title="Меню учётной записи"
-          style={{ position: "relative", width: 34, height: 34, borderRadius: 999, border: "none", padding: 0, background: "#111", color: "#fff", cursor: "pointer", display: "grid", placeItems: "center", fontSize: 13, fontWeight: 600, flexShrink: 0 }}>
+          style={{ position: "relative", width: 34, height: 34, borderRadius: 999, border: "none", padding: 0, background: "#1c1c1c", color: "#fff", cursor: "pointer", display: "grid", placeItems: "center", fontSize: 13, fontWeight: 600, flexShrink: 0 }}>
           {isCustomer ? "Т" : "И"}
           {hasNew ? <span aria-hidden="true" style={{ position: "absolute", top: -2, right: -2, width: 10, height: 10, borderRadius: 999, background: REF_CARROT, border: "2px solid #fff", animation: "cubeNewPulse 1.8s ease-out infinite" }} /> : null}
         </button>
@@ -3542,16 +3873,29 @@ function NotifyDemo() {
 
       <div style={{ marginTop: 12, border: "1px dotted #dcdcdc", borderRadius: 14, background: "#f4f4f4", padding: 16 }}>
         <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".06em", textTransform: "uppercase", color: "#c4c4c4", marginBottom: 10 }}>Место 2 · на самом объекте</div>
-        {/* строка объекта в списке: точка «новое» + статус + подписка на e-mail (иконка ExtIcon) */}
-        <div style={{ display: "flex", alignItems: "center", gap: 10, background: "#fff", border: "1px solid #ececec", borderRadius: 10, padding: "8px 10px 8px 14px" }}>
-          {hasNew ? <NewBadge /> : <span style={{ width: 8, height: 8, flexShrink: 0 }} />}
-          <span style={{ fontSize: 13, fontWeight: 400, color: TEXT }}>ООО «КРТ» — Фасад, Ноябрьск</span>
-          <RefPill code="in_progress" />
-          <span style={{ marginLeft: "auto" }}>
-            <RefObjIconBtn title={sub ? "Уведомления на e-mail включены" : "Подписка на e-mail-уведомления"} active={sub} onClick={() => setSub((v) => !v)}>
-              <RefExtIcon size={19} />
-            </RefObjIconBtn>
-          </span>
+        {/* Строка объекта — 1:1 со списком объектов: сверху № + статус-пилюля, ниже крупное
+            название с точкой «новое», справа — иконка подписки на e-mail (та же, что в шапке объекта). */}
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 10, background: "#fff", border: "1px solid #ececec", borderRadius: 10, padding: "12px 12px 12px 14px" }}>
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+              <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: ".05em", textTransform: "uppercase", color: "#a0a0a0" }}>№ KRT-02-2026</span>
+              <RefPill code="in_progress" />
+            </div>
+            <div style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 9 }}>
+              <span style={{ minWidth: 0, fontSize: 15, fontWeight: 500, color: TEXT, lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>ООО «КРТ» — Фасад, Ноябрьск</span>
+              {hasNew ? <NewBadge /> : null}
+            </div>
+            <div style={{ marginTop: 3, fontSize: 12.5, fontWeight: 300, color: "#a0a0a0" }}>Ноябрьск · 2 док.</div>
+          </div>
+          <RefObjIconBtn title={sub ? "Уведомления на e-mail включены — нажмите, чтобы отключить" : "Получать уведомления об изменениях на e-mail"} active={sub} onClick={() => setSub((v) => !v)}>
+            <RefExtIcon size={19} />
+          </RefObjIconBtn>
+        </div>
+        {/* Явная подсказка «куда что нажать» — метки не всегда очевидны. */}
+        <div style={{ marginTop: 8, fontSize: 11.5, fontWeight: 300, lineHeight: 1.55, color: "#a0a0a0" }}>
+          {hasNew
+            ? <>Морковная точка • у названия — по объекту есть непрочитанное. Значок <span style={{ color: sub ? REF_CARROT : "#8a8a8a", fontWeight: 400 }}>↗ справа</span> — подписка на письма по объекту: сейчас <b style={{ fontWeight: 500, color: sub ? "#2f855a" : "#999" }}>{sub ? "включена" : "выключена"}</b>, нажмите, чтобы переключить.</>
+            : <>Пока событий нет — меток тоже. Значок <span style={{ color: sub ? REF_CARROT : "#8a8a8a", fontWeight: 400 }}>↗ справа</span> включает письма по объекту (сейчас <b style={{ fontWeight: 500, color: sub ? "#2f855a" : "#999" }}>{sub ? "включены" : "выключены"}</b>).</>}
         </div>
 
         {/* документы: у свежего — метка «New» */}
@@ -3565,10 +3909,13 @@ function NotifyDemo() {
           ))}
         </div>
 
-        {/* реальный StickyDock снизу: точка «новое» пульсирует на mint-кнопке */}
-        <div style={{ marginTop: 14 }}>
-          <RefDock progress={25} cta={isCustomer ? "Задать вопрос" : "Запросы"} badge={hasNew} />
-        </div>
+        {/* реальный StickyDock снизу: точка «новое» пульсирует на mint-кнопке.
+            На телефоне дока нет (скрыт ниже 1024px) — сигналы остаются на объекте и документе. */}
+        {!phone ? (
+          <div style={{ marginTop: 14 }}>
+            <RefDock progress={25} cta={isCustomer ? "Задать вопрос" : "Запросы"} badge={hasNew} />
+          </div>
+        ) : null}
       </div>
 
       {/* ── МЕСТО 3: письмо на почту (если подписка включена) ── */}
@@ -3594,6 +3941,7 @@ const _INN_DB = {
   "7736050003": { org: "ПАО «Газпром»", kpp: "997250001", addr: "190900, г. Санкт-Петербург, наб. р. Мойки, 30" },
 };
 function ProfileFillDemo() {
+  const phone = useIsPhone();
   const [inn, setInn] = React.useState("");
   const digits = inn.replace(/\D/g, "");
   const found = _INN_DB[digits] || ((digits.length === 10 || digits.length === 12)
@@ -3606,9 +3954,9 @@ function ProfileFillDemo() {
   const ReadField = ({ label, value, i }) => (
     <div style={{ minWidth: 0 }}>
       <div style={lbl}>{label}</div>
-      <div key={value} className={value ? "ref-pop" : undefined} style={{ animationDelay: value ? `${i * 0.07}s` : undefined, display: "flex", alignItems: "center", gap: 8, borderBottom: "1px solid #ededed", padding: "7px 0", minHeight: 34 }}>
-        <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: value ? 400 : 300, color: value ? TEXT : "#c4c4c4", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{value || "подтянется автоматически"}</span>
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#bbb" strokeWidth="2" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></svg>
+      <div key={value} className={value ? "ref-pop" : undefined} style={{ animationDelay: value ? `${i * 0.07}s` : undefined, display: "flex", alignItems: phone ? "flex-start" : "center", gap: 8, borderBottom: "1px solid #ededed", padding: "7px 0", minHeight: 34 }}>
+        <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: value ? 400 : 300, color: value ? TEXT : "#c4c4c4", overflow: phone ? "visible" : "hidden", textOverflow: phone ? "clip" : "ellipsis", whiteSpace: phone ? "normal" : "nowrap", wordBreak: phone ? "break-word" : "normal", lineHeight: phone ? 1.4 : undefined }}>{value || "подтянется автоматически"}</span>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#bbb" strokeWidth="2" aria-hidden="true" style={{ flexShrink: 0, marginTop: phone ? 3 : 0 }}><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></svg>
       </div>
     </div>
   );
@@ -3616,22 +3964,23 @@ function ProfileFillDemo() {
   return (
     <DemoFrame label="профиль · автозаполнение по ИНН" onReset={reset}
       hint="Введите ИНН (10 или 12 цифр) — организация, КПП и юридический адрес подставятся из DaData и станут доступны только для чтения (значок замка). Руками их вводить не нужно.">
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
-        <span style={{ alignSelf: "center", fontSize: 12, fontWeight: 300, color: "#999" }}>Примеры:</span>
+      <div style={{ display: "flex", flexDirection: phone ? "column" : "row", alignItems: phone ? "stretch" : "center", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
+        <span style={{ alignSelf: phone ? "flex-start" : "center", fontSize: 12, fontWeight: 300, color: "#999" }}>Примеры:</span>
         {Object.entries(_INN_DB).map(([k, v]) => (
           <button key={k} type="button" onClick={() => setInn(k)}
-            style={{ border: "1px solid #e0e0e0", background: "#fff", color: "#444", fontFamily: UI, fontSize: 12.5, fontWeight: 400, padding: "6px 12px", borderRadius: 999, cursor: "pointer" }}>
-            {k} · {v.org}
+            style={{ border: "1px solid #e0e0e0", background: "#fff", color: "#444", fontFamily: UI, fontSize: 12.5, fontWeight: 400, padding: phone ? "11px 14px" : "6px 12px", borderRadius: phone ? 10 : 999, cursor: "pointer", textAlign: "left", width: phone ? "100%" : "auto", display: "inline-flex", alignItems: "center", gap: 8 }}>
+            {phone ? <span style={{ fontWeight: 600, color: TEXT }}>{k}</span> : `${k} · ${v.org}`}
+            {phone ? <span style={{ color: "#999" }}>· {v.org}</span> : null}
           </button>
         ))}
       </div>
 
-      <div style={{ maxWidth: 260 }}>
+      <div style={{ maxWidth: phone ? "100%" : 260 }}>
         <div style={lbl}>ИНН</div>
         <input value={inn} onChange={(e) => setInn(e.target.value)} inputMode="numeric" placeholder="10 или 12 цифр" style={under} />
       </div>
 
-      <div style={{ marginTop: 18, display: "grid", gap: 16, gridTemplateColumns: "1fr 1fr" }}>
+      <div style={{ marginTop: 18, display: "grid", gap: 16, gridTemplateColumns: phone ? "1fr" : "1fr 1fr" }}>
         <div style={{ gridColumn: "1 / -1" }}><ReadField label="Организация" value={found ? found.org : ""} i={0} /></div>
         <ReadField label="КПП" value={found ? found.kpp : ""} i={1} />
         <ReadField label="Юридический адрес" value={found ? found.addr : ""} i={2} />
@@ -3667,14 +4016,14 @@ function RefCheckMark({ on, disabled }) {
 }
 /* Подчёркнутый селект редактора (UnderSelect): линия снизу, шеврон, точка статуса. */
 const refUnderField = (open) => ({ height: 46, display: "grid", gridTemplateColumns: "1fr 24px", alignItems: "center", background: "transparent", border: "none", boxShadow: `inset 0 -1px 0 0 ${open ? "#111" : "#e6e6e6"}`, cursor: "pointer", padding: 0, width: "100%", textAlign: "left" });
-function RefUnderSelect({ value, options, onChange, placeholder = "— не назначен —", width }) {
+function RefUnderSelect({ value, options, onChange, placeholder = "— не назначен —", width, noDot }) {
   const [open, setOpen] = React.useState(false);
   const cur = options.find((o) => o.v === value);
   return (
     <div style={{ position: "relative", width: width || "100%" }}>
       <button type="button" onClick={() => setOpen((v) => !v)} style={refUnderField(open)}>
         <span style={{ display: "inline-flex", alignItems: "center", gap: 8, minWidth: 0, fontFamily: UI, fontSize: 15, fontWeight: 300, color: cur ? TEXT : "#b4b4b4", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          {cur && cur.tone ? <span style={{ width: 9, height: 9, borderRadius: 999, background: cur.tone, flexShrink: 0 }} /> : null}
+          {!noDot && cur && cur.tone ? <span style={{ width: 9, height: 9, borderRadius: 999, background: cur.tone, flexShrink: 0 }} /> : null}
           {cur ? cur.label : placeholder}
         </span>
         <RefChevron open={open} />
@@ -3785,6 +4134,21 @@ const _STAGE_STATUS_OPTS = [
   { v: "waiting_customer", label: "Ожидает заказчика", tone: "#c05621" },
 ];
 const _stageToneOf = (v) => (_STAGE_STATUS_OPTS.find((o) => o.v === v) || {}).tone || "#cfcfcf";
+const _stageLabelOf = (v) => (_STAGE_STATUS_OPTS.find((o) => o.v === v) || {}).label || "";
+/* Бейдж статуса этапа для редактора — как <Badge> в объекте (свёрнутая карточка на телефоне). */
+function RefStageStatusBadge({ status }) {
+  const tone = _stageToneOf(status);
+  return <span style={{ display: "inline-flex", alignItems: "center", height: 22, padding: "0 9px", borderRadius: 999, background: `${tone}1a`, color: tone, fontSize: 12, fontWeight: 600, whiteSpace: "nowrap", flexShrink: 0 }}>{_stageLabelOf(status)}</span>;
+}
+/* Крупная стрелка ↑/↓ для перестановки этапа в раскрытой карточке — как StepArrow в объекте. */
+function RefStepArrow({ dir, disabled, onClick }) {
+  return (
+    <button type="button" disabled={disabled} onClick={onClick} aria-label={dir === "down" ? "Опустить этап ниже" : "Поднять этап выше"}
+      style={{ width: 44, height: 40, display: "grid", placeItems: "center", border: "none", background: "transparent", color: disabled ? "#d0d0d0" : "#5a5a5a", cursor: disabled ? "default" : "pointer", padding: 0 }}>
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: dir === "down" ? "rotate(180deg)" : "none" }}><path d="M6 15l6-6 6 6" /></svg>
+    </button>
+  );
+}
 const _respOpts = _ED_STAFF.map((s) => ({ v: s.id, label: `${s.fio} · ${s.position}` }));
 
 /* Соисполнители (CoExecutorsField): подчёркнутый триггер + выпадающий список;
@@ -3891,10 +4255,84 @@ function RefStageItems({ items, onAdd, onRemove, hint }) {
 }
 
 let _refStageSeq = 100;
-const _INIT_DOCS = [{ name: "Договор №2026-14.pdf", hidden: false }, { name: "Смета (предварительная).xlsx", hidden: false }];
-/* Имена «загружаемых» документов для демо — по кругу, чтобы «+ Добавить» показывал результат. */
-const _NEW_DOC_NAMES = ["Акт выполненных работ.pdf", "Фотоотчёт по фасаду.pdf", "Ведомость объёмов.xlsx", "Дополнительное соглашение №1.pdf", "Схема узла крепления.dwg"];
+let _refDocSeq = 200;
+/* Категории документов — как в реальном редакторе (DOC_CATEGORIES). В демо показываем
+   репрезентативные: с документами (Договоры, Сметы) и пустую (Акты — «Нет документов»). */
+const _DOC_CATS = ["Договоры", "Сметы", "Акты"];
+const _INIT_DOCS = [
+  { id: 1, cat: "Договоры", name: "Договор №2026-14.pdf", ext: "pdf", hidden: false },
+  { id: 2, cat: "Сметы", name: "Смета (предварительная).xlsx", ext: "xlsx", hidden: false },
+];
+/* Имена «загружаемых» документов по категориям — по кругу, чтобы «+ Добавить» показывал результат. */
+const _NEW_DOCS_BY_CAT = {
+  "Договоры": [{ name: "Дополнительное соглашение №1.pdf", ext: "pdf" }, { name: "Договор подряда (скан).pdf", ext: "pdf" }],
+  "Сметы": [{ name: "Ведомость объёмов.xlsx", ext: "xlsx" }, { name: "Смета (итоговая).xlsx", ext: "xlsx" }],
+  "Акты": [{ name: "Акт выполненных работ.pdf", ext: "pdf" }, { name: "Акт скрытых работ.pdf", ext: "pdf" }],
+};
+/* Цвета плашек расширений — как ExtBadge в объекте (EXT_COLORS). */
+const _REF_EXT_COLORS = { pdf: "#c0392b", xlsx: "#217346", xls: "#217346", doc: "#2b579a", docx: "#2b579a", dwg: "#6b46c1", jpg: "#0e7490", jpeg: "#0e7490", png: "#0e7490" };
+function RefExtBadge({ ext }) {
+  const e = String(ext || "").toLowerCase();
+  return <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", minWidth: 46, height: 22, padding: "0 8px", borderRadius: 6, background: _REF_EXT_COLORS[e] || "#5b6472", color: "#fff", fontSize: 11, fontWeight: 700, textTransform: "uppercase", flexShrink: 0 }}>{e || "файл"}</span>;
+}
+/* Типовые этапы для нижнего аддера «Добавить из типовых» — как getStageLibrary() в объекте. */
+const _REF_STAGE_LIB = [
+  { id: "l1", title: "Договор и аванс" },
+  { id: "l2", title: "Обследование фасада" },
+  { id: "l3", title: "Проектирование" },
+  { id: "l4", title: "Монтажные работы" },
+  { id: "l5", title: "Сдача и отчёт" },
+];
+/* «Опасная зона» редактора объекта 1-в-1 с боевым ObjectDangerZone: в покое — приглушённая
+   строка + морковная ссылка-«корзина» «Удалить объект» (НЕ розовая плашка). По клику
+   раскрывается розовый бокс подтверждения: ввести номер объекта → «Удалить навсегда»/«Отмена». */
+function RefDangerZone({ objId, objTitle }) {
+  const [open, setOpen] = React.useState(false);
+  const [v, setV] = React.useState("");
+  const [h, setH] = React.useState(false);
+  const [done, setDone] = React.useState(false);
+  const ok = v.trim().toLowerCase() === String(objId).toLowerCase();
+  return (
+    <div>
+      <div style={refSecLabel}>Опасная зона</div>
+      <div style={{ marginTop: 6, fontSize: 14, fontWeight: 300, color: MUTED, maxWidth: 560, lineHeight: 1.5 }}>
+        Если хотите навсегда удалить объект{objTitle ? <> «<b style={{ fontWeight: 500, color: "#444" }}>{objTitle}</b>»</> : null} со всеми этапами и документами — вам сюда.
+      </div>
+      <div style={{ marginTop: 16 }}>
+        {done ? (
+          <div style={{ fontSize: 13, fontWeight: 300, color: MUTED }}>Это демонстрация — здесь объект удалять не будем. «Сбросить» вернёт всё как было.</div>
+        ) : !open ? (
+          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 15, fontWeight: 300, color: "#4a4a4a" }}>Хотите удалить объект?</span>
+            <button type="button" onClick={() => { setOpen(true); setV(""); }} onMouseEnter={() => setH(true)} onMouseLeave={() => setH(false)}
+              style={{ display: "inline-flex", alignItems: "center", gap: 9, background: "transparent", border: "none", padding: 0, color: REF_CARROT, cursor: "pointer" }}>
+              <span style={{ display: "inline-flex" }}>{RefMiniIcon.trash}</span>
+              <span style={{ position: "relative", fontSize: 15, fontWeight: 600, paddingBottom: 4 }}>
+                Удалить объект
+                <span style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: 2, background: "#d7d7d7" }} />
+                <span style={{ position: "absolute", left: 0, bottom: 0, height: 2, width: h ? "100%" : 0, background: REF_CARROT, transition: "width .3s ease" }} />
+              </span>
+            </button>
+          </div>
+        ) : (
+          <div className="ref-pop" style={{ padding: 16, borderRadius: 12, border: "1px solid #e3b4ae", background: "#fdf7f6", maxWidth: 480 }}>
+            <div style={{ fontSize: 14, fontWeight: 300, color: TEXT, marginBottom: 10 }}>Чтобы подтвердить, введите номер объекта <b style={{ fontWeight: 600 }}>{objId}</b>.</div>
+            <input value={v} onChange={(e) => setV(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && ok) setDone(true); }} placeholder={objId}
+              style={{ width: "100%", height: 46, border: "none", outline: "none", borderRadius: 0, background: "#fff", color: TEXT, padding: "0 12px", fontFamily: UI, fontSize: 15, fontWeight: 300, boxShadow: "inset 0 -1px 0 0 #e6e6e6" }} />
+            <div style={{ marginTop: 14, display: "flex", gap: 10, flexWrap: "wrap" }}>
+              <button type="button" onClick={() => { if (ok) setDone(true); }} disabled={!ok}
+                style={{ height: 46, padding: "0 20px", borderRadius: 10, background: ok ? "#c0392b" : "#e2b6b0", color: "#fff", border: "none", fontFamily: UI, fontSize: 15, fontWeight: 300, cursor: ok ? "pointer" : "not-allowed" }}>Удалить навсегда</button>
+              <button type="button" onClick={() => { setOpen(false); setV(""); }}
+                style={{ height: 46, padding: "0 20px", borderRadius: 10, background: "#fff", color: TEXT, border: "1px solid #d9d9d9", fontFamily: UI, fontSize: 15, fontWeight: 300, cursor: "pointer" }}>Отмена</button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 function TeamDemo() {
+  const phone = useIsPhone();
   const [dirty, setDirty] = React.useState(false);
   const [objStatus, setObjStatus] = React.useState("in_progress");
   const [resp, setResp] = React.useState("iv");
@@ -3907,18 +4345,21 @@ function TeamDemo() {
     { id: 2, title: "Обследование фасада", status: "in_progress", items: ["Выезд на объект", "Фотофиксация дефектов"] },
     { id: 3, title: "Отчёт и смета", status: "not_started", items: [] },
   ]));
+  const [stageName, setStageName] = React.useState("");
+  const [openStage, setOpenStage] = React.useState(null); // раскрытый этап на телефоне (аккордеон) — как в реальном редакторе
   const touch = () => setDirty(true);
-  const addDoc = () => { setDocs((prev) => { const name = _NEW_DOC_NAMES[prev.length % _NEW_DOC_NAMES.length]; return [...prev, { name, hidden: false, fresh: true }]; }); touch(); };
-  const delDoc = (idx) => { setDocs((prev) => prev.filter((_, j) => j !== idx)); touch(); };
-  const toggleDocHidden = (idx) => { setDocs((prev) => prev.map((d, j) => (j === idx ? { ...d, hidden: !d.hidden } : d))); touch(); };
+  const addDoc = (cat) => { setDocs((prev) => { _refDocSeq += 1; const pool = _NEW_DOCS_BY_CAT[cat] || _NEW_DOCS_BY_CAT["Договоры"]; const pick = pool[prev.filter((d) => d.cat === cat).length % pool.length]; return [...prev, { id: _refDocSeq, cat, name: pick.name, ext: pick.ext, hidden: false, fresh: true }]; }); touch(); };
+  const delDoc = (docId) => { setDocs((prev) => prev.filter((d) => d.id !== docId)); touch(); };
+  const toggleDocHidden = (docId) => { setDocs((prev) => prev.map((d) => (d.id === docId ? { ...d, hidden: !d.hidden } : d))); touch(); };
   const pickResp = (id) => { setResp(id); setCo((prev) => { const n = new Set(prev); n.delete(id); return n; }); touch(); };
   const toggleCo = (id) => { if (id === resp) return; setCo((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; }); touch(); };
   const setStage = (id, patch) => { setStages((p) => p.map((s) => (s.id === id ? { ...s, ...patch } : s))); touch(); };
-  const addStage = () => { _refStageSeq += 1; setStages((p) => [...p, { id: _refStageSeq, title: "", status: "not_started", items: [] }]); touch(); };
+  const addStageTitle = (title) => { const t = String(title || "").trim(); if (!t) return; _refStageSeq += 1; setStages((p) => [...p, { id: _refStageSeq, title: t, status: "not_started", items: [] }]); touch(); };
   const delStage = (id) => { setStages((p) => p.filter((s) => s.id !== id)); touch(); };
+  const moveStage = (i, dir) => { setStages((p) => { const j = i + dir; if (j < 0 || j >= p.length) return p; const n = p.slice(); [n[i], n[j]] = [n[j], n[i]]; return n; }); touch(); };
   const publish = () => setDirty(false);
   const reset = () => {
-    setDirty(false); setObjStatus("in_progress"); setResp("iv"); setCo(new Set(["pe"])); setCustomer(_REF_ACCOUNTS[0]); setPreview(false); setDocs(_INIT_DOCS);
+    setDirty(false); setObjStatus("in_progress"); setResp("iv"); setCo(new Set(["pe"])); setCustomer(_REF_ACCOUNTS[0]); setPreview(false); setDocs(_INIT_DOCS); setStageName(""); setOpenStage(null);
     setStages([
       { id: 1, title: "Договор и аванс", status: "done", items: [] },
       { id: 2, title: "Обследование фасада", status: "in_progress", items: ["Выезд на объект", "Фотофиксация дефектов"] },
@@ -3930,18 +4371,18 @@ function TeamDemo() {
 
   return (
     <DemoFrame label="страница редактирования объекта" onReset={reset}
-      hint="Так выглядит редактор объекта у команды — блок за блоком, как в реальном интерфейсе. Разделы идут одним столбцом (Основное → Этапы → Документы → Коммуникация → Опасная зона). Раскрывающиеся элементы: селект статуса, «Соисполнители» и «Что входит в этап». Меняйте что угодно — сверху появится панель «Опубликовать изменения».">
-      <div style={{ border: "1px solid #ececec", borderRadius: 14, background: "#fff", padding: "18px 20px 22px" }}>
+      hint="Так выглядит редактор объекта у команды — блок за блоком, как в реальном интерфейсе. Разделы идут одним столбцом (Основное → Этапы → Документы → Коммуникация → Опасная зона). Этапы добавляют снизу — «из типовых» или своим названием. Документы сгруппированы по категориям: у каждой свой «+ Добавить», а в строке — плашка расширения и действия «Открыть · Скачать · Показать/Скрыть · Удалить». Меняйте что угодно — сверху появится панель «Опубликовать изменения».">
+      <div style={{ border: "1px solid #ececec", borderRadius: 14, background: "#fff", padding: phone ? "14px 13px 18px" : "18px 20px 22px" }}>
 
         {/* верхняя навигация редактора */}
-        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 6 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 6, flexWrap: "wrap" }}>
           <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 400, color: "#888" }}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6" /></svg>
             К объектам
           </span>
           <span style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 8 }}>
-            {!preview && !dirty ? <RefHintRight style={{ marginRight: 2 }}>нажмите — предпросмотр</RefHintRight> : null}
-            <RefFillBtn onClick={() => setPreview((v) => !v)}>{preview ? "Скрыть предпросмотр" : "Предпросмотр как заказчик"}</RefFillBtn>
+            {!preview && !dirty && !phone ? <RefHintRight style={{ marginRight: 2 }}>нажмите — предпросмотр</RefHintRight> : null}
+            <RefFillBtn onClick={() => setPreview((v) => !v)}>{preview ? (phone ? "Скрыть" : "Скрыть предпросмотр") : (phone ? "Предпросмотр" : "Предпросмотр как заказчик")}</RefFillBtn>
           </span>
         </div>
         <div style={{ marginBottom: 12, fontSize: 11.5, fontWeight: 300, lineHeight: 1.5, color: "#a0a0a0" }}>
@@ -3962,7 +4403,7 @@ function TeamDemo() {
             </div>
             <div style={{ marginTop: 14 }}>
               {stages.filter((s) => s.title.trim()).map((s, i) => (
-                <RefCustomerStage key={s.id} s={{ name: s.title, status: s.status, items: s.items }} i={i} />
+                <RefCustomerStage key={s.id} s={{ name: s.title, status: s.status, items: s.items }} i={i} phone={phone} />
               ))}
               {!stages.some((s) => s.title.trim()) ? <div style={{ fontSize: 13, fontWeight: 300, color: "#aaa" }}>Этапы ещё не заполнены — заказчику пока показывать нечего.</div> : null}
             </div>
@@ -3975,7 +4416,7 @@ function TeamDemo() {
             <span style={{ width: 8, height: 8, borderRadius: 999, background: dirty ? REF_CARROT : "#cfcfcf" }} />
             {dirty ? "Есть неопубликованные изменения" : "Опубликовано — заказчик видит актуальную версию"}
           </span>
-          <span style={{ marginLeft: "auto", display: "flex", gap: 10 }}>
+          <span style={{ marginLeft: "auto", display: "flex", gap: 10, flexWrap: "wrap" }}>
             <button type="button" onClick={reset} disabled={!dirty}
               style={{ height: 40, padding: "0 16px", borderRadius: 10, border: "1px solid #e6e6e6", background: "#fff", color: dirty ? TEXT : "#bbb", fontFamily: UI, fontSize: 13, fontWeight: 400, cursor: dirty ? "pointer" : "default" }}>Сбросить</button>
             <button type="button" onClick={publish} disabled={!dirty}
@@ -3987,7 +4428,7 @@ function TeamDemo() {
         </div>
 
         {/* заголовок объекта: № + название + статус */}
-        <div style={{ marginTop: 20, display: "grid", gridTemplateColumns: "1fr 220px", gap: 20, alignItems: "end" }}>
+        <div style={{ marginTop: 20, display: "grid", gridTemplateColumns: phone ? "1fr" : "1fr 220px", gap: phone ? 14 : 20, alignItems: phone ? "stretch" : "end" }}>
           <div>
             <div style={{ fontSize: 11.5, fontWeight: 300, color: "#aaa", marginBottom: 4 }}>№ KRT-02-2026</div>
             <input defaultValue="ООО «КРТ» — Фасад, Ноябрьск" onChange={touch} style={{ ...under, fontSize: 20, fontWeight: 400 }} />
@@ -4001,7 +4442,7 @@ function TeamDemo() {
         {/* ── ОСНОВНОЕ ── */}
         <div style={{ marginTop: 26 }}>
           <div style={refSecLabel}>Основное</div>
-          <div style={{ marginTop: 14, display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px 24px" }}>
+          <div style={{ marginTop: 14, display: "grid", gridTemplateColumns: phone ? "1fr" : "1fr 1fr", gap: phone ? "14px 0" : "16px 24px" }}>
             <div>
               <div style={refFieldLabel}>Заказчик — из учётных записей</div>
               <RefAccountPicker accounts={_REF_ACCOUNTS} value={customer} onPick={(a) => { setCustomer(a); touch(); }} hint={!dirty} />
@@ -4020,58 +4461,161 @@ function TeamDemo() {
         <RefSectionRule />
 
         {/* ── ЭТАПЫ РАБОТ ── */}
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div style={refSecLabel}>Этапы работ</div>
-          <span style={{ marginLeft: "auto" }}><RefFillBtn onClick={addStage}>+ Добавить</RefFillBtn></span>
-        </div>
+        <div style={refSecLabel}>Этапы работ</div>
         <div style={{ marginTop: 12 }}>
           {stages.map((s, i) => (
-            <div key={s.id} style={{ padding: "10px 4px", boxShadow: "inset 0 -1px 0 0 #e6e6e6" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <span title="Перетащите" style={{ cursor: "grab", color: "#c4c4c4", fontSize: 16, lineHeight: 1, userSelect: "none", flexShrink: 0 }}>⠿</span>
-                <span style={{ width: 20, textAlign: "center", fontSize: 12, fontWeight: 600, color: "#b0b0b0", flexShrink: 0 }}>{i + 1}</span>
-                <span style={{ width: 10, height: 10, borderRadius: 999, background: s.status === "not_started" ? "#fff" : _stageToneOf(s.status), border: `2px solid ${_stageToneOf(s.status)}`, flexShrink: 0 }} />
-                <input value={s.title} onChange={(e) => setStage(s.id, { title: e.target.value })} placeholder="Название этапа"
-                  style={{ flex: 1, minWidth: 0, height: 40, border: "none", outline: "none", background: "transparent", fontFamily: UI, fontSize: 15, fontWeight: 300, color: TEXT, padding: "0 2px" }} />
-                <div style={{ width: 190, flexShrink: 0 }}><RefUnderSelect value={s.status} options={_STAGE_STATUS_OPTS} onChange={(v) => setStage(s.id, { status: v })} /></div>
-                <RefTrashBtn onClick={() => delStage(s.id)} />
+            phone ? (
+              /* Телефон: этап — карточка-аккордеон, как в реальном редакторе. Свёрнуто:
+                 № • точка • название • бейдж статуса • шеврон. Тап — раскрыть редактор
+                 (название, статус, «что входит», пунктир, корзина + крупные ↑/↓). */
+              (() => {
+                const open = openStage === s.id;
+                return (
+                  <div key={s.id} style={{ borderRadius: 12, background: "#fff", padding: open ? "6px 6px 12px" : 6, marginBottom: 10, transition: "background-color .16s ease" }}>
+                    <button type="button" onClick={() => setOpenStage(open ? null : s.id)}
+                      style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, border: "none", background: "transparent", cursor: "pointer", padding: "8px 6px", textAlign: "left", fontFamily: UI }}>
+                      <span style={{ width: 20, textAlign: "center", fontSize: 12, fontWeight: 600, color: "#b0b0b0", flexShrink: 0 }}>{i + 1}</span>
+                      <span style={{ width: 10, height: 10, borderRadius: 999, background: s.status === "not_started" ? "#fff" : _stageToneOf(s.status), border: `2px solid ${_stageToneOf(s.status)}`, flexShrink: 0 }} />
+                      <span style={{ flex: 1, minWidth: 0, fontSize: 15, fontWeight: 400, color: TEXT, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.title || "Без названия"}</span>
+                      <RefStageStatusBadge status={s.status} />
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9a9a9a" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, transform: open ? "rotate(180deg)" : "none", transition: "transform .18s ease" }}><path d="M6 9l6 6 6-6" /></svg>
+                    </button>
+                    {open && (
+                      <div className="animate-svcfade" style={{ padding: "2px 6px 0" }}>
+                        <input value={s.title} onChange={(e) => setStage(s.id, { title: e.target.value })} placeholder="Название этапа"
+                          style={{ width: "100%", height: 40, border: "none", outline: "none", background: "transparent", fontFamily: UI, fontSize: 15, fontWeight: 300, color: TEXT, padding: "0 2px" }} />
+                        <div style={{ marginTop: 6 }}><RefUnderSelect noDot value={s.status} options={_STAGE_STATUS_OPTS} onChange={(v) => setStage(s.id, { status: v })} /></div>
+                        <div style={{ marginTop: 10 }}>
+                          <RefStageItems items={s.items} hint={s.status === "in_progress"}
+                            onAdd={(t) => setStage(s.id, { items: [...s.items, t] })}
+                            onRemove={(idx) => setStage(s.id, { items: s.items.filter((_, j) => j !== idx) })} />
+                        </div>
+                        <div aria-hidden="true" style={{ height: 1, margin: "12px 0 6px", backgroundImage: "repeating-linear-gradient(to right,#d3d3d3 0 1.5px,rgba(0,0,0,0) 1.5px 9px)" }} />
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                          <RefTrashBtn onClick={() => delStage(s.id)} />
+                          <div style={{ display: "flex", gap: 8 }}>
+                            <RefStepArrow dir="up" disabled={i === 0} onClick={() => moveStage(i, -1)} />
+                            <RefStepArrow dir="down" disabled={i === stages.length - 1} onClick={() => moveStage(i, 1)} />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()
+            ) : (
+              <div key={s.id} style={{ padding: "10px 4px", boxShadow: "inset 0 -1px 0 0 #e6e6e6" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <span title="Перетащите" style={{ cursor: "grab", color: "#c4c4c4", fontSize: 16, lineHeight: 1, userSelect: "none", flexShrink: 0 }}>⠿</span>
+                  <span style={{ width: 20, textAlign: "center", fontSize: 12, fontWeight: 600, color: "#b0b0b0", flexShrink: 0 }}>{i + 1}</span>
+                  <span style={{ width: 10, height: 10, borderRadius: 999, background: s.status === "not_started" ? "#fff" : _stageToneOf(s.status), border: `2px solid ${_stageToneOf(s.status)}`, flexShrink: 0 }} />
+                  <input value={s.title} onChange={(e) => setStage(s.id, { title: e.target.value })} placeholder="Название этапа"
+                    style={{ flex: 1, minWidth: 0, height: 40, border: "none", outline: "none", background: "transparent", fontFamily: UI, fontSize: 15, fontWeight: 300, color: TEXT, padding: "0 2px" }} />
+                  <div style={{ width: 190, flexShrink: 0 }}><RefUnderSelect noDot value={s.status} options={_STAGE_STATUS_OPTS} onChange={(v) => setStage(s.id, { status: v })} /></div>
+                  <RefTrashBtn onClick={() => delStage(s.id)} />
+                </div>
+                <div style={{ paddingLeft: 52, marginTop: 2 }}>
+                  <RefStageItems items={s.items} hint={s.status === "in_progress"}
+                    onAdd={(t) => setStage(s.id, { items: [...s.items, t] })}
+                    onRemove={(idx) => setStage(s.id, { items: s.items.filter((_, j) => j !== idx) })} />
+                </div>
               </div>
-              <div style={{ paddingLeft: 52, marginTop: 2 }}>
-                <RefStageItems items={s.items} hint={s.status === "in_progress"}
-                  onAdd={(t) => setStage(s.id, { items: [...s.items, t] })}
-                  onRemove={(idx) => setStage(s.id, { items: s.items.filter((_, j) => j !== idx) })} />
-              </div>
-            </div>
+            )
           ))}
           {!stages.length ? <div style={{ padding: "10px 4px", fontSize: 13, fontWeight: 300, color: MUTED }}>Этапы не заданы.</div> : null}
         </div>
 
+        {/* Аддер этапов — как в реальном редакторе: «Добавить из типовых» (селект) + «или» + «Своё название».
+            На телефоне — стек с разделителем-пунктиром и кнопкой во всю ширину. */}
+        {phone ? (
+          <div style={{ marginTop: 18 }}>
+            <div style={refFieldLabel}>Добавить из типовых</div>
+            <RefUnderSelect value="" placeholder="Выберите этап…" options={_REF_STAGE_LIB.map((p) => ({ value: p.id, label: p.title }))} onChange={(v) => { const p = _REF_STAGE_LIB.find((x) => x.id === v); if (p) addStageTitle(p.title); }} />
+            <div style={{ display: "flex", alignItems: "center", gap: 12, margin: "18px 0" }}>
+              <span aria-hidden="true" style={{ flex: 1, height: 1, backgroundImage: "repeating-linear-gradient(to right,#d3d3d3 0 1.5px,rgba(0,0,0,0) 1.5px 9px)" }} />
+              <span style={{ color: MUTED, fontSize: 13 }}>или</span>
+              <span aria-hidden="true" style={{ flex: 1, height: 1, backgroundImage: "repeating-linear-gradient(to right,#d3d3d3 0 1.5px,rgba(0,0,0,0) 1.5px 9px)" }} />
+            </div>
+            <div style={refFieldLabel}>Своё название</div>
+            <input value={stageName} onChange={(e) => setStageName(e.target.value)} placeholder="Например: Монтаж" style={{ ...under }} />
+            <div style={{ marginTop: 14 }}>
+              <button type="button" onClick={() => { addStageTitle(stageName); setStageName(""); }}
+                style={{ width: "100%", height: 44, borderRadius: 12, border: "1px solid #111", background: "transparent", color: "#111", fontFamily: UI, fontSize: 14, fontWeight: 500, cursor: "pointer" }}>+ Добавить</button>
+            </div>
+          </div>
+        ) : (
+          <div style={{ marginTop: 18, display: "flex", gap: 16, alignItems: "flex-end", flexWrap: "wrap" }}>
+            <div style={{ flex: "1 1 240px", minWidth: 220 }}>
+              <div style={refFieldLabel}>Добавить из типовых</div>
+              <RefUnderSelect value="" placeholder="Выберите этап…" options={_REF_STAGE_LIB.map((p) => ({ value: p.id, label: p.title }))} onChange={(v) => { const p = _REF_STAGE_LIB.find((x) => x.id === v); if (p) addStageTitle(p.title); }} />
+            </div>
+            <span style={{ color: MUTED, fontSize: 13, paddingBottom: 10 }}>или</span>
+            <div style={{ flex: "1 1 240px", minWidth: 220 }}>
+              <div style={refFieldLabel}>Своё название</div>
+              <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                <input value={stageName} onChange={(e) => setStageName(e.target.value)} placeholder="Например: Монтаж" style={{ ...under }} />
+                <RefFillBtn onClick={() => { addStageTitle(stageName); setStageName(""); }}>+ Добавить</RefFillBtn>
+              </div>
+            </div>
+          </div>
+        )}
+
         <RefSectionRule />
 
-        {/* ── ДОКУМЕНТЫ ── */}
+        {/* ── ДОКУМЕНТЫ ── (как в реальном редакторе: сгруппированы по категориям, у каждой
+             свой счётчик и «+ Добавить»; в строке документа — плашка расширения и действия
+             Открыть · Скачать · Показать/Скрыть · Удалить. На телефоне действия — иконки.) */}
         <div style={refSecLabel}>Документы <span style={{ textTransform: "none", fontWeight: 400, color: MUTED }}>— скрытые заказчик не видит</span></div>
         <div style={{ marginTop: 14 }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 10 }}>
-            <div style={{ fontSize: 12, letterSpacing: ".08em", textTransform: "uppercase", color: "#a7a7a7", fontWeight: 300 }}>Договоры и сметы<span style={{ marginLeft: 8 }}>{String(docs.length).padStart(2, "0")}</span></div>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-              {!dirty ? <RefHintRight style={{ marginRight: 2 }}>нажмите — добавить документ</RefHintRight> : null}
-              <RefFillBtn onClick={addDoc}>+ Добавить</RefFillBtn>
-            </span>
-          </div>
-          <div style={{ border: "1px solid #e6e6e6", borderRadius: 12, overflow: "hidden", background: "#fff" }}>
-            {docs.map((d, i) => (
-              <div key={i} className={d.fresh ? "ref-pop" : undefined} style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", borderTop: i ? "1px solid #f0f0f0" : "none", background: d.fresh ? "#f1f8f3" : "transparent", opacity: d.hidden ? 0.55 : 1 }}>
-                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#b8b8b8" strokeWidth="1.6" aria-hidden="true"><path d="M14 3v5h5" /><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" /></svg>
-                <span style={{ flex: 1, minWidth: 0, display: "inline-flex", alignItems: "center", gap: 8, overflow: "hidden" }}>
-                  <span style={{ minWidth: 0, fontSize: 13.5, fontWeight: 300, color: "#333", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{d.name}</span>
-                  {d.fresh ? <span style={{ flexShrink: 0, fontSize: 10, fontWeight: 700, letterSpacing: ".04em", textTransform: "uppercase", color: "#0a7d33", background: "#e3f4e8", borderRadius: 6, padding: "2px 7px" }}>загружен</span> : null}
-                  {d.hidden ? <span style={{ flexShrink: 0, fontSize: 10.5, fontWeight: 400, color: "#999" }}>· скрыт от заказчика</span> : null}
-                </span>
-                <FileHoverBtn onClick={() => toggleDocHidden(i)}>{d.hidden ? "Показать" : "Скрыть"}</FileHoverBtn>
-                <RefTrashBtn onClick={() => delDoc(i)} />
-              </div>
-            ))}
-          </div>
+          <div aria-hidden="true" style={{ height: 1, backgroundImage: "repeating-linear-gradient(to right,#dcdcdc 0 3px,rgba(0,0,0,0) 3px 9px)" }} />
+          {_DOC_CATS.map((cat, ci) => {
+            const catDocs = docs.filter((d) => d.cat === cat);
+            return (
+              <React.Fragment key={cat}>
+                <div style={{ padding: phone ? "14px 0" : "16px 0" }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: catDocs.length ? 10 : 0 }}>
+                    <div style={{ fontSize: 12, letterSpacing: ".08em", textTransform: "uppercase", color: "#a7a7a7", fontWeight: 300 }}>{cat}<span style={{ marginLeft: 8, fontVariantNumeric: "tabular-nums" }}>{String(catDocs.length).padStart(2, "0")}</span></div>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                      {!dirty && ci === 0 ? <RefHintRight style={{ marginRight: 2 }}>{phone ? "нажмите" : "нажмите — добавить документ"}</RefHintRight> : null}
+                      <RefFillBtn onClick={() => addDoc(cat)}>+ Добавить</RefFillBtn>
+                    </span>
+                  </div>
+                  {catDocs.length === 0 ? (
+                    <div style={{ fontSize: 13, fontWeight: 300, color: MUTED }}>Нет документов</div>
+                  ) : (
+                    <div style={{ border: "1px solid #e6e6e6", borderRadius: 12, overflow: "hidden", background: "#fff" }}>
+                      {catDocs.map((d, i) => (
+                        <div key={d.id} className={d.fresh ? "ref-pop" : undefined} style={{ display: "flex", alignItems: "center", gap: phone ? 8 : 12, padding: phone ? "10px 12px" : "12px 14px", borderTop: i ? "1px solid #f0f0f0" : "none", background: d.hidden ? "#fbfbfb" : "#fff" }}>
+                          <RefExtBadge ext={d.ext} />
+                          <div style={{ flex: 1, minWidth: 0, fontSize: phone ? 14 : 14, fontWeight: 500, color: TEXT, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {d.name}
+                            {d.hidden ? <span style={{ marginLeft: 8, fontSize: 11, color: "#c05621" }}>· скрыто</span> : null}
+                            {d.fresh && !d.hidden ? <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 700, letterSpacing: ".04em", textTransform: "uppercase", color: "#0a7d33" }}>загружен</span> : null}
+                          </div>
+                          {phone ? (
+                            <div style={{ display: "flex", alignItems: "center", flexShrink: 0 }}>
+                              <RefDocIconBtn title="Открыть">{RefMiniIcon.open}</RefDocIconBtn>
+                              <RefDocIconBtn title="Скачать">{RefMiniIcon.download}</RefDocIconBtn>
+                              <RefDocIconBtn onClick={() => toggleDocHidden(d.id)} title={d.hidden ? "Показать заказчику" : "Скрыть от заказчика"}>{d.hidden ? RefMiniIcon.eyeOff : RefMiniIcon.eye}</RefDocIconBtn>
+                              <RefDocIconBtn color={REF_CARROT} onClick={() => delDoc(d.id)} title="Удалить">{RefMiniIcon.trash}</RefDocIconBtn>
+                            </div>
+                          ) : (
+                            <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                              <FileHoverBtn>Открыть</FileHoverBtn>
+                              <FileHoverBtn>Скачать</FileHoverBtn>
+                              <FileHoverBtn onClick={() => toggleDocHidden(d.id)}>{d.hidden ? "Показать" : "Скрыть"}</FileHoverBtn>
+                              <RefTrashBtn onClick={() => delDoc(d.id)} />
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div aria-hidden="true" style={{ height: 1, backgroundImage: "repeating-linear-gradient(to right,#dcdcdc 0 3px,rgba(0,0,0,0) 3px 9px)" }} />
+              </React.Fragment>
+            );
+          })}
         </div>
 
         <RefSectionRule />
@@ -4081,30 +4625,30 @@ function TeamDemo() {
 
         <RefSectionRule />
 
-        {/* ── ОПАСНАЯ ЗОНА ── */}
-        <div style={refSecLabel}>Опасная зона</div>
-        <div style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap", border: "1px solid #f0dede", background: "#fdf6f4", borderRadius: 12, padding: "14px 16px" }}>
-          <span style={{ flex: 1, minWidth: 180, fontSize: 13, fontWeight: 300, color: "#8a5a4a", lineHeight: 1.5 }}>Удаление объекта необратимо: пропадут этапы, документы и переписка.</span>
-          <button type="button"
-            style={{ height: 40, padding: "0 18px", borderRadius: 10, border: "1px solid " + REF_CARROT, background: "transparent", color: REF_CARROT, fontFamily: UI, fontSize: 13, fontWeight: 500, cursor: "pointer" }}>Удалить объект</button>
-        </div>
+        {/* ── ОПАСНАЯ ЗОНА ── (как боевой ObjectDangerZone: ссылка-«корзина», затем ввод № для подтверждения) */}
+        <RefDangerZone objId="KRT-02-2026" objTitle="ООО «КРТ» — Фасад, Ноябрьск" />
       </div>
 
       {/* панель-док снизу — тот же StickyDock, что видит команда на реальном экране объекта:
-          живой статус, прогресс по этапам и кнопка «Запросы» (переписка по объекту) */}
-      <div style={{ marginTop: 14 }}>
-        <RefDock
-          id="KRT-02-2026"
-          statusLabel={(_OBJ_STATUS_OPTS.find((o) => o.v === objStatus) || {}).label || "—"}
-          statusTone={(_OBJ_STATUS_OPTS.find((o) => o.v === objStatus) || {}).tone || "#8a8a8a"}
-          progress={stages.length ? Math.round((stages.filter((s) => s.status === "done").length / stages.length) * 100) : null}
-          cta="Запросы"
-          badge={_docThread.some((t) => !t.reply)}
-        />
-      </div>
-      <div style={{ marginTop: 8, fontSize: 11.5, fontWeight: 300, lineHeight: 1.5, color: "#a0a0a0" }}>
-        Док закреплён снизу экрана: слева — плитка возврата к списку, по центру — №, статус и прогресс объекта (обновляются, когда меняете статусы этапов выше), справа — mint-кнопка «Запросы» с переходом в переписку. Морковная точка на ней загорается, когда есть неотвеченный вопрос заказчика.
-      </div>
+          живой статус, прогресс по этапам и кнопка «Запросы» (переписка по объекту).
+          На телефоне дока нет (он скрыт ниже 1024px) — поэтому и в справке его не показываем. */}
+      {!phone ? (
+        <>
+          <div style={{ marginTop: 14 }}>
+            <RefDock
+              id="KRT-02-2026"
+              statusLabel={(_OBJ_STATUS_OPTS.find((o) => o.v === objStatus) || {}).label || "—"}
+              statusTone={(_OBJ_STATUS_OPTS.find((o) => o.v === objStatus) || {}).tone || "#8a8a8a"}
+              progress={stages.length ? Math.round((stages.filter((s) => s.status === "done").length / stages.length) * 100) : null}
+              cta="Запросы"
+              badge={_docThread.some((t) => !t.reply)}
+            />
+          </div>
+          <div style={{ marginTop: 8, fontSize: 11.5, fontWeight: 300, lineHeight: 1.5, color: "#a0a0a0" }}>
+            Док закреплён снизу экрана: слева — плитка возврата к списку, по центру — №, статус и прогресс объекта (обновляются, когда меняете статусы этапов выше), справа — mint-кнопка «Запросы» с переходом в переписку. Морковная точка на ней загорается, когда есть неотвеченный вопрос заказчика.
+          </div>
+        </>
+      ) : null}
     </DemoFrame>
   );
 }
@@ -4113,6 +4657,7 @@ function TeamDemo() {
    заказчик видит пункты, когда этап «В работе». Никаких выдуманных кнопок — только то,
    что реально есть в редакторе объекта (RefUnderSelect, RefStageItems, RefCustomerStage). */
 function StageEditDemo() {
+  const phone = useIsPhone();
   const [view, setView] = React.useState("team");
   const [name, setName] = React.useState("Обследование фасада");
   const [items, setItems] = React.useState(["Выезд на объект", "Фотофиксация дефектов"]);
@@ -4121,39 +4666,65 @@ function StageEditDemo() {
 
   return (
     <DemoFrame label="этап · что входит" onReset={reset}
-      hint="Слева — как команда заполняет этап в редакторе объекта: название и статус в одной строке, а «Что входит в этап» раскрывается по нажатию. Переключитесь на «Глазами заказчика» — пункты видны только когда этап «В работе», и раскрываются по наведению.">
+      hint={phone
+        ? "«Глазами команды» — как заполняют этап: название сверху, статус строкой ниже, а «Что входит в этап» раскрывается по нажатию. Переключитесь на «Глазами заказчика» — пункты видны только когда этап «В работе», и раскрываются по нажатию на название."
+        : "Слева — как команда заполняет этап в редакторе объекта: название и статус в одной строке, а «Что входит в этап» раскрывается по нажатию. Переключитесь на «Глазами заказчика» — пункты видны только когда этап «В работе», и раскрываются по наведению."}>
       <DemoSeg value={view} onChange={setView}
         options={[{ v: "team", label: "Глазами команды" }, { v: "customer", label: "Глазами заказчика" }]} />
 
       {view === "team" ? (
-        <div style={{ marginTop: 14, border: "1px solid #ececec", borderRadius: 14, background: "#fff", padding: "18px 20px 20px" }}>
+        <div style={{ marginTop: 14, border: "1px solid #ececec", borderRadius: 14, background: "#fff", padding: phone ? "14px 13px 16px" : "18px 20px 20px" }}>
           <div style={refSecLabel}>Этапы работ</div>
           <div style={{ marginTop: 12 }}>
-            <div style={{ padding: "10px 4px", boxShadow: "inset 0 -1px 0 0 #e6e6e6" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <span title="Перетащите" style={{ cursor: "grab", color: "#c4c4c4", fontSize: 16, lineHeight: 1, userSelect: "none", flexShrink: 0 }}>⠿</span>
-                <span style={{ width: 20, textAlign: "center", fontSize: 12, fontWeight: 600, color: "#b0b0b0", flexShrink: 0 }}>1</span>
-                <span style={{ width: 10, height: 10, borderRadius: 999, background: status === "not_started" ? "#fff" : _stageToneOf(status), border: `2px solid ${_stageToneOf(status)}`, flexShrink: 0 }} />
-                <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Название этапа"
-                  style={{ flex: 1, minWidth: 0, height: 40, border: "none", outline: "none", background: "transparent", fontFamily: UI, fontSize: 15, fontWeight: 300, color: TEXT, padding: "0 2px" }} />
-                <div style={{ width: 190, flexShrink: 0 }}><RefUnderSelect value={status} options={_STAGE_STATUS_OPTS} onChange={setStatus} /></div>
+            {phone ? (
+              /* Телефон: название и статус — на отдельных строках (в одну не влезают), без ⠿ */
+              <div style={{ border: "1px solid #ececec", borderRadius: 12, padding: 12 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <span style={{ width: 20, textAlign: "center", fontSize: 12, fontWeight: 600, color: "#b0b0b0", flexShrink: 0 }}>1</span>
+                  <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Название этапа"
+                    style={{ flex: 1, minWidth: 0, height: 36, border: "none", outline: "none", background: "transparent", fontFamily: UI, fontSize: 15, fontWeight: 300, color: TEXT, padding: "0 2px" }} />
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 8 }}>
+                  <span style={{ width: 10, height: 10, borderRadius: 999, background: status === "not_started" ? "#fff" : _stageToneOf(status), border: `2px solid ${_stageToneOf(status)}`, flexShrink: 0 }} />
+                  <div style={{ flex: 1, minWidth: 0 }}><RefUnderSelect value={status} options={_STAGE_STATUS_OPTS} onChange={setStatus} /></div>
+                </div>
+                <div style={{ marginTop: 8 }}>
+                  <RefStageItems items={items} hint={status === "in_progress"}
+                    onAdd={(t) => setItems((p) => [...p, t])}
+                    onRemove={(idx) => setItems((p) => p.filter((_, j) => j !== idx))} />
+                </div>
               </div>
-              <div style={{ paddingLeft: 52, marginTop: 2 }}>
-                <RefStageItems items={items} hint={status === "in_progress"}
-                  onAdd={(t) => setItems((p) => [...p, t])}
-                  onRemove={(idx) => setItems((p) => p.filter((_, j) => j !== idx))} />
+            ) : (
+              <div style={{ padding: "10px 4px", boxShadow: "inset 0 -1px 0 0 #e6e6e6" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <span title="Перетащите" style={{ cursor: "grab", color: "#c4c4c4", fontSize: 16, lineHeight: 1, userSelect: "none", flexShrink: 0 }}>⠿</span>
+                  <span style={{ width: 20, textAlign: "center", fontSize: 12, fontWeight: 600, color: "#b0b0b0", flexShrink: 0 }}>1</span>
+                  <span style={{ width: 10, height: 10, borderRadius: 999, background: status === "not_started" ? "#fff" : _stageToneOf(status), border: `2px solid ${_stageToneOf(status)}`, flexShrink: 0 }} />
+                  <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Название этапа"
+                    style={{ flex: 1, minWidth: 0, height: 40, border: "none", outline: "none", background: "transparent", fontFamily: UI, fontSize: 15, fontWeight: 300, color: TEXT, padding: "0 2px" }} />
+                  <div style={{ width: 190, flexShrink: 0 }}><RefUnderSelect value={status} options={_STAGE_STATUS_OPTS} onChange={setStatus} /></div>
+                </div>
+                <div style={{ paddingLeft: 52, marginTop: 2 }}>
+                  <RefStageItems items={items} hint={status === "in_progress"}
+                    onAdd={(t) => setItems((p) => [...p, t])}
+                    onRemove={(idx) => setItems((p) => p.filter((_, j) => j !== idx))} />
+                </div>
               </div>
-            </div>
+            )}
           </div>
           <div style={{ marginTop: 14, fontSize: 11.5, fontWeight: 300, lineHeight: 1.5, color: "#a0a0a0" }}>
-            Название и статус — в одной строке. «Что входит в этап» раскрывается по нажатию: каждый пункт — отдельной строкой. Заказчику покажем эти пункты списком через тире, когда этап «В работе».
+            {phone
+              ? "Название сверху, статус — строкой ниже. «Что входит в этап» раскрывается по нажатию: каждый пункт — отдельной строкой. Заказчику покажем эти пункты списком через тире, когда этап «В работе»."
+              : "Название и статус — в одной строке. «Что входит в этап» раскрывается по нажатию: каждый пункт — отдельной строкой. Заказчику покажем эти пункты списком через тире, когда этап «В работе»."}
           </div>
         </div>
       ) : (
-        <div style={{ marginTop: 14, border: "1px dotted #dcdcdc", borderRadius: 12, background: "#fff", padding: "6px 18px 16px" }}>
-          <RefCustomerStage s={{ name: name || "Этап", status, items }} i={0} />
+        <div style={{ marginTop: 14, border: "1px dotted #dcdcdc", borderRadius: 12, background: "#fff", padding: phone ? "6px 13px 14px" : "6px 18px 16px" }}>
+          <RefCustomerStage s={{ name: name || "Этап", status, items }} i={0} phone={phone} />
           <div style={{ marginTop: 12, fontSize: 11.5, fontWeight: 300, lineHeight: 1.5, color: "#a0a0a0" }}>
-            У заказчика пункты «что входит» видны, только когда этап «В работе». Наведите на название — детализация раскроется блоком в нашем стиле.
+            {phone
+              ? "У заказчика пункты «что входит» видны, только когда этап «В работе». Нажмите на название — детализация раскроется блоком в нашем стиле."
+              : "У заказчика пункты «что входит» видны, только когда этап «В работе». Наведите на название — детализация раскроется блоком в нашем стиле."}
           </div>
         </div>
       )}
@@ -4170,12 +4741,13 @@ const _CO_STAGES = [
 ];
 const _CO_TONE = { done: "#2f855a", in_progress: "#2b6cb0", not_started: "#cfcfcf" };
 const _CO_LBL = { done: "Завершён", in_progress: "В работе", not_started: "Не начат" };
-/* Лог изменений по объекту (что показывает кнопка «История изменений» — с акцентом на статусы). */
+/* Лог изменений по объекту — 1:1 с реальной панелью «История изменений» (ChangeLogButton
+   в ObjectsSection): заголовок + описание + автор·дата. Без «акцентов»-пилюль. */
 const _CO_LOG = [
-  { t: "Статус объекта: Черновик → В работе", date: "12 июля, 10:20", status: true },
-  { t: "Открыт документ «Договор №2026-14.pdf»", date: "12 июля, 10:22", status: false },
-  { t: "Этап «Обследование фасада»: Не начат → В работе", date: "15 июля, 09:05", status: true },
-  { t: "Ответ команды на ваш запрос 01", date: "17 июля, 15:41", status: false },
+  { title: "Статус объекта изменён", description: "Черновик → В работе", author: "Пётр Смирнов", date: "12 июля, 10:20" },
+  { title: "Открыт документ", description: "«Договор №2026-14.pdf» стал доступен вам", author: "Пётр Смирнов", date: "12 июля, 10:22" },
+  { title: "Этап «Обследование фасада»", description: "Не начат → В работе", author: "Пётр Смирнов", date: "15 июля, 09:05" },
+  { title: "Ответ команды на запрос 01", description: "Ответили на ваш вопрос по срокам отчёта", author: "Пётр Смирнов", date: "17 июля, 15:41" },
 ];
 /* Маленькая подсказка-«коуч»: пульсирующая морковная точка + текст (что нажать / навести). */
 function RefHintChip({ children, style }) {
@@ -4233,32 +4805,47 @@ function RefStageBadge({ status }) {
    СРАЗУ после названия (не отдельным столбцом справа). Детализация «что входит»
    раскрывается по наведению — блоком в нашем стиле (заливка #f8f8f8, пунктир #c7c7c7),
    а не белой карточкой с тенью. */
-function RefCustomerStage({ s, i }) {
+function RefCustomerStage({ s, i, phone }) {
   const [hov, setHov] = React.useState(false);
   const active = s.status === "in_progress" && Array.isArray(s.items) && s.items.length > 0;
   const tone = _CO_TONE[s.status];
+  // На телефоне «что входит» раскрывается по ТАПу и разворачивается вниз внутри
+  // карточки (не всплывающей панелью поверх — иначе уезжает за край экрана).
+  const open = active && hov;
+  const rowProps = phone
+    ? { onClick: () => active && setHov((v) => !v) }
+    : { onMouseEnter: () => setHov(true), onMouseLeave: () => setHov(false) };
+  const items = active ? (
+    <div className="ref-pop" style={{ ...(phone
+      ? { marginTop: 10, marginLeft: 24 }
+      : { position: "absolute", top: "calc(100% - 2px)", left: 24, zIndex: 8, minWidth: 240, maxWidth: 340 }),
+      background: "#f8f8f8", border: "1.5px dotted #c7c7c7", borderRadius: 12, padding: "16px 18px" }}>
+      <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: ".05em", textTransform: "uppercase", color: MUTED }}>Что входит в этап</div>
+      <div style={{ marginTop: 10, display: "grid", gap: 6 }}>
+        {s.items.map((it, j) => (
+          <div key={j} style={{ display: "flex", gap: 9, fontSize: 14.5, fontWeight: 300, lineHeight: 1.5, color: "#333" }}>
+            <span style={{ color: MUTED, flexShrink: 0 }}>—</span>
+            <span style={{ wordBreak: "break-word" }}>{it}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  ) : null;
   return (
-    <div onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
-      style={{ position: "relative", padding: "11px 0", borderTop: i ? "1px dotted #f0f0f0" : "none" }}>
+    <div {...rowProps}
+      style={{ position: "relative", padding: "11px 0", borderTop: i ? "1px dotted #f0f0f0" : "none", cursor: (phone && active) ? "pointer" : "default" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
         <span style={{ width: 12, height: 12, borderRadius: 999, flexShrink: 0, background: s.status === "not_started" ? "#fff" : tone, border: `2px solid ${s.status === "not_started" ? "#d0d0d0" : tone}` }} />
-        <span style={{ fontSize: 14.5, fontWeight: active ? 600 : 400, color: s.status === "not_started" ? MUTED : TEXT, cursor: active ? "pointer" : "default" }}>{s.name}</span>
+        <span style={{ minWidth: 0, fontSize: 14.5, fontWeight: active ? 600 : 400, color: s.status === "not_started" ? MUTED : TEXT, cursor: active ? "pointer" : "default" }}>{s.name}</span>
         <RefStageBadge status={s.status} />
-        {active && !hov ? <RefHintLeft>наведите — что входит</RefHintLeft> : null}
+        {/* Подсказка: на ПК «← наведите», на телефоне — шеврон-раскрытие справа. */}
+        {active && !phone && !hov ? <RefHintLeft>наведите — что входит</RefHintLeft> : null}
+        {active && phone ? (
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={REF_CARROT} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"
+            style={{ marginLeft: "auto", flexShrink: 0, transform: open ? "rotate(180deg)" : "none", transition: "transform .2s ease" }}><path d="M6 9l6 6 6-6" /></svg>
+        ) : null}
       </div>
-      {active && hov ? (
-        <div className="ref-pop" style={{ position: "absolute", top: "calc(100% - 2px)", left: 24, zIndex: 8, minWidth: 240, maxWidth: 340, background: "#f8f8f8", border: "1.5px dotted #c7c7c7", borderRadius: 12, padding: "16px 18px" }}>
-          <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: ".05em", textTransform: "uppercase", color: MUTED }}>Что входит в этап</div>
-          <div style={{ marginTop: 10, display: "grid", gap: 6 }}>
-            {s.items.map((it, j) => (
-              <div key={j} style={{ display: "flex", gap: 9, fontSize: 14.5, fontWeight: 300, lineHeight: 1.5, color: "#333" }}>
-                <span style={{ color: MUTED, flexShrink: 0 }}>—</span>
-                <span style={{ wordBreak: "break-word" }}>{it}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      ) : null}
+      {open ? items : null}
     </div>
   );
 }
@@ -4267,19 +4854,27 @@ function RefCustomerStage({ s, i }) {
    и «+N», по наведению — всплывающая панель «Соисполнители» (как RespHover в объекте).
    Пока не навёл — пульсирует «← наведите». */
 const _CO_RESP = { name: "Пётр Смирнов", co: ["Анна Сидорова", "Игорь Кузнецов"] };
-function RefRespHover() {
+function RefRespHover({ phone }) {
   const [hov, setHov] = React.useState(false);
   const r = _CO_RESP;
+  // На телефоне соисполнители раскрываются по ТАПу; длинная подпись «← наведите»
+  // заменена коротким шевроном, чтобы ничего не уезжало за край.
+  const wrapProps = phone
+    ? { onClick: () => setHov((v) => !v) }
+    : { onMouseEnter: () => setHov(true), onMouseLeave: () => setHov(false) };
   return (
-    <span style={{ position: "relative", display: "inline-flex", alignItems: "center", gap: 8 }}
-      onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}>
-      <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12.5, fontWeight: 500, color: TEXT, boxShadow: "inset 0 -1px 0 0 #d7d7d7", paddingBottom: 1, cursor: "default" }}>
+    <span style={{ position: "relative", display: "inline-flex", alignItems: "center", gap: 8 }} {...wrapProps}>
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12.5, fontWeight: 500, color: TEXT, boxShadow: "inset 0 -1px 0 0 #d7d7d7", paddingBottom: 1, cursor: phone ? "pointer" : "default" }}>
         {r.name}
         {r.co.length ? <span style={{ fontSize: 11, fontWeight: 600, color: "#b3b3b3" }}>+{r.co.length}</span> : null}
+        {phone && r.co.length ? (
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={REF_CARROT} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"
+            style={{ transform: hov ? "rotate(180deg)" : "none", transition: "transform .2s ease" }}><path d="M6 9l6 6 6-6" /></svg>
+        ) : null}
       </span>
-      {!hov ? <RefHintLeft>наведите — соисполнители</RefHintLeft> : null}
+      {!phone && !hov ? <RefHintLeft>наведите — соисполнители</RefHintLeft> : null}
       {hov ? (
-        <div className="ref-pop" style={{ position: "absolute", top: "calc(100% + 8px)", left: 0, zIndex: 9, minWidth: 240, background: "#f8f8f8", border: "1.5px dotted #c7c7c7", borderRadius: 12, padding: "16px 18px" }}>
+        <div className="ref-pop" style={{ position: "absolute", top: "calc(100% + 8px)", left: 0, zIndex: 9, minWidth: 220, maxWidth: "min(280px, 76vw)", background: "#f8f8f8", border: "1.5px dotted #c7c7c7", borderRadius: 12, padding: "16px 18px" }}>
           <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: ".05em", textTransform: "uppercase", color: MUTED, marginBottom: 10 }}>Соисполнители</div>
           <div style={{ display: "grid", gap: 6 }}>
             {r.co.map((c, j) => (
@@ -4296,6 +4891,7 @@ function RefRespHover() {
 }
 
 function CustomerObjectDemo() {
+  const phone = useIsPhone();
   const [threads, setThreads] = React.useState([]);
   const [compose, setCompose] = React.useState(false);
   const [text, setText] = React.useState("");
@@ -4311,8 +4907,10 @@ function CustomerObjectDemo() {
 
   return (
     <DemoFrame label="объект глазами заказчика" onReset={reset}
-      hint="Так объект выглядит у заказчика: статус, прогресс, детализация текущего этапа, открытые документы и панель-док снизу. Нажмите «Задать вопрос» — запрос встанет в реестр «Коммуникация по объекту» со статусом «Ожидает ответа».">
-      <div style={{ position: "relative", overflow: "hidden", border: "1px dotted #dcdcdc", borderRadius: 12, background: "#fff", padding: 18 }}>
+      hint={phone
+        ? "Так объект выглядит у заказчика на телефоне: статус, прогресс, детализация текущего этапа (по тапу) и открытые документы. Нажмите «Задать вопрос» — запрос встанет в реестр «Коммуникация по объекту» со статусом «Ожидает ответа»."
+        : "Так объект выглядит у заказчика: статус, прогресс, детализация текущего этапа, открытые документы и панель-док снизу. Нажмите «Задать вопрос» — запрос встанет в реестр «Коммуникация по объекту» со статусом «Ожидает ответа»."}>
+      <div style={{ position: "relative", overflow: "hidden", border: "1px dotted #dcdcdc", borderRadius: 12, background: "#fff", padding: phone ? 13 : 18 }}>
         {/* шапка — те самые две иконки, что стоят в шапке объекта у заказчика */}
         <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
@@ -4321,25 +4919,27 @@ function CustomerObjectDemo() {
               <span style={{ fontSize: 11.5, fontWeight: 300, color: "#aaa" }}>KRT-02-2026</span>
               <RefPill code="in_progress" />
             </div>
-            {/* ответственный по объекту + соисполнители по наведению (как в списке объектов) */}
-            <div style={{ marginTop: 9, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-              <span style={{ fontSize: 11.5, fontWeight: 300, color: "#999" }}>Ответственный:</span>
-              <RefRespHover />
-            </div>
           </div>
-          {/* подсказка «нажмите» — указывает на иконку истории, пока лог закрыт */}
-          {!logOpen ? (
-            <span className="ref-hint" style={{ alignSelf: "flex-start", marginTop: 12, display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 500, color: REF_CARROT, whiteSpace: "nowrap" }}>
-              нажмите
-              <svg className="ref-hint-arrow" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
-            </span>
-          ) : null}
-          <RefObjIconBtn title="История изменений по объекту" active={logOpen} onClick={() => setLogOpen((v) => !v)}>
-            <RefTrackIcon />
-          </RefObjIconBtn>
-          <RefObjIconBtn title={sub ? "Уведомления на e-mail включены" : "Подписка на e-mail-уведомления"} active={sub} onClick={() => setSub((v) => !v)}>
-            <RefExtIcon />
-          </RefObjIconBtn>
+          {/* иконки шапки + подсказка «нажмите» — единый блок c выравниванием по центру, чтобы подсказка стояла ровно напротив иконок */}
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+            {!logOpen ? (
+              <span className="ref-hint" style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 500, color: REF_CARROT, whiteSpace: "nowrap" }}>
+                нажмите
+                <svg className="ref-hint-arrow" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+              </span>
+            ) : null}
+            <RefObjIconBtn title="История изменений по объекту" active={logOpen} onClick={() => setLogOpen((v) => !v)}>
+              <RefTrackIcon />
+            </RefObjIconBtn>
+            <RefObjIconBtn title={sub ? "Уведомления на e-mail включены" : "Подписка на e-mail-уведомления"} active={sub} onClick={() => setSub((v) => !v)}>
+              <RefExtIcon />
+            </RefObjIconBtn>
+          </div>
+        </div>
+        {/* ответственный по объекту + соисполнители — на всю ширину карточки, чтобы имя не переносилось на узких экранах (iPhone SE) */}
+        <div style={{ marginTop: 9, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <span style={{ fontSize: 11.5, fontWeight: 300, color: "#999" }}>Ответственный:</span>
+          <RefRespHover phone={phone} />
         </div>
 
         {/* легенда: что делает каждая иконка в шапке объекта */}
@@ -4358,29 +4958,30 @@ function CustomerObjectDemo() {
         {logOpen ? (
           <>
             <div onClick={() => setLogOpen(false)} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,.05)", zIndex: 5, borderRadius: 12 }} />
-            <div className="ref-drawer" style={{ position: "absolute", top: 0, right: 0, bottom: 0, zIndex: 6, width: "min(340px, 88%)", background: "#fff", borderLeft: "1px solid #ececec", boxShadow: "-18px 0 44px rgba(0,0,0,.12)", display: "flex", flexDirection: "column" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "16px 16px 12px", borderBottom: "1px solid #f0f0f0" }}>
-                <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: ".05em", textTransform: "uppercase", color: "#777" }}>История изменений</span>
-                <span style={{ fontSize: 12, fontWeight: 700, color: "#bdbdbd" }}>{String(_CO_LOG.length).padStart(2, "0")}</span>
-                <button type="button" onClick={() => setLogOpen(false)} title="Закрыть" style={{ marginLeft: "auto", width: 30, height: 30, display: "grid", placeItems: "center", border: "none", background: "transparent", color: "#aaa", cursor: "pointer", borderRadius: 8 }}
-                  onMouseEnter={(e) => { e.currentTarget.style.background = "#f4f4f4"; e.currentTarget.style.color = "#555"; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#aaa"; }}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
-                </button>
+            <div className="ref-drawer" style={{ position: "absolute", top: 0, right: 0, bottom: 0, zIndex: 6, width: "min(360px, 90%)", background: "#f4f4f3", borderLeft: "1px solid #ececec", boxShadow: "-18px 0 44px rgba(0,0,0,.12)", display: "flex", flexDirection: "column" }}>
+              <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, padding: "18px 18px 14px", borderBottom: "1px solid #ececec" }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: ".05em", textTransform: "uppercase", color: "#999" }}>История изменений</div>
+                  <div style={{ marginTop: 3, fontSize: 17, fontWeight: 600, color: TEXT }}>Что менялось по объекту</div>
+                </div>
+                <button type="button" onClick={() => setLogOpen(false)} title="Закрыть" aria-label="Закрыть"
+                  style={{ flexShrink: 0, border: "none", background: "none", cursor: "pointer", fontSize: 24, lineHeight: 1, color: "#999", padding: 2 }}
+                  onMouseEnter={(e) => { e.currentTarget.style.color = "#555"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.color = "#999"; }}>×</button>
               </div>
-              <div style={{ flex: 1, overflowY: "auto", padding: "6px 16px 12px" }}>
-                {_CO_LOG.map((l, i) => (
-                  <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "10px 0", borderTop: i ? "1px dotted #ececec" : "none" }}>
-                    <span style={{ marginTop: 5, width: 8, height: 8, borderRadius: 999, flexShrink: 0, background: l.status ? _CO_TONE.in_progress : "#cfcfcf" }} />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 13, fontWeight: l.status ? 500 : 400, color: TEXT, lineHeight: 1.4 }}>{l.t}</div>
-                      <div style={{ marginTop: 2, fontSize: 11.5, fontWeight: 300, color: "#aaa" }}>{l.date}</div>
+              <div style={{ flex: 1, overflowY: "auto", padding: "18px 18px 20px" }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+                  {_CO_LOG.map((l, i) => (
+                    <div key={i} style={{ position: "relative", paddingLeft: 22 }}>
+                      <span style={{ position: "absolute", left: 3, top: 4, width: 9, height: 9, borderRadius: 999, background: "transparent", border: "1.5px solid #b3b3b3", zIndex: 1 }} />
+                      {i < _CO_LOG.length - 1 ? <span style={{ position: "absolute", left: 7, top: 16, bottom: -18, width: 1, backgroundImage: "repeating-linear-gradient(to bottom, #c4c4c4 0 1px, rgba(0,0,0,0) 1px 6px)" }} /> : null}
+                      <div style={{ fontSize: 14, fontWeight: 600, color: TEXT }}>{l.title}</div>
+                      {l.description ? <div style={{ marginTop: 2, fontSize: 13.5, fontWeight: 300, lineHeight: 1.45, color: "#444", wordBreak: "break-word" }}>{l.description}</div> : null}
+                      <div style={{ marginTop: 4, fontSize: 12, color: "#999" }}>{l.author}{l.author && l.date ? " · " : ""}{l.date}</div>
                     </div>
-                    {l.status ? <span style={{ flexShrink: 0, fontSize: 10, fontWeight: 700, letterSpacing: ".06em", textTransform: "uppercase", color: _CO_TONE.in_progress, border: `1px solid ${_CO_TONE.in_progress}33`, borderRadius: 6, padding: "3px 7px" }}>смена статуса</span> : null}
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-              <div style={{ padding: "10px 16px 14px", borderTop: "1px solid #f0f0f0", fontSize: 11.5, fontWeight: 300, lineHeight: 1.5, color: "#a8a8a8" }}>Синим отмечены смены статуса — объекта и этапов.</div>
             </div>
           </>
         ) : null}
@@ -4395,7 +4996,7 @@ function CustomerObjectDemo() {
 
         {/* этапы (только чтение). Детализация текущего этапа раскрывается по наведению. */}
         <div style={{ marginTop: 14, borderTop: "1px dotted #ececec" }}>
-          {_CO_STAGES.map((s, i) => <RefCustomerStage key={i} s={s} i={i} />)}
+          {_CO_STAGES.map((s, i) => <RefCustomerStage key={i} s={s} i={i} phone={phone} />)}
         </div>
 
         {/* документы (только открытые) — у свежего метка «New» */}
@@ -4405,10 +5006,17 @@ function CustomerObjectDemo() {
             <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderTop: i ? "1px dotted #f4f4f4" : "none" }}>
               <span style={{ minWidth: 0, fontSize: 13, fontWeight: 300, color: "#333", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{d.name}</span>
               {d.fresh ? <NewPill /> : null}
-              <span style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
-                <FileHoverBtn onClick={() => setDocNote("Документ открылся во встроенном просмотрщике (демо).")}>Открыть</FileHoverBtn>
-                <FileHoverBtn onClick={() => setDocNote("Файл скачивается по защищённой ссылке (демо).")}>Скачать</FileHoverBtn>
-              </span>
+              {phone ? (
+                <span style={{ marginLeft: "auto", display: "flex", gap: 2, flexShrink: 0 }}>
+                  <RefDocIconBtn title="Открыть" onClick={() => setDocNote("Документ открылся во встроенном просмотрщике на весь экран (демо).")}>{RefMiniIcon.open}</RefDocIconBtn>
+                  <RefDocIconBtn title="Скачать" onClick={() => setDocNote("Файл скачивается по защищённой ссылке (демо).")}>{RefMiniIcon.download}</RefDocIconBtn>
+                </span>
+              ) : (
+                <span style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+                  <FileHoverBtn onClick={() => setDocNote("Документ открылся во встроенном просмотрщике (демо).")}>Открыть</FileHoverBtn>
+                  <FileHoverBtn onClick={() => setDocNote("Файл скачивается по защищённой ссылке (демо).")}>Скачать</FileHoverBtn>
+                </span>
+              )}
             </div>
           ))}
           {docNote ? <div key={docNote} className="ref-pop" style={{ marginTop: 8, fontSize: 12, fontWeight: 300, color: "#2f855a" }}>{docNote}</div> : null}
@@ -4425,7 +5033,7 @@ function CustomerObjectDemo() {
                   placeholder="Напишите вопрос команде…" autoFocus style={{ ...under, height: 96 }} />
                 <div style={{ marginTop: 12, display: "flex", gap: 10, flexWrap: "wrap" }}>
                   <button type="button" onClick={send}
-                    style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 10, height: 52, minWidth: 210, borderRadius: 10, border: "none", background: "#111", color: "#fff", fontFamily: UI, fontSize: 13, fontWeight: 600, textTransform: "uppercase", letterSpacing: ".02em", cursor: "pointer" }}>
+                    style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 10, height: 52, minWidth: phone ? 0 : 210, width: phone ? "100%" : undefined, borderRadius: 10, border: "none", background: "#1c1c1c", color: "#fff", fontFamily: UI, fontSize: 13, fontWeight: 600, textTransform: "uppercase", letterSpacing: ".02em", cursor: "pointer" }}>
                     Отправить
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
                   </button>
@@ -4440,7 +5048,7 @@ function CustomerObjectDemo() {
               </div>
             ) : (
               <button type="button" onClick={() => setCompose(true)}
-                style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", height: 52, minWidth: 240, borderRadius: 10, border: "none", background: "#111", color: "#fff", fontFamily: UI, fontSize: 13, fontWeight: 600, textTransform: "uppercase", letterSpacing: ".02em", cursor: "pointer" }}>
+                style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", height: 52, minWidth: phone ? 0 : 240, width: phone ? "100%" : undefined, borderRadius: 10, border: "none", background: "#1c1c1c", color: "#fff", fontFamily: UI, fontSize: 13, fontWeight: 600, textTransform: "uppercase", letterSpacing: ".02em", cursor: "pointer" }}>
                 Задать вопрос
               </button>
             )}
@@ -4448,10 +5056,13 @@ function CustomerObjectDemo() {
         </div>
       </div>
 
-      {/* панель-док снизу — как на реальном экране объекта */}
-      <div style={{ marginTop: 14 }}>
-        <RefDock progress={pct} cta="Задать вопрос" badge={awaiting} />
-      </div>
+      {/* панель-док снизу — только на компьютере; на телефоне дока нет,
+          «Задать вопрос» доступно прямо в карточке выше */}
+      {!phone ? (
+        <div style={{ marginTop: 14 }}>
+          <RefDock progress={pct} cta="Задать вопрос" badge={awaiting} />
+        </div>
+      ) : null}
     </DemoFrame>
   );
 }
@@ -4486,6 +5097,9 @@ function FileHoverBtn({ variant = "light", disabled, onClick, children, style })
 }
 
 function AdminFiles() {
+  // На планшете (iPad Air портрет) широкая таблица файлов не помещается —
+  // отдаём тот же карточный список, что и на телефоне (порог 1023, как isDesktop ЛК).
+  const phone = useIsTabletDown();
   const [objs, setObjs] = React.useState(() => { try { return DB.listObjects(); } catch { return []; } });
   const [q, setQ] = React.useState("");
   const [fStatus, setFStatus] = React.useState("");
@@ -4654,6 +5268,34 @@ function AdminFiles() {
         {!items.length ? (
           <div style={{ marginTop: 28, fontSize: 14, fontWeight: 300, color: "#999" }}>У объекта нет загруженных файлов.</div>
         ) : (
+          phone ? (
+          <div style={{ marginTop: 20 }}>
+            <div style={{ borderTop: "1px dotted #ddd" }} />
+            {items.map((r) => (
+              <React.Fragment key={r.key}>
+                <div style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: "14px 2px" }}>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ fontSize: 15, fontWeight: 500, color: TEXT, lineHeight: 1.35, wordBreak: "break-word" }}>{r.title}</div>
+                    {r.category ? <div style={{ marginTop: 2, fontSize: 12, color: "#aaa", fontWeight: 300 }}>{r.category}</div> : null}
+                    <div style={{ marginTop: 4, fontSize: 12, color: "#888", fontWeight: 300, wordBreak: "break-word" }}>{r.name}</div>
+                    <div style={{ marginTop: 6, display: "flex", flexWrap: "wrap", alignItems: "center", gap: "2px 10px", fontSize: 12, fontWeight: 300 }}>
+                      {r.type ? <span style={{ color: "#888", textTransform: "uppercase" }}>{r.type}</span> : null}
+                      {r.size ? <span style={{ color: "#888" }}>{_fmtBytes(r.size)}</span> : null}
+                      <span style={{ color: "#888" }}>{_fmtDate(r.date)}</span>
+                      <span style={{ color: r.status === "draft" ? "#b26a00" : "#2a7" }}>
+                        {r.status === "draft" ? "черновик" : r.status === "published" ? "опубликован" : (r.status || "—")}
+                      </span>
+                    </div>
+                  </div>
+                  <FileHoverBtn disabled={!!dlKey || busy} onClick={() => downloadOne(r)} style={{ flexShrink: 0, height: 34, padding: "0 12px" }}>
+                    {dlKey === r.key ? "…" : "Скачать"}
+                  </FileHoverBtn>
+                </div>
+                <div style={{ borderTop: "1px dotted #ddd" }} />
+              </React.Fragment>
+            ))}
+          </div>
+          ) : (
           <div style={{ marginTop: 22, overflowX: "auto" }}>
             <table style={{ borderCollapse: "collapse", width: "100%", border: "1px dotted #c7c7c7", fontFamily: UI }}>
               <thead>
@@ -4695,6 +5337,7 @@ function AdminFiles() {
               </tbody>
             </table>
           </div>
+          )
         )}
         <div style={{ height: 58 }} />
       </div>
@@ -4777,6 +5420,10 @@ function AdminFiles() {
    Два способа входа: по e-mail ИЛИ по логину (заказчик потом сам добавит и подтвердит почту).
    Опционально — подтянуть организацию по ИНН (DaData), эти данные позже попадут в объект. */
 function AdminCreateAccount({ token }) {
+  // На планшете/телефоне форма узкая (maxWidth 520) — центрируем колонку, чтобы
+  // не липла к левому краю широкого экрана iPad Air. На десктопе (в фикс-колонке ЛК)
+  // оставляем как есть — слева.
+  const narrow = useIsTabletDown();
   const [mode, setMode] = React.useState("email");   // "email" | "login"
   const [email, setEmail] = React.useState("");
   const [login, setLogin] = React.useState("");
@@ -4862,7 +5509,7 @@ function AdminCreateAccount({ token }) {
   const seg = (active) => ({ flex: 1, height: 40, borderRadius: 8, border: "none", cursor: "pointer", fontFamily: UI, fontSize: 14, fontWeight: active ? 500 : 300, background: active ? "#111" : "transparent", color: active ? "#fff" : "#555", transition: "background-color .15s ease, color .15s ease" });
 
   return (
-    <div style={{ fontFamily: UI, marginTop: 8 }}>
+    <div style={{ fontFamily: UI, marginTop: 8, ...(narrow && !done ? { maxWidth: 560, marginLeft: "auto", marginRight: "auto" } : null) }}>
       <button type="button" onClick={() => adminNav("/account/admin")} style={{ border: "none", background: "none", padding: 0, cursor: "pointer", fontFamily: UI, fontSize: 14, fontWeight: 300, color: "#777" }}>← К модулям</button>
       <div style={{ marginTop: 14, fontSize: 22, fontWeight: 600, color: TEXT }}>Создать учётную запись</div>
       <div style={{ marginTop: 6, fontSize: 14, fontWeight: 300, color: "#777" }}>Новый пользователь сможет входить по этим данным. Пароль показывается один раз — передайте его заказчику.</div>
@@ -4887,23 +5534,23 @@ function AdminCreateAccount({ token }) {
             <AccessSheetBuilder account={{ id: done.id || "", name: name || done.loginLabel, loginLabel: done.loginLabel, password: done.password, email: (done.email || "").trim().toLowerCase() }} />
           </div>
 
-          {/* Выход после того, как всё готово. Обе кнопки — спокойные (outline), чтобы
-              «Готово» не перетягивало случайный клик до создания объекта. */}
+          {/* Выход после того, как всё готово. Обе кнопки — спокойные (светлая плашка без
+              контура), чтобы «Готово» не перетягивало случайный клик до создания объекта. */}
           <div style={{ marginTop: 30, maxWidth: 760, borderTop: "1px solid #ececec", paddingTop: 22 }}>
             <div style={{ fontSize: 13, fontWeight: 300, color: "#999", marginBottom: 12, lineHeight: 1.5 }}>
               Сначала сформируйте лист доступа выше — а когда закончите, вернитесь к модулям или заведите ещё одну учётку.
             </div>
             <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
               <button type="button" onClick={() => adminNav("/account/admin")}
-                style={{ height: 48, padding: "0 22px", borderRadius: 10, border: "1px solid #d9d9d9", background: "#fff", cursor: "pointer", fontFamily: UI, fontSize: 14, fontWeight: 400, color: TEXT, transition: "background-color .15s ease, border-color .15s ease" }}
-                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "#f5f5f5"; e.currentTarget.style.borderColor = "#c4c4c4"; }}
-                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "#fff"; e.currentTarget.style.borderColor = "#d9d9d9"; }}>
+                style={{ height: 48, padding: "0 22px", borderRadius: 10, border: "none", background: "#fff", cursor: "pointer", fontFamily: UI, fontSize: 14, fontWeight: 400, color: TEXT, transition: "background-color .15s ease" }}
+                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "#f2f2f1"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "#fff"; }}>
                 Готово — к модулям
               </button>
               <button type="button" onClick={reset}
-                style={{ height: 48, padding: "0 22px", borderRadius: 10, border: "1px solid #d9d9d9", background: "#fff", cursor: "pointer", fontFamily: UI, fontSize: 14, fontWeight: 400, color: TEXT, transition: "background-color .15s ease, border-color .15s ease" }}
-                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "#f5f5f5"; e.currentTarget.style.borderColor = "#c4c4c4"; }}
-                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "#fff"; e.currentTarget.style.borderColor = "#d9d9d9"; }}>
+                style={{ height: 48, padding: "0 22px", borderRadius: 10, border: "none", background: "#fff", cursor: "pointer", fontFamily: UI, fontSize: 14, fontWeight: 400, color: TEXT, transition: "background-color .15s ease" }}
+                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "#f2f2f1"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "#fff"; }}>
                 Создать ещё учётку
               </button>
             </div>
@@ -4969,9 +5616,9 @@ function AdminCreateAccount({ token }) {
             <div style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
               <div style={{ flex: 1 }}><Input value={pwd} onChange={setPwd} error={errors.pwd} /></div>
               <button type="button" onClick={() => setPwd(genPassword())} title="Сгенерировать новый"
-                style={{ height: FIELD_H, padding: "0 18px", borderRadius: 10, border: "none", background: "#111", color: "#fff", cursor: "pointer", fontFamily: UI, fontSize: 14, fontWeight: 300, whiteSpace: "nowrap", transition: "background-color .15s ease" }}
-                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "#262626"; }}
-                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "#111"; }}>↻ Другой</button>
+                style={{ height: FIELD_H, padding: "0 18px", borderRadius: 10, border: "none", background: "#1c1c1c", color: "#fff", cursor: "pointer", fontFamily: UI, fontSize: 14, fontWeight: 300, whiteSpace: "nowrap", transition: "background-color .15s ease" }}
+                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "#2a2a2a"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "#1c1c1c"; }}>↻ Другой</button>
             </div>
           </Field>
           {errors.form ? <div style={{ fontSize: 13, color: ERR }}>{errors.form}</div> : null}
@@ -4989,6 +5636,7 @@ const CUBE_SITE = "https://cube-tech.ru";
 const objectUrlFor = (id) => `${CUBE_SITE}/account/objects/${encodeURIComponent(id)}`;
 
 function AccessSheetBuilder({ account }) {
+  const phone = useIsPhone();
   const email = account.email || "";
   const accountId = account.id || "";
   const [mode, setMode] = React.useState("select"); // "select" | "create"
@@ -5090,7 +5738,7 @@ function AccessSheetBuilder({ account }) {
       {/* Договор + сводка выбранного объекта */}
       {activeObj ? (
         <div style={{ marginTop: 24, maxWidth: 460 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18 }}>
+          <div style={{ display: "grid", gridTemplateColumns: phone ? "1fr" : "1fr 1fr", gap: 18 }}>
             <div><FLabel>Договор №</FLabel><UnderInput value={contractNumber} onChange={setContractNumber} placeholder="—" /></div>
             <div><FLabel>Дата договора</FLabel><UnderInput value={contractDate} onChange={setContractDate} placeholder="дд.мм.гггг" /></div>
           </div>
@@ -5115,9 +5763,9 @@ function AccessSheetBuilder({ account }) {
 function DarkTextBtn({ children, onClick, disabled }) {
   return (
     <button type="button" onClick={onClick} disabled={disabled}
-      style={{ height: 48, padding: "0 22px", borderRadius: 10, border: "none", background: "#111", color: "#fff", cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.85 : 1, fontFamily: UI, fontSize: 15, fontWeight: 300, transition: "background-color .15s ease" }}
-      onMouseEnter={(e) => { if (!disabled) e.currentTarget.style.backgroundColor = "#262626"; }}
-      onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "#111"; }}>
+      style={{ height: 48, padding: "0 22px", borderRadius: 10, border: "none", background: "#1c1c1c", color: "#fff", cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.85 : 1, fontFamily: UI, fontSize: 15, fontWeight: 300, transition: "background-color .15s ease" }}
+      onMouseEnter={(e) => { if (!disabled) e.currentTarget.style.backgroundColor = "#2a2a2a"; }}
+      onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "#1c1c1c"; }}>
       {children}
     </button>
   );
@@ -5325,6 +5973,9 @@ export default function AccountProfilePage() {
 
   const [errors, setErrors] = React.useState({});
   const [saving, setSaving] = React.useState(false);
+  // Снимок исходных значений профиля — по нему решаем, показывать ли «Сохранить»
+  // (кнопка на мобилке возникает только при реальных изменениях).
+  const [snapshot, setSnapshot] = React.useState(null);
   const fillOrg = (c) => { setOrg(c.name || ""); setInn(c.inn || ""); setKpp(c.kpp || ""); setLegalAddress(c.address || ""); };
 
   /* смена пароля (вкладка «Настройки») */
@@ -5418,7 +6069,11 @@ export default function AccountProfilePage() {
   // внутри подпунктов админки (сотрудники / учётки / создание) прячем стикидок,
   // чтобы не мешал работе со списками (без блокировки скролла страницы)
   React.useEffect(() => {
-    const hide = tab === "admin" && !!adminModule;
+    // Справка (у команды /account/admin/reference, у заказчика /account/help) содержит
+    // свои демо-доки, поэтому реальный StickyDock там прячем — иначе на десктопе (≥1280,
+    // где док виден) он наезжает на демонстрацию. На планшете (<1280) док и так скрыт
+    // глобально CSS (StickyDock.jsx, @media max-width:1279) — отдельная логика не нужна.
+    const hide = (tab === "admin" && !!adminModule) || tab === "help";
     document.body.classList.toggle("dock-off", hide);
     return () => document.body.classList.remove("dock-off");
   }, [tab, adminModule]);
@@ -5471,6 +6126,19 @@ export default function AccountProfilePage() {
       setInn(String(u.inn || ""));
       setKpp(String(u.kpp || ""));
       setLegalAddress(String(u.legalAddress || u.orgAddress || ""));
+      // Снимок исходной формы — чтобы «Сохранить» показывалось только при изменениях.
+      setSnapshot({
+        display: String(u.name || ""),
+        phone: String(u.phone || ""),
+        city: String(u.city || ""),
+        timezone: RU_TIMEZONES.some((z) => z.tz === u.timezone) ? u.timezone : DEFAULT_TZ,
+        about: String(u.about || ""),
+        org: String(u.org || u.organization || ""),
+        inn: String(u.inn || ""),
+        kpp: String(u.kpp || ""),
+        legalAddress: String(u.legalAddress || u.orgAddress || ""),
+        groupCode: toCode(u.group || u.role || "user"),
+      });
       setEmailOptIn(Boolean(u.emailOptIn));
       setTwoFA(Boolean(u.twoFactorEnabled));
       setEmailVerified(Boolean(u.emailVerified));
@@ -5499,9 +6167,13 @@ export default function AccountProfilePage() {
   const contentTopRef = React.useRef(null);
   const [asideShift, setAsideShift] = React.useState(0);
   const [leftShift, setLeftShift] = React.useState(0);
-  const [isDesktop, setIsDesktop] = React.useState(() => { try { return window.matchMedia("(min-width: 1024px)").matches; } catch { return true; } });
+  // Порог «десктопного» ЛК поднят 1024 → 1280: iPad Pro portrait (1024) и 11" landscape
+  // (1194) не тянут фиксированную 3-колоночную сетку 1429px (она переполняет экран), поэтому
+  // на них отдаём ту же плавную одноколоночную раскладку, что и на iPad Air. Настоящий десктоп
+  // (≥1280: 1280/1366/1440/1920) остаётся байт-в-байт прежним. Согласовано с useIsTabletDown (≤1279).
+  const [isDesktop, setIsDesktop] = React.useState(() => { try { return window.matchMedia("(min-width: 1280px)").matches; } catch { return true; } });
   React.useEffect(() => {
-    let mql; try { mql = window.matchMedia("(min-width: 1024px)"); } catch { return; }
+    let mql; try { mql = window.matchMedia("(min-width: 1280px)"); } catch { return; }
     const on = () => setIsDesktop(mql.matches);
     on();
     try { mql.addEventListener("change", on); } catch { mql.addListener(on); }
@@ -5932,6 +6604,10 @@ export default function AccountProfilePage() {
         window.dispatchEvent(new CustomEvent("auth:changed", { detail: { user: updatedUser, accessToken: token } }));
       }
 
+      // Сброс «грязного» состояния — форма снова совпадает с сохранённым.
+      setSnapshot({ display, phone, city, timezone, about, org, inn, kpp, legalAddress, groupCode });
+      setAvatar(null);
+
       window.showDockToast?.("Сохранено");
     } catch (e) {
       window.showDockToast?.("Не удалось сохранить");
@@ -5941,6 +6617,20 @@ export default function AccountProfilePage() {
   }
 
   const INFO_UP = 37;
+
+  // Есть ли несохранённые изменения профиля (по снимку). Аватар: выбран новый файл → «грязно».
+  const profileDirty = React.useMemo(() => {
+    if (!snapshot) return false;
+    if (avatar) return true;
+    const s = snapshot;
+    const eq = (a, b) => String(a ?? "").trim() === String(b ?? "").trim();
+    return !(
+      eq(display, s.display) && eq(phone, s.phone) && eq(city, s.city) &&
+      eq(timezone, s.timezone) && eq(about, s.about) && eq(org, s.org) &&
+      eq(inn, s.inn) && eq(kpp, s.kpp) && eq(legalAddress, s.legalAddress) &&
+      eq(groupCode, s.groupCode)
+    );
+  }, [snapshot, avatar, display, phone, city, timezone, about, org, inn, kpp, legalAddress, groupCode]);
 
   const crumbLabel = {
     profile:  "Профиль",
@@ -5953,13 +6643,14 @@ export default function AccountProfilePage() {
 
   // Левый заголовок раздела — меняется при переключении вкладок.
   const asideHeading = {
-    profile:  { title: "Ваш профиль",   desc: "Добавьте здесь дополнительную информацию о себе." },
+    profile:  { title: "Ваш профиль",   desc: "Личные данные, контакты и реквизиты." },
     objects:  { title: "Ваши объекты",  desc: "Проекты, документы и материалы по вашим объектам." },
+    personal: { title: "Настройки",     desc: "Безопасность, вход и уведомления." },
     partner:  { title: "Раздел: Партнёр",  desc: "Информация и материалы для партнёров КУБ." },
     supplier: { title: "Раздел: Поставщик", desc: "Информация и материалы для поставщиков КУБ." },
     admin:    { title: "Роли и группы", desc: "Управляйте ролями (доступ) и группами (кто вы?) прямо тут." },
-    help:     { title: "Справка", desc: "Как всё устроено в вашем кабинете: объект, документы, вопросы и уведомления." },
-  }[tab] || { title: "Ваш профиль", desc: "Добавьте здесь дополнительную информацию о себе." };
+    help:     { title: "Справка", desc: "Как всё устроено в вашем кабинете." },
+  }[tab] || { title: "Ваш профиль", desc: "Личные данные, контакты и реквизиты." };
 
   // Доступ к разделам «Партнёр»/«Поставщик»: закрыт для заказчиков, открыт админам и
   // сотрудникам (у staff-ролей есть partners.view/suppliers.view). isAdmin — быстрый
@@ -5970,14 +6661,14 @@ export default function AccountProfilePage() {
   // Первичная загрузка профиля — брендовый спиннер вместо мигающих пустых полей.
   if (booting) {
     return (
-      <main className="lg:min-h-[100dvh]" style={{ fontFamily: UI, color: TEXT, background: "#f8f8f8" }}>
+      <main className="xl:min-h-[100dvh]" style={{ fontFamily: UI, color: TEXT, background: "#f8f8f8" }}>
         <CenterSpinner minHeight="70vh" size={36} label="Загружаем профиль…" />
       </main>
     );
   }
 
   return (
-    <main className="lg:min-h-[100dvh]" style={{ fontFamily: UI, color: TEXT, background: "#f8f8f8" }}>
+    <main className="xl:min-h-[100dvh]" style={{ fontFamily: UI, color: TEXT, background: "#f8f8f8" }}>
       {onboardOpen ? (
         <FirstLoginModal
           token={token}
@@ -5998,10 +6689,15 @@ export default function AccountProfilePage() {
           }}
         />
       ) : null}
-      <div className="-mt-10 px-4 pt-4 lg:mt-0 lg:px-[52px] lg:pt-[72px]">
+      {/* Горизонтальные отступы завязаны на ШАПКУ (Header.jsx: px-4 lg:px-[52px]).
+          Ниже 1024 — px-4 (как у шапки на телефоне); планшет 1024–1279 — lg:px-[52px]
+          (тот же 52px, что у шапки → левый/правый край контента ЛК совпадает с краями шапки;
+          раньше тут был px-4 и всё «уезжало», плюс убрал центрирующий maxWidth 820, который
+          оставлял пустые поля по бокам). ≥1280 — xl:px-[52px] (десктоп, фикс-сетка, без изменений). */}
+      <div className="-mt-10 px-4 pt-4 lg:px-[52px] xl:mt-0 xl:px-[52px] xl:pt-[72px]">
         <div
           ref={gridRef}
-          className="grid grid-cols-1 lg:grid-cols-[360px_714px_78px_277px]"
+          className="grid grid-cols-1 xl:grid-cols-[360px_714px_78px_277px]"
           style={{
             columnGap: 0,
             alignItems: "start",
@@ -6010,8 +6706,19 @@ export default function AccountProfilePage() {
         >
           {/* ЛЕВО — крошка + описание */}
           <aside>
-            <div style={{ marginTop: isDesktop ? -35 : 0 }}>
-              <div style={{ fontSize: 22, fontWeight: 600, lineHeight: "1.35", marginBottom: 7 }}>Профиль</div>
+            <div style={{ marginTop: isDesktop ? -35 : -8 }}>
+              {/* Десктоп: постоянный заголовок «Профиль». */}
+              <div className="hidden xl:block" style={{ fontSize: 22, fontWeight: 600, lineHeight: "1.35", marginBottom: 7 }}>Профиль</div>
+              {/* Мобилка: на месте заголовка — динамический заголовок раздела (в т.ч. «Настройки»,
+                  которых раньше в шапке не было). Экономит место внизу, плавно меняется при
+                  переключении вкладок. */}
+              {!(tab === "admin" && adminModule) ? (
+                // minHeight фиксирует высоту шапки → при переключении разделов низ не «скачет».
+                <div key={tab} className="xl:hidden animate-svcfade" style={{ marginBottom: 10, minHeight: 58 }}>
+                  <div style={{ fontSize: 22, fontWeight: 600, lineHeight: "1.35" }}>{asideHeading.title}</div>
+                  <div style={{ marginTop: 6, fontSize: 14, fontWeight: 300, color: "#222", lineHeight: 1.5 }}>{asideHeading.desc}</div>
+                </div>
+              ) : null}
               <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#333" }}>
                 <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true" style={{ color: "#111" }}>
                   <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="1.8" />
@@ -6026,7 +6733,7 @@ export default function AccountProfilePage() {
             <div ref={leftStartRef} />
 
             {tab !== "personal" && !(tab === "admin" && adminModule) && (
-              <div className="hidden lg:block animate-svcfade" key={tab} style={{ marginTop: isDesktop ? leftShift : 0 }}>
+              <div className="hidden xl:block animate-svcfade" key={tab} style={{ marginTop: isDesktop ? leftShift : 0 }}>
                 <div style={{ fontSize: 22, fontWeight: 600, lineHeight: "1.35" }}>
                   {asideHeading.title}
                 </div>
@@ -6049,39 +6756,6 @@ export default function AccountProfilePage() {
               isDesktop={isDesktop}
             />
 
-            {/* Save — мобилка: под табами (как awwwards) */}
-            {!(tab === "personal" || tab === "objects" || tab === "admin" || tab === "help" || (canPartner && tab === "partner") || (canSupplier && tab === "supplier")) && (
-              <div className="mb-7 mt-2 lg:hidden">
-                {saving ? (
-                  <div className="w-full" style={{ height: 48, display: "flex", alignItems: "center", justifyContent: "center" }}><Spinner size={24} /></div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={handleSave}
-                    className="w-full"
-                    style={{ height: 48, borderRadius: 10, background: "#000", color: "#fff", border: "none", fontFamily: UI, fontSize: 14, fontWeight: 400, cursor: "pointer" }}
-                  >
-                    Сохранить изменения
-                  </button>
-                )}
-                <div style={{ marginTop: 12, fontSize: 14, fontWeight: 300, color: "#222" }}>
-                  Если вы внесли какие-либо изменения, не забудьте сохранить их, прежде чем покинуть эту страницу.
-                </div>
-              </div>
-            )}
-
-            {/* Заголовок раздела — мобилка (под табами, как awwwards; fade при переключении) */}
-            {tab !== "personal" && !(tab === "admin" && adminModule) && (
-              <div key={tab} className="mb-5 animate-svcfade lg:hidden">
-                <div style={{ fontSize: 22, fontWeight: 600, lineHeight: "1.35" }}>
-                  {asideHeading.title}
-                </div>
-                <div style={{ marginTop: 6, fontSize: 14, fontWeight: 300, color: "#222" }}>
-                  {asideHeading.desc}
-                </div>
-              </div>
-            )}
-
             {/* Верх контента центральной колонки — запасной якорь для выравнивания
                 левого заголовка на вкладках БЕЗ формы (объекты/админка/партнёр/поставщик),
                 где formTopAnchorRef не рендерится. Без него leftShift оставался 0 и заголовок
@@ -6093,7 +6767,7 @@ export default function AccountProfilePage() {
                 <ObjectsSection pathname={pathname} userEmail={userEmail} userId={userId} isAdmin={isAdmin} />
               </div>
             ) : tab === "admin" && isAdmin ? (
-              <div className="animate-svcfade" style={isDesktop ? { width: MID_COL + GAP_COL + RIGHT_COL } : undefined}>
+              <div className="animate-svcfade" style={isDesktop ? { width: MID_COL + GAP_COL + RIGHT_COL } : { marginTop: 8 }}>
                 {adminModule === "employees" ? (
                   <EmployeesModule backTo="/account/admin" />
                 ) : adminModule === "accounts" ? (
@@ -6113,21 +6787,21 @@ export default function AccountProfilePage() {
                 )}
               </div>
             ) : tab === "help" && !isAdmin ? (
-              <div className="animate-svcfade" style={isDesktop ? { width: MID_COL + GAP_COL + RIGHT_COL } : undefined}>
+              <div className="animate-svcfade" style={isDesktop ? { width: MID_COL + GAP_COL + RIGHT_COL } : { marginTop: 8 }}>
                 <AdminReference customer />
               </div>
             ) : tab === "partner" && canPartner ? (
-              <div className="animate-svcfade" style={isDesktop ? { width: MID_COL + GAP_COL + RIGHT_COL } : undefined}>
+              <div className="animate-svcfade" style={isDesktop ? { width: MID_COL + GAP_COL + RIGHT_COL } : { marginTop: 8 }}>
                 <AdminPanelFiltered token={token} group="partner" />
               </div>
             ) : tab === "supplier" && canSupplier ? (
-              <div className="animate-svcfade" style={isDesktop ? { width: MID_COL + GAP_COL + RIGHT_COL } : undefined}>
+              <div className="animate-svcfade" style={isDesktop ? { width: MID_COL + GAP_COL + RIGHT_COL } : { marginTop: 8 }}>
                 <AdminPanelFiltered token={token} group="supplier" />
               </div>
             ) : (
               <>
                 {tab === "personal" ? (
-                  <div className="animate-svcfade" style={{ marginTop: 44, ...(isDesktop ? { marginLeft: -LEFT_COL, width: LEFT_COL + MID_COL + GAP_COL + RIGHT_COL } : {}) }}>
+                  <div className="animate-svcfade" style={{ marginTop: isDesktop ? 44 : 8, ...(isDesktop ? { marginLeft: -LEFT_COL, width: LEFT_COL + MID_COL + GAP_COL + RIGHT_COL } : {}) }}>
 
               {/* ——— Смена / добавление почты ——— */}
               <SettingsRow
@@ -6159,7 +6833,7 @@ export default function AccountProfilePage() {
                           <div style={{ marginTop: 10 }}><RowSpinner label="Отправляем письмо…" minHeight={38} /></div>
                         ) : (
                           <HoverBtn onClick={handleRequestVerify}
-                            style={{ marginTop: 10, height: 38, padding: "0 16px", borderRadius: 8, border: "none", background: "#111", color: "#fff", fontSize: 13, fontWeight: 600, fontFamily: UI }}
+                            style={{ marginTop: 10, height: 38, padding: "0 16px", borderRadius: 8, border: "none", background: "#1c1c1c", color: "#fff", fontSize: 13, fontWeight: 600, fontFamily: UI }}
                             hoverStyle={{ background: "#262626" }}>
                             Отправить письмо для подтверждения
                           </HoverBtn>
@@ -6407,11 +7081,36 @@ export default function AccountProfilePage() {
                 )}
               </SettingsRow>
 
-              <div className="h-0 lg:h-[120px]" />
+              <div className="h-0 xl:h-[120px]" />
                   </div>
                 ) : (
-                  <div style={{ marginTop: 44 }}>
+                  <div style={{ marginTop: isDesktop ? 44 : 8 }}>
                     <div ref={formTopAnchorRef} />
+                    {/* Save — мобилка: НАВЕРХУ (как у awwwards), сразу под вкладками, над заголовком
+                        формы; статичная (не липкая), ВСЕГДА видна (не зависит от изменений); под
+                        кнопкой — короткая подсказка. */}
+                    <div className="mb-7 xl:hidden">
+                      {saving ? (
+                        <div className="w-full" style={{ height: 48, display: "flex", alignItems: "center", justifyContent: "center", background: "#f8f8f8", borderRadius: 8 }}><Spinner size={24} /></div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={handleSave}
+                          className="w-full"
+                          style={{ height: 48, borderRadius: 8, background: "#1c1c1c", color: "#fff", border: "none", fontFamily: UI, fontSize: 14, fontWeight: 400, cursor: "pointer" }}
+                        >
+                          Сохранить изменения
+                        </button>
+                      )}
+                      <div style={{ marginTop: 12, fontSize: 14, fontWeight: 300, color: "#222" }}>
+                        Не забудьте сохранить изменения, прежде чем покинуть эту страницу.
+                      </div>
+                    </div>
+                    {/* Мобилка: заголовок над формой — по размеру как верхний «Ваш профиль» (22px). */}
+                    <div className="xl:hidden" style={{ marginBottom: 18 }}>
+                      <div style={{ fontSize: 22, fontWeight: 600, lineHeight: "1.35" }}>Личные данные</div>
+                      <div style={{ marginTop: 6, fontSize: 14, fontWeight: 300, color: "#222", lineHeight: 1.5 }}>Основная информация о вас и компании.</div>
+                    </div>
                     <form onSubmit={(e) => e.preventDefault()}>
                       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-5">
                         <div>
@@ -6546,7 +7245,7 @@ export default function AccountProfilePage() {
 
                       <div style={{ marginTop: 28 - INFO_UP, fontSize: 14, fontWeight: 300, color: "#222" }}>
                         КУБ может информировать меня о продуктах и услугах, отправляя персонализированные письма.{" "}
-                        <br className="hidden md:inline lg:hidden" />
+                        <br className="hidden md:inline xl:hidden" />
                         Подробнее см. в нашей{" "}
                         <a href="https://cube-tech.ru/legal/privacy" target="_blank" rel="noopener noreferrer" style={{ fontWeight: 600, color: TEXT, textDecoration: "none" }}>
                           Политике конфиденциальности
@@ -6568,7 +7267,7 @@ export default function AccountProfilePage() {
                       </div>
                     </form>
 
-                    <div className="h-0 lg:h-[200px]" />
+                    <div className="h-10 xl:h-[200px]" />
                   </div>
                 )}
               </>
@@ -6582,18 +7281,18 @@ export default function AccountProfilePage() {
           {tab === "personal" || tab === "objects" || tab === "admin" || tab === "help" || (isAdmin && (tab === "partner" || tab === "supplier")) ? (
             <div />
           ) : (
-            <aside className="hidden lg:block lg:sticky lg:top-6" style={{ marginTop: isDesktop ? Math.max(0, asideShift) : 0 }}>
+            <aside className="hidden xl:block xl:sticky xl:top-6" style={{ marginTop: isDesktop ? Math.max(0, asideShift) : 0 }}>
               {saving ? (
-                <div className="w-full lg:w-[277px]" style={{ height: 72, display: "flex", alignItems: "center", justifyContent: "center" }}><Spinner size={30} /></div>
+                <div className="w-full xl:w-[277px]" style={{ height: 72, display: "flex", alignItems: "center", justifyContent: "center" }}><Spinner size={30} /></div>
               ) : (
                 <button
                   type="button"
                   onClick={handleSave}
-                  className="w-full lg:w-[277px]"
+                  className="w-full xl:w-[277px]"
                   style={{
                     height: 72,
                     borderRadius: 10,
-                    background: "#000",
+                    background: "#1c1c1c",
                     color: "#fff",
                     border: "none",
                     fontFamily: UI,
@@ -6608,7 +7307,7 @@ export default function AccountProfilePage() {
                   Сохранить изменения
                 </button>
               )}
-              <div className="lg:max-w-[277px]" style={{ marginTop: 14, fontSize: 14, fontWeight: 300, color: "#222" }}>
+              <div className="xl:max-w-[277px]" style={{ marginTop: 14, fontSize: 14, fontWeight: 300, color: "#222" }}>
                 Если вы внесли какие-либо изменения, не забудьте сохранить их, прежде чем покинуть эту страницу.
               </div>
             </aside>

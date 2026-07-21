@@ -306,7 +306,7 @@ export default function Contact({ topClass = "pt-14" }) {
             <button
               type="button"
               onClick={submit}
-              className="mt-[22px] block h-[60px] w-[210px] rounded-[10px] bg-black text-sm font-semibold uppercase tracking-[0.02em] text-white transition-colors hover:bg-neutral-800"
+              className="mt-[22px] block h-[60px] w-[210px] rounded-[10px] bg-[#1c1c1c] text-sm font-semibold uppercase tracking-[0.02em] text-white transition-colors hover:bg-[#2a2a2a]"
             >
               Оставить заявку
             </button>

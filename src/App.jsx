@@ -20,6 +20,8 @@ import ModalsHost from "@/components/common/Modals.jsx"
 // ⬇️ Хост всплывающих подсказок (тостов)
 import ToastHost from "@/components/common/Toast.jsx"
 import ConfirmHost from "@/components/common/Confirm.jsx"
+import CookieConsent from "@/components/common/CookieConsent.jsx"
+import { loadMetrika, trackHit } from "@/lib/metrika.js"
 
 // ⬇️ LEGAL-страницы
 import TermsPage from '@/pages/legal/terms.jsx'
@@ -101,6 +103,16 @@ export default function App(){
       ? window.location.pathname.replace(/^\/+/, '')
       : '')
   )
+
+  // Метрика: для вернувшихся с уже данным согласием — подключаем сразу при загрузке.
+  const firstHitRef = React.useRef(true)
+  useEffect(() => { loadMetrika() }, [])
+
+  // SPA: отправляем просмотр при смене маршрута (первый экран считает сам init Метрики).
+  useEffect(() => {
+    if (firstHitRef.current) { firstHitRef.current = false; return }
+    try { trackHit(window.location.pathname + window.location.search) } catch {}
+  }, [path])
 
   useEffect(() => {
     const isHome = path === '' || path === '/'
@@ -556,6 +568,7 @@ export default function App(){
       <ModalsHost />
       <ToastHost />
       <ConfirmHost />
+      <CookieConsent />
       {loading && <Preloader onReady={() => setLoading(false)} minMs={1200} />}
       <style>{`
         body.hero-zone .dock__pill.is-active,

@@ -314,7 +314,12 @@ function UsersTable({ token }) {
     const res = await apiAdminUpdateUser(token, u.id, patch);
     if (!res) { alert("Не удалось сохранить"); return; }
     clearDraft(u.id);
-    await load();
+    // Обновляем строку НА МЕСТЕ (без setLoading/перезагрузки списка), чтобы после
+    // выдачи доступа админ остался ровно там, где был, а не прыгал наверх к лоадеру.
+    const merged = (res && typeof res === "object")
+      ? (res.user || (res.id ? res : null))
+      : null;
+    setList((prev) => prev.map((x) => (x.id === u.id ? { ...x, ...patch, ...(merged || {}) } : x)));
   };
 
   return (
@@ -349,7 +354,7 @@ function UsersTable({ token }) {
           type="button"
           onClick={load}
           style={{
-            height: FIELD_H, border: "none", borderRadius: 8, background: "#000", color: "#fff",
+            height: FIELD_H, border: "none", borderRadius: 8, background: "#1c1c1c", color: "#fff",
             fontFamily: UI, fontSize: 14, fontWeight: 300, cursor: "pointer"
           }}
         >
@@ -771,7 +776,7 @@ export default function AdminPage() {
                 onClick={(e) => { e.preventDefault(); try { window.history.pushState({}, "", "/account/profile"); window.dispatchEvent(new PopStateEvent("popstate")); } catch {} }}
                 style={{
                   display: "inline-block",
-                  background: "#000",
+                  background: "#1c1c1c",
                   color: "#fff",
                   textDecoration: "none",
                   padding: "12px 18px",
@@ -928,7 +933,7 @@ export default function AdminPage() {
 /* стили кнопок */
 function btn() {
   return {
-    background: "#000",
+    background: "#1c1c1c",
     color: "#fff",
     border: "none",
     borderRadius: 10,
@@ -942,7 +947,7 @@ function btn() {
 function btnLink() {
   return {
     display: "inline-block",
-    background: "#111",
+    background: "#1c1c1c",
     color: "#fff",
     textDecoration: "none",
     borderRadius: 10,

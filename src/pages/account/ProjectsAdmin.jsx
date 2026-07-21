@@ -27,6 +27,57 @@ function adminNav(to) {
   catch { window.location.href = to; }
 }
 
+/* Телефонный брейкпоинт — как в остальном кабинете (matchMedia 640px). */
+function useIsPhone() {
+  const [phone, setPhone] = React.useState(() => typeof window !== "undefined" && window.matchMedia("(max-width: 640px)").matches);
+  React.useEffect(() => {
+    const mq = window.matchMedia("(max-width: 640px)");
+    const on = () => setPhone(mq.matches);
+    mq.addEventListener ? mq.addEventListener("change", on) : mq.addListener(on);
+    return () => { mq.removeEventListener ? mq.removeEventListener("change", on) : mq.removeListener(on); };
+  }, []);
+  return phone;
+}
+
+// «Планшет и уже» (≤1023) — тот же порог, на котором ЛК уходит с фикс-раскладки.
+// На планшетах (iPad Air 820, iPad Pro portrait 1024, 11" landscape 1194 — весь
+// диапазон <1280, где ЛК одноколоночный) «Витрина» отдаёт тач-строку с видимыми
+// иконками (перетаскивание за ⠿ и hover-действия на тач не работают).
+function useIsTabletDown() {
+  const [v, setV] = React.useState(() => typeof window !== "undefined" && window.matchMedia("(max-width: 1279px)").matches);
+  React.useEffect(() => {
+    const mq = window.matchMedia("(max-width: 1279px)");
+    const on = () => setV(mq.matches);
+    mq.addEventListener ? mq.addEventListener("change", on) : mq.addListener(on);
+    return () => { mq.removeEventListener ? mq.removeEventListener("change", on) : mq.removeListener(on); };
+  }, []);
+  return v;
+}
+
+/* Безрамочная иконка-действие для строки списка на телефоне (тач не умеет hover/drag):
+   мягкий серый значок, скруглённый ховер-фон; danger — морковный, как корзина этапа. */
+function RowIconBtn({ children, onClick, title, disabled, danger }) {
+  const [h, setH] = React.useState(false);
+  const on = h && !disabled;
+  return (
+    <button type="button" onClick={onClick} disabled={disabled} title={title} aria-label={title}
+      style={{ width: 36, height: 36, display: "grid", placeItems: "center", border: "none", borderRadius: 9, flexShrink: 0,
+        background: on ? (danger ? "#faf1ee" : "#f1f1f1") : "transparent",
+        color: disabled ? "#cfcfcf" : danger ? (on ? CARROT : "#b0b0b0") : (on ? TEXT : "#666"),
+        cursor: disabled ? "default" : "pointer", padding: 0, transition: "color .12s, background-color .12s" }}
+      onMouseEnter={() => setH(true)} onMouseLeave={() => setH(false)}>
+      {children}
+    </button>
+  );
+}
+const RowIcon = {
+  up: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 15l6-6 6 6" /></svg>,
+  down: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9l6 6 6-6" /></svg>,
+  edit: <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg>,
+  trash: <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13M10 11v6M14 11v6" /></svg>,
+  replace: <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M17 2l4 4-4 4" /><path d="M3 11V9a4 4 0 0 1 4-4h14" /><path d="M7 22l-4-4 4-4" /><path d="M21 13v2a4 4 0 0 1-4 4H3" /></svg>,
+};
+
 const EMPTY = {
   logo: "", shots: [], location: "", objectTitle: "", customer: "",
   servicesLabel: "", days: "", name: "", client: "", year: "", services: "", badge: "",
@@ -104,6 +155,7 @@ function DropZone({ onFiles, busy, multiple, title, hint, height = 120 }) {
 
 // Загрузчик логотипа (одна круглая картинка) — превью + зона замены.
 function LogoUploader({ value, onChange }) {
+  const phone = useIsPhone();
   const [busy, setBusy] = React.useState(false);
   const [err, setErr] = React.useState("");
   const pick = async (files) => {
@@ -120,12 +172,20 @@ function LogoUploader({ value, onChange }) {
           <div style={{ width: 64, height: 64, borderRadius: "50%", overflow: "hidden", background: "#fff", border: "1px solid #e6e6e6", flexShrink: 0 }}>
             <img src={value} alt="Логотип" style={{ width: "100%", height: "100%", objectFit: "contain", padding: 7 }} />
           </div>
-          <div style={{ display: "flex", gap: 8 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: phone ? 2 : 8 }}>
             <label style={{ display: "inline-flex" }}>
               <input type="file" accept="image/*" style={{ display: "none" }} onChange={(e) => { pick(Array.from(e.target.files || [])); e.target.value = ""; }} />
-              <span><HoverCapsule small onClick={(e) => e.currentTarget.previousSibling?.click?.()}>Заменить</HoverCapsule></span>
+              {phone ? (
+                <RowIconBtn title="Заменить логотип" onClick={(e) => e.currentTarget.previousSibling?.click?.()}>{RowIcon.replace}</RowIconBtn>
+              ) : (
+                <span><HoverCapsule small onClick={(e) => e.currentTarget.previousSibling?.click?.()}>Заменить</HoverCapsule></span>
+              )}
             </label>
-            <HoverCapsule small accent onClick={() => onChange("")}>Убрать</HoverCapsule>
+            {phone ? (
+              <RowIconBtn title="Убрать логотип" danger onClick={() => onChange("")}>{RowIcon.trash}</RowIconBtn>
+            ) : (
+              <HoverCapsule small accent onClick={() => onChange("")}>Убрать</HoverCapsule>
+            )}
           </div>
         </div>
         {err && <div style={{ marginTop: 6, fontSize: 12, color: CARROT }}>{err}</div>}
@@ -205,6 +265,7 @@ function Field({ label, hint, children }) {
 
 // Форма создания/редактирования одного проекта. При editId != null — режим правки.
 function ProjectForm({ editId, initial, onDone, onCancel }) {
+  const phone = useIsTabletDown();
   const [f, setF] = React.useState(() => ({ ...EMPTY, ...(initial || {}), days: initial?.days != null ? String(initial.days) : "" }));
   const [err, setErr] = React.useState("");
   const set = (k) => (v) => setF((p) => ({ ...p, [k]: v }));
@@ -236,7 +297,7 @@ function ProjectForm({ editId, initial, onDone, onCancel }) {
 
   return (
     <div>
-      <div className="pa-grid" style={{ display: "grid", gap: 28, gridTemplateColumns: "minmax(0,1fr)", alignItems: "start" }}>
+      <div className="pa-grid" style={{ display: "grid", gap: phone ? 22 : 28, gridTemplateColumns: "minmax(0,1fr)", alignItems: "start" }}>
         {/* левая колонка — поля */}
         <div>
           <div style={{ fontSize: 15, fontWeight: 600, color: TEXT, marginBottom: 14 }}>Изображения</div>
@@ -258,7 +319,7 @@ function ProjectForm({ editId, initial, onDone, onCancel }) {
             <Field label="Год"><UnderInput value={f.year} onChange={set("year")} placeholder="2025" /></Field>
             <Field label="Дней"><UnderInput value={f.days} onChange={(v) => set("days")(v.replace(/[^\d]/g, ""))} placeholder="94" /></Field>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+          <div style={{ display: "grid", gridTemplateColumns: phone ? "1fr" : "1fr 1fr", gap: phone ? 0 : 14 }}>
             <Field label="Подпись услуг" hint="Мелко в углу карточки."><UnderInput value={f.servicesLabel} onChange={set("servicesLabel")} placeholder="Например: 5 услуг" /></Field>
             <Field label="Метка / сноска" hint="Надстрочная пометка у заказчика в таблице."><UnderInput value={f.badge} onChange={set("badge")} placeholder="ННГ" /></Field>
           </div>
@@ -273,8 +334,8 @@ function ProjectForm({ editId, initial, onDone, onCancel }) {
           </div>
         </div>
 
-        {/* правая колонка — предпросмотр */}
-        <div style={{ position: "sticky", top: 90 }}>
+        {/* правая колонка — предпросмотр (на телефоне идёт снизу, без залипания) */}
+        <div style={{ position: phone ? "static" : "sticky", top: 90 }}>
           <div style={{ fontSize: 12, letterSpacing: ".06em", textTransform: "uppercase", color: MUTED, fontWeight: 300, marginBottom: 12 }}>Предпросмотр</div>
           <div style={{ maxWidth: 560 }}>
             <ProjectCardResponsive project={preview} />
@@ -350,6 +411,7 @@ function BackLink({ children, onClick }) {
 // Список проектов: перетаскивание за ⠿ (как «Этапы»), ряд подсвечивается и
 // действия «Изменить/Удалить» проявляются при наведении. Порядок = кто слева/справа.
 function ProjectsList({ projects, onEdit, canManage }) {
+  const phone = useIsTabletDown();
   const [confirmReset, setConfirmReset] = React.useState(false);
   const [hoverId, setHoverId] = React.useState(null);
   const dragFrom = React.useRef(null);
@@ -373,35 +435,43 @@ function ProjectsList({ projects, onEdit, canManage }) {
               onMouseEnter={() => setHoverId(p.id)} onMouseLeave={() => setHoverId(null)}
               onDragOver={(e) => { e.preventDefault(); if (overId !== p.id) setOverId(p.id); }}
               onDrop={(e) => { e.preventDefault(); drop(i); }}
-              style={{ display: "flex", alignItems: "center", gap: 14, padding: "12px 14px", borderTop: i ? "1px dotted #ececec" : "none",
+              style={{ display: "flex", alignItems: "center", gap: phone ? 10 : 14, padding: phone ? "12px 12px" : "12px 14px", borderTop: i ? "1px dotted #ececec" : "none",
                 background: over ? "#f4f7ff" : hov ? "rgba(0,0,0,.02)" : "transparent", opacity: dragging ? 0.4 : 1, transition: "background-color .12s ease" }}>
-              {/* Ручка перетаскивания */}
-              {canManage && (
+              {/* Ручка перетаскивания — только на десктопе (тач не умеет drag-and-drop) */}
+              {canManage && !phone && (
                 <span draggable onDragStart={() => { dragFrom.current = i; setDragId(p.id); }} onDragEnd={() => { dragFrom.current = null; setDragId(null); setOverId(null); }}
                   title="Перетащите" style={{ cursor: "grab", color: hov ? "#9a9a9a" : "#cdcdcd", fontSize: 16, lineHeight: 1, userSelect: "none", flexShrink: 0, transition: "color .12s ease" }}>⠿</span>
               )}
               {/* мини-превью */}
-              <div style={{ width: 96, height: 62, borderRadius: 8, overflow: "hidden", background: "#111", flexShrink: 0, position: "relative" }}>
+              <div style={{ width: phone ? 66 : 96, height: phone ? 46 : 62, borderRadius: 8, overflow: "hidden", background: "#111", flexShrink: 0, position: "relative" }}>
                 {p.shots?.[0] ? <img src={p.shots[0]} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <div style={{ width: "100%", height: "100%", display: "grid", placeItems: "center", color: "#666", fontSize: 11 }}>нет фото</div>}
                 {p.logo && <div style={{ position: "absolute", left: 6, top: 6, width: 20, height: 20, borderRadius: "50%", background: "#fff", overflow: "hidden" }}><img src={p.logo} alt="" style={{ width: "100%", height: "100%", objectFit: "contain", padding: 2 }} /></div>}
               </div>
               {/* данные */}
               <div style={{ minWidth: 0, flex: 1 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ fontSize: 15, fontWeight: 600, color: TEXT, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.objectTitle || p.client || "Без названия"}</span>
-                  {i < 2 && <span style={{ fontSize: 11, color: "#0a7d33", background: "#e3f4e8", borderRadius: 999, padding: "2px 8px", whiteSpace: "nowrap" }}>{i === 0 ? "На главной · слева" : "На главной · справа"}</span>}
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: phone ? "wrap" : "nowrap" }}>
+                  <span style={{ fontSize: 15, fontWeight: 600, color: TEXT, minWidth: 0, whiteSpace: phone ? "normal" : "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.objectTitle || p.client || "Без названия"}</span>
+                  {i < 2 && <span style={{ fontSize: 11, color: "#0a7d33", background: "#e3f4e8", borderRadius: 999, padding: "2px 8px", whiteSpace: "nowrap" }}>{i === 0 ? (phone ? "слева" : "На главной · слева") : (phone ? "справа" : "На главной · справа")}</span>}
                 </div>
                 <div style={{ marginTop: 3, fontSize: 13, color: MUTED, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                   {[p.customer || p.name, p.location, p.year].filter(Boolean).join(" · ") || "—"}
                 </div>
               </div>
-              {/* действия — проявляются при наведении на ряд */}
-              {canManage && (
+              {/* действия. На телефоне — всегда видимые иконки (тач не наводит) + стрелки для порядка;
+                  на десктопе — капсула «Изменить» и корзина, проявляются при наведении на ряд. */}
+              {canManage && (phone ? (
+                <div onClick={(ev) => ev.stopPropagation()} style={{ display: "flex", alignItems: "center", gap: 2, flexShrink: 0 }}>
+                  <RowIconBtn title="Выше" disabled={i === 0} onClick={() => moveProject(i, i - 1)}>{RowIcon.up}</RowIconBtn>
+                  <RowIconBtn title="Ниже" disabled={i === projects.length - 1} onClick={() => moveProject(i, i + 1)}>{RowIcon.down}</RowIconBtn>
+                  <RowIconBtn title="Изменить" onClick={() => onEdit(p.id)}>{RowIcon.edit}</RowIconBtn>
+                  <RowIconBtn title="Удалить проект" danger onClick={async () => { if (await confirmDialog({ title: "Удалить проект?", message: "Проект будет убран из витрины на сайте.", confirmText: "Удалить" })) removeProject(p.id); }}>{RowIcon.trash}</RowIconBtn>
+                </div>
+              ) : (
                 <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0, opacity: hov ? 1 : 0, transition: "opacity .14s ease", pointerEvents: hov ? "auto" : "none" }}>
                   <HoverCapsule small onClick={() => onEdit(p.id)}>Изменить</HoverCapsule>
                   <TrashBtn onClick={async () => { if (await confirmDialog({ title: "Удалить проект?", message: "Проект будет убран из витрины на сайте.", confirmText: "Удалить" })) removeProject(p.id); }} title="Удалить проект" />
                 </div>
-              )}
+              ))}
             </div>
           );
         })}
@@ -414,7 +484,7 @@ function ProjectsList({ projects, onEdit, canManage }) {
       )}
 
       {canManage && (
-        <div style={{ marginTop: 18, display: "flex", alignItems: "center", gap: 12 }}>
+        <div style={{ marginTop: 18, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
           {confirmReset ? (
             <>
               <span style={{ fontSize: 13, color: MUTED }}>Вернуть заводской набор (два проекта)? Добавленные будут удалены.</span>

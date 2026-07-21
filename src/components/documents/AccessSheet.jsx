@@ -192,9 +192,10 @@ export async function printAccessSheet(data = {}) {
   setTimeout(() => { try { w.print(); } catch {} }, 350);
 }
 
-// Сразу скачать готовый PDF (без диалога печати). Растрируем лист html2canvas'ом
-// (браузер рисует кириллицу системным шрифтом) и кладём картинку на страницу A4 в jsPDF.
-export async function downloadAccessSheetPdf(data = {}) {
+// Растрируем лист html2canvas'ом (браузер рисует кириллицу системным шрифтом) и
+// кладём картинку на страницу A4 в jsPDF. Возвращаем сам документ jsPDF —
+// его дальше либо сохраняют (скачать), либо превращают в файл (отправить).
+async function buildAccessSheetPdf(data = {}) {
   const [{ default: html2canvas }, jspdf] = await Promise.all([
     import("html2canvas"),
     import("jspdf"),
@@ -219,63 +220,140 @@ export async function downloadAccessSheetPdf(data = {}) {
     const pw = pdf.internal.pageSize.getWidth();
     const ph = pdf.internal.pageSize.getHeight();
     pdf.addImage(img, "JPEG", 0, 0, pw, ph, undefined, "FAST");
-    pdf.save("Лист доступа.pdf");
+    return pdf;
   } finally {
     document.body.removeChild(holder);
   }
 }
 
+// Сразу скачать готовый PDF (без диалога печати).
+export async function downloadAccessSheetPdf(data = {}) {
+  const pdf = await buildAccessSheetPdf(data);
+  pdf.save("Лист доступа.pdf");
+}
+
+// Можно ли отправить файл нативным «Поделиться» (в основном мобильные браузеры).
+export function canShareAccessSheet() {
+  try {
+    return typeof navigator !== "undefined" && !!navigator.canShare &&
+      navigator.canShare({ files: [new File([new Blob()], "x.pdf", { type: "application/pdf" })] });
+  } catch { return false; }
+}
+
+// Отправить лист через нативный share-лист телефона (WhatsApp, почта, Telegram…).
+// Если поделиться файлом нельзя — откатываемся на скачивание PDF.
+export async function shareAccessSheetPdf(data = {}) {
+  const pdf = await buildAccessSheetPdf(data);
+  const blob = pdf.output("blob");
+  const file = new File([blob], "Лист доступа.pdf", { type: "application/pdf" });
+  try {
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({
+        files: [file],
+        title: "Лист доступа",
+        text: `Лист доступа к личному кабинету${data.objectNumber ? ` · объект ${data.objectNumber}` : ""}.`,
+      });
+      return "shared";
+    }
+  } catch (e) {
+    if (e && e.name === "AbortError") return "cancelled"; // пользователь закрыл шит
+  }
+  pdf.save("Лист доступа.pdf"); // фолбэк
+  return "downloaded";
+}
+
+// Хук «узкий экран» (телефон) — для мобильной раскладки модалки листа.
+function useSheetPhone() {
+  const [phone, setPhone] = React.useState(
+    typeof window !== "undefined" && window.matchMedia ? window.matchMedia("(max-width: 640px)").matches : false
+  );
+  React.useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return;
+    const mq = window.matchMedia("(max-width: 640px)");
+    const on = (e) => setPhone(e.matches);
+    mq.addEventListener ? mq.addEventListener("change", on) : mq.addListener(on);
+    return () => { mq.removeEventListener ? mq.removeEventListener("change", on) : mq.removeListener(on); };
+  }, []);
+  return phone;
+}
+
 // Стики-док: внешняя рамка + плитка «с.» + плашка с кнопками (структура как у legal-дока).
-function SheetDock({ data, onClose }) {
+// На телефоне — компактнее (плитка/пилюли меньше), кнопки: «Сохранить» + «Отправить»
+// (нативный share); «Печать» уходит, т.к. с телефона обычно печатают не сразу.
+function SheetDock({ data, onClose, phone }) {
   const [saving, setSaving] = React.useState(false);
+  const [sharing, setSharing] = React.useState(false);
+  const shareOk = React.useMemo(() => canShareAccessSheet(), []);
+  const t = phone ? 52 : 60;         // размер плитки/плашки
+  const ph = phone ? 44 : 48;        // высота пилюли
   const frame = {
-    position: "fixed", left: "50%", bottom: 21, transform: "translateX(-50%)", zIndex: 210,
-    display: "flex", alignItems: "center", gap: 10, padding: 6, borderRadius: 12,
+    position: "fixed", left: "50%", bottom: phone ? 12 : 21, transform: "translateX(-50%)", zIndex: 210,
+    display: "flex", alignItems: "center", gap: phone ? 8 : 10, padding: 6, borderRadius: 12,
+    maxWidth: "calc(100vw - 20px)",
     background: "rgba(69,69,69,.58)", backdropFilter: "saturate(115%) blur(6px)", WebkitBackdropFilter: "saturate(115%) blur(6px)",
     boxShadow: "0 12px 40px rgba(0,0,0,.45)", fontFamily: DOCK_FONT,
   };
   const tile = {
-    display: "grid", placeItems: "center", width: 60, height: 60, borderRadius: 8,
+    display: "grid", placeItems: "center", width: t, height: t, borderRadius: 8, flexShrink: 0,
     background: "#1B1B1B", border: "1px solid rgba(255,255,255,.06)", color: "#e9e9e9",
-    cursor: "pointer", fontSize: 26, fontWeight: 400,
+    cursor: "pointer", fontSize: phone ? 22 : 26, fontWeight: 400,
   };
   const plate = {
-    display: "flex", alignItems: "center", gap: 6, height: 60, padding: "6px 10px",
+    display: "flex", alignItems: "center", gap: 6, height: t, padding: "6px 10px", minWidth: 0,
     borderRadius: 10, background: "#3E3E3E",
   };
   const pill = {
-    display: "inline-flex", alignItems: "center", justifyContent: "center", height: 48, padding: "0 20px",
+    display: "inline-flex", alignItems: "center", justifyContent: "center", height: ph, padding: phone ? "0 14px" : "0 20px",
     borderRadius: 8, background: "#3E3E3E", border: "1px solid rgba(255,255,255,.12)", color: "#e8e8e8",
-    fontSize: 13, fontWeight: 300, whiteSpace: "nowrap", cursor: "pointer", transition: "border-color .15s ease",
+    fontSize: phone ? 12.5 : 13, fontWeight: 300, whiteSpace: "nowrap", cursor: "pointer", transition: "border-color .15s ease",
+    flex: phone ? 1 : "0 0 auto", minWidth: 0,
   };
+  const hoverOn = (e) => (e.currentTarget.style.borderColor = "#8f8f8f");
+  const hoverOff = (e) => (e.currentTarget.style.borderColor = "rgba(255,255,255,.12)");
   const save = async () => {
     if (saving) return;
     setSaving(true);
     try { await downloadAccessSheetPdf(data); } catch { try { window.showDockToast && window.showDockToast("Не удалось сохранить"); } catch {} }
     setSaving(false);
   };
+  const share = async () => {
+    if (sharing) return;
+    setSharing(true);
+    try { await shareAccessSheetPdf(data); } catch { try { window.showDockToast && window.showDockToast("Не удалось отправить"); } catch {} }
+    setSharing(false);
+  };
   return (
     <div style={frame}>
       <button type="button" title="Закрыть" aria-label="Закрыть" onClick={onClose} style={tile}>с.</button>
       <div style={plate}>
-        <button type="button" onClick={save} style={{ ...pill, opacity: saving ? 0.7 : 1 }}
-          onMouseEnter={(e) => (e.currentTarget.style.borderColor = "#8f8f8f")}
-          onMouseLeave={(e) => (e.currentTarget.style.borderColor = "rgba(255,255,255,.12)")}>
+        <button type="button" onClick={save} style={{ ...pill, opacity: saving ? 0.7 : 1 }} onMouseEnter={hoverOn} onMouseLeave={hoverOff}>
           {saving ? "Сохраняем…" : "Сохранить"}
         </button>
-        <button type="button" onClick={() => printAccessSheet(data)} style={pill}
-          onMouseEnter={(e) => (e.currentTarget.style.borderColor = "#8f8f8f")}
-          onMouseLeave={(e) => (e.currentTarget.style.borderColor = "rgba(255,255,255,.12)")}>
-          Печать
-        </button>
+        {phone && shareOk ? (
+          <button type="button" onClick={share} style={{ ...pill, opacity: sharing ? 0.7 : 1 }} onMouseEnter={hoverOn} onMouseLeave={hoverOff}>
+            {sharing ? "Готовим…" : "Отправить"}
+          </button>
+        ) : (
+          <button type="button" onClick={() => printAccessSheet(data)} style={pill} onMouseEnter={hoverOn} onMouseLeave={hoverOff}>
+            Печать
+          </button>
+        )}
       </div>
     </div>
   );
 }
 
-// Модалка-превью листа + стики-док снизу.
+// Ширина печатного листа (буква A4 при 96dpi) — под неё считаем масштаб на телефоне.
+const SHEET_W = 794;
+
+// Модалка-превью листа + стики-док снизу. На узком экране лист сжимается по ширине
+// (transform: scale), чтобы его можно было прочитать целиком без горизонтальной прокрутки.
 export function AccessSheetModal({ data = {}, onClose }) {
+  const phone = useSheetPhone();
   const [qr, setQr] = React.useState("");
+  const sheetRef = React.useRef(null);
+  const [box, setBox] = React.useState({ scale: 1, h: 0 });
+
   React.useEffect(() => {
     let alive = true;
     (async () => { const u = await makeQr(data.objectUrl); if (alive) setQr(u); })();
@@ -296,15 +374,32 @@ export function AccessSheetModal({ data = {}, onClose }) {
     };
   }, [onClose]);
 
+  // Пересчитываем масштаб под ширину экрана (лист 794px → вписываем в вьюпорт).
+  React.useLayoutEffect(() => {
+    const compute = () => {
+      const avail = (typeof window !== "undefined" ? window.innerWidth : SHEET_W) - (phone ? 16 : 40);
+      const scale = Math.min(1, avail / SHEET_W);
+      const innerH = sheetRef.current ? sheetRef.current.offsetHeight : 1122;
+      setBox({ scale, h: innerH * scale });
+    };
+    compute();
+    window.addEventListener("resize", compute);
+    return () => window.removeEventListener("resize", compute);
+  }, [phone, qr]);
+
   const html = buildAccessSheetHTML(data, qr);
 
   return createPortal(
     <div
       onMouseDown={(e) => { if (e.target === e.currentTarget) onClose?.(); }}
-      style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(0,0,0,.55)", display: "flex", flexDirection: "column", alignItems: "center", overflow: "auto", padding: "28px 12px 108px" }}>
-      <div style={{ boxShadow: "0 24px 60px rgba(0,0,0,.4)", background: "#fff", flexShrink: 0 }}
-        dangerouslySetInnerHTML={{ __html: html }} />
-      <SheetDock data={data} onClose={onClose} />
+      style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(0,0,0,.55)", display: "flex", flexDirection: "column", alignItems: "center", overflow: "auto", padding: phone ? "14px 8px 96px" : "28px 12px 108px" }}>
+      {/* Обёртка держит уже сжатый размер листа, внутренний узел масштабируется transform-ом. */}
+      <div style={{ width: SHEET_W * box.scale, height: box.h || undefined, position: "relative", flexShrink: 0 }}>
+        <div ref={sheetRef}
+          style={{ position: "absolute", top: 0, left: 0, width: SHEET_W, transform: `scale(${box.scale})`, transformOrigin: "top left", boxShadow: "0 24px 60px rgba(0,0,0,.4)", background: "#fff" }}
+          dangerouslySetInnerHTML={{ __html: html }} />
+      </div>
+      <SheetDock data={data} onClose={onClose} phone={phone} />
     </div>,
     document.body
   );

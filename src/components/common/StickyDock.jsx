@@ -675,8 +675,11 @@ export default function StickyDock() {
         body.has-modal .dock-toast,
         body.dock-off .dock-up,
         body.dock-off .dock-toast{ opacity: 0 !important; pointer-events: none !important; }
-        /* на мобиле/планшете (где работает мобильная шапка) док скрыт — не мешает чтению */
-        @media (max-width: 1023px){ #dock-root{ display: none !important; } }
+        /* на мобиле/планшете (где работает мобильная шапка-бургер) док скрыт — не мешает чтению.
+           Порог поднят 1023 → 1279, чтобы совпасть с новым порогом «десктопа» ЛК (isDesktop ≥1280):
+           док ЕДИНООБРАЗНО скрыт на всём планшетном диапазоне (iPad Air 820, iPad Pro portrait 1024,
+           11" landscape 1194) на ВСЁМ сайте, а показывается только на настоящем десктопе ≥1280. */
+        @media (max-width: 1279px){ #dock-root{ display: none !important; } }
 
         .dock-up{
           position: fixed;

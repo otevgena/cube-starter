@@ -907,6 +907,22 @@ export function updateObject(id, patch, author = "Администратор") {
     return JSON.parse(JSON.stringify(o));
   });
 }
+// Синхронизировать имя заказчика в объекте с текущим отображаемым именем его
+// учётки (имя учётки могло измениться после создания объекта). Правим и черновик,
+// и опубликованный снимок — чтобы это не считалось «неопубликованным изменением»
+// и заказчик сразу видел актуальное имя, без вспышки старого. Ничего не пишем,
+// если имя уже совпадает.
+export function syncCustomerName(id, name) {
+  const nm = String(name || "").trim();
+  if (!nm) return null;
+  return withStore((store) => {
+    const o = findObj(store, id); if (!o) return null;
+    if (o.customerName === nm && (!o.published || o.published.customerName === nm)) return null;
+    o.customerName = nm;
+    if (o.published && o.published.customerName !== undefined) o.published.customerName = nm;
+    return JSON.parse(JSON.stringify(o));
+  });
+}
 // Соисполнители: массив { id, fio, role, email, notify }. Приводим к строгой форме,
 // notify по умолчанию true (получает уведомления по объекту).
 export function normCoExecutors(arr) {
@@ -979,9 +995,10 @@ export function createObject({ title = "Новый объект", templateCode =
     // Этап шаблона может быть строкой ("Название") или объектом {title, description}.
     const src = Array.isArray(stageNames) ? stageNames : (tpl.stages || []);
     const norm = src
-      .map((s) => (typeof s === "string" ? { title: s.trim(), description: "" } : { title: String(s?.title || "").trim(), description: String(s?.description || "").trim() }))
+      .map((s) => (typeof s === "string" ? { title: s.trim(), description: "", status: "" } : { title: String(s?.title || "").trim(), description: String(s?.description || "").trim(), status: String(s?.status || "").trim() }))
       .filter((s) => s.title);
-    const stages = norm.map((s, i) => ({ id: uid("s"), title: s.title, description: s.description, status: i === 0 ? "in_progress" : "not_started", progress: 0, plannedStartDate: "", plannedFinishDate: "", actualFinishDate: "", publicComment: "", internalComment: "", visibleToCustomer: true, order: i }));
+    // Статус берём из редактора, если задан; иначе по умолчанию первый этап — «в работе».
+    const stages = norm.map((s, i) => ({ id: uid("s"), title: s.title, description: s.description, status: s.status || (i === 0 ? "in_progress" : "not_started"), progress: 0, plannedStartDate: "", plannedFinishDate: "", actualFinishDate: "", publicComment: "", internalComment: "", visibleToCustomer: true, order: i }));
     const email = String(customerEmail || "").trim().toLowerCase();
     const ownerUserId = String(customerId || "").trim();
     // Выбранная учётка-заказчик получает доступ: пишем ownerEmail + ownerUserId (id учётки,
