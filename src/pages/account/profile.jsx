@@ -6114,7 +6114,9 @@ export default function AccountProfilePage() {
     (async () => {
       try {
       let t = sessionStorage.getItem("auth:accessToken");
-      if (!t) t = await apiRefresh(1200);
+      // 8 000 мс — как в auth.js: короткий таймаут обрывал запрос ПОСЛЕ ротации
+      // rt-cookie на сервере, следующий refresh тоже падал → 401 на /objects и /adm.
+      if (!t) t = await apiRefresh(8000);
       if (!t) return;
 
       // Проверяем токен. Если протух (apiMe пустой) — обновляем и берём свежий,
@@ -6122,7 +6124,7 @@ export default function AccountProfilePage() {
       // возвращают пусто: список учёток не грузится, ИНН не подтягивается.
       let u = await apiMe(t);
       if (!u) {
-        const fresh = await apiRefresh(1500);
+        const fresh = await apiRefresh(8000);
         if (fresh) { t = fresh; u = await apiMe(t); }
       }
       setToken(t);
