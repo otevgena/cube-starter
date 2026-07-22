@@ -317,6 +317,7 @@ function RegisterForm({ email = "", _previewSent = null }) {
         <div className="col-span-2 flex flex-col">
           <Label>ИМЯ ПОЛЬЗОВАТЕЛЯ (*)</Label>
           <input className={inputCls(errors.user)} type="text" value={form.user}
+            autoComplete="username" autoCorrect="off" autoCapitalize="none" spellCheck={false}
             onChange={(e) => { set("user", e.target.value); if (errors.user) setErrors({ ...errors, user: "" }); }}
             placeholder="Имя пользователя" />
           <ErrorSlot text={errors.user} />
@@ -334,6 +335,7 @@ function RegisterForm({ email = "", _previewSent = null }) {
         <div className="flex flex-col">
           <Label>ПАРОЛЬ (*)</Label>
           <input className={inputCls(errors.pass)} type="password" value={form.pass}
+            autoComplete="new-password"
             onChange={(e) => { set("pass", e.target.value); if (errors.pass) setErrors({ ...errors, pass: "" }); }}
             placeholder="Пароль" />
           <ErrorSlot text={errors.pass} />
@@ -342,6 +344,7 @@ function RegisterForm({ email = "", _previewSent = null }) {
         <div className="flex flex-col">
           <Label>ПОВТОР ПАРОЛЯ (*)</Label>
           <input className={inputCls(errors.pass2)} type="password" value={form.pass2}
+            autoComplete="new-password"
             onChange={(e) => { set("pass2", e.target.value); if (errors.pass2) setErrors({ ...errors, pass2: "" }); }}
             placeholder="Ещё раз" />
           <ErrorSlot text={errors.pass2} />
@@ -368,7 +371,7 @@ function RegisterForm({ email = "", _previewSent = null }) {
         <div className="col-span-2"><ErrorSlot text={errors.agree} /></div>
 
         <div className="col-span-2 mt-2">
-          <button className={`${BTN} w-full`} type="submit" disabled={busy}>Создать аккаунт</button>
+          <button className={`${BTN} w-full`} type="submit" disabled={busy}>{busy ? "Создаём…" : "Создать аккаунт"}</button>
         </div>
       </form>
 
@@ -489,7 +492,7 @@ function LoginForm({ _previewTwofa = null, _previewUnverified = null }) {
           </div>
           <div className="col-span-2 flex flex-col">
             <Label>КОД ПОДТВЕРЖДЕНИЯ (*)</Label>
-            <input className={inputCls(codeErr)} type="text" inputMode="text" autoFocus
+            <input className={inputCls(codeErr)} type="text" inputMode="numeric" autoFocus
               value={code} autoComplete="one-time-code"
               onChange={(e) => { setCode(e.target.value); if (codeErr) setCodeErr(""); }}
               placeholder="123456 или xxxx-xxxx-xx" />
@@ -541,6 +544,7 @@ function LoginForm({ _previewTwofa = null, _previewUnverified = null }) {
         <div className="col-span-2 flex flex-col">
           <Label>ПАРОЛЬ (*)</Label>
           <input className={inputCls(errors.pass)} type="password" value={form.pass}
+            autoComplete="current-password"
             onChange={(e) => { set("pass", e.target.value); if (errors.pass) setErrors({ ...errors, pass: "" }); }}
             placeholder="Пароль" />
           <ErrorSlot text={errors.pass} />

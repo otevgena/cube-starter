@@ -225,7 +225,7 @@ export default function ResetPasswordPage({ _previewPhase = null }) {
             <div>
               <label className={LABEL_CLASS}>пароль (*)</label>
               <input
-                type="password" value={pass} autoFocus autoComplete="new-password"
+                type="password" value={pass} autoFocus autoComplete="new-password" placeholder="Новый пароль"
                 onChange={(e) => { setPass(e.target.value); clearErr("pass"); }}
                 className={fieldClass(!!errors.pass)}
               />
@@ -236,7 +236,7 @@ export default function ResetPasswordPage({ _previewPhase = null }) {
             <div className="mt-3">
               <label className={LABEL_CLASS}>повтор (*)</label>
               <input
-                type="password" value={pass2} autoComplete="new-password"
+                type="password" value={pass2} autoComplete="new-password" placeholder="Повторите пароль"
                 onChange={(e) => { setPass2(e.target.value); clearErr("pass2"); }}
                 className={fieldClass(!!errors.pass2)}
               />
