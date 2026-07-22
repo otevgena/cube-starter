@@ -13,7 +13,7 @@ const RISE = "cubeRise .5s cubic-bezier(.2,.8,.2,1) both";
 // ==== стили, скопированные из Contact.jsx (чтобы НЕ отличались) ====
 const LABEL_CLASS = "block text-left text-xs font-light uppercase tracking-[0.04em] text-[#a7a7a7]";
 const fieldClass = (err) =>
-  `block h-12 w-[683px] max-w-full border-0 border-b bg-white px-3.5 text-sm font-normal leading-6 text-black outline-none transition-colors duration-500 ${
+  `block h-12 w-[683px] max-w-full border-0 border-b bg-white px-3.5 text-base font-normal leading-6 text-black outline-none transition-colors duration-500 ${
     err ? "border-[#fa5d29]" : "border-line focus:border-[#999]"
   }`;
 

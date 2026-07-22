@@ -3,7 +3,7 @@
 import React from "react";
 import { createPortal } from "react-dom";
 import { registerUser, loginUser, verifyTwoFactor, requestPasswordReset, resendVerify, auth } from "@/lib/auth";
-import { Spinner, CenterSpinner } from "@/components/common/Spinner.jsx";
+import Spinner, { CenterSpinner } from "@/components/common/Spinner.jsx";
 
 /* После входа: если сохранён returnTo (напр. из ссылки в письме), возвращаем туда. */
 function returnToAfterLogin() {
@@ -78,7 +78,7 @@ export const LINK =
   "after:absolute after:bottom-0 after:left-0 after:h-0.5 after:w-0 after:bg-[#111] after:transition-[width] after:duration-300 after:content-[''] hover:after:w-full";
 const MUTED_LINK = "font-semibold text-[#111]";
 export const inputCls = (err) =>
-  "h-[42px] border-0 border-b bg-transparent px-0.5 font-light text-[#111] outline-none transition-colors placeholder:font-light placeholder:text-[#c7c7c7] " +
+  "h-[42px] border-0 border-b bg-transparent px-0.5 text-base font-light text-[#111] outline-none transition-colors placeholder:font-light placeholder:text-[#c7c7c7] " +
   (err ? "border-carrot" : "border-[#ededed] focus:border-[#d2d2d2]");
 
 /* ===== Слот ошибки (фикс. высота, верстка не прыгает) ===== */
@@ -215,24 +215,13 @@ function SocialSlab({ text }) {
 }
 
 /* ===== Регистрация ===== */
-function RegisterForm({ email = "", _previewSent = null }) {
+function RegisterForm({ email = "" }) {
   const [form, setForm] = React.useState({ user: "", email, pass: "", pass2: "", news: false, agree: false });
   const [errors, setErrors] = React.useState({});
   const [busy, setBusy] = React.useState(false);
-  const [sent, setSent] = React.useState(_previewSent); // e-mail, на который ушло письмо-подтверждение
 
   const set = (k, v) => setForm((s) => ({ ...s, [k]: v }));
   const isEmail = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((v || "").trim());
-
-  const resend = async () => {
-    if (!sent || busy) return;
-    try {
-      setBusy(true);
-      await resendVerify(sent);
-      window.showDockToast?.("Письмо отправлено ещё раз — проверьте почту.");
-    } catch { window.showDockToast?.("Не удалось отправить письмо. Попробуйте позже.", 3000, "error"); }
-    finally { setBusy(false); }
-  };
 
   const onSubmit = async (e) => {
     e.preventDefault();
@@ -258,7 +247,9 @@ function RegisterForm({ email = "", _previewSent = null }) {
       });
       // Новый флоу: сразу в аккаунт не пускаем — просим подтвердить почту.
       if (res && res.pendingVerification) {
-        setSent(res.email || form.email.trim().toLowerCase());
+        const email = res.email || form.email.trim().toLowerCase();
+        window.showDockToast?.(`Письмо отправлено на ${email}. Перейдите по ссылке в письме.`, 5000);
+        if (window.closeModal) window.closeModal();
         return;
       }
       // Обратная совместимость (если бэкенд ещё логинит сразу).
@@ -275,35 +266,6 @@ function RegisterForm({ email = "", _previewSent = null }) {
       setBusy(false);
     }
   };
-
-  // Экран после регистрации: подтверждение почты (в аккаунт ещё не пускаем).
-  if (sent) {
-    return (
-      <div key="reg-sent" className="animate-svcfade">
-      <FormShell welcome="Почти готово" title="Подтвердите почту">
-        <div className="flex max-w-[420px] flex-col gap-5 self-start">
-          <p className="text-[15px] font-light leading-6 text-[#444]">
-            Мы отправили письмо со ссылкой на <span className="font-medium text-[#111]">{sent}</span>.
-            Перейдите по ссылке из письма, чтобы подтвердить адрес — после этого сможете войти.
-          </p>
-          <p className="text-[13px] font-light leading-5 text-[#777]">
-            Не пришло письмо? Проверьте папку «Спам» или отправьте ещё раз.
-          </p>
-          <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
-            <button className={BTN} type="button" onClick={() => window.openModal("login")}>Перейти ко входу</button>
-            {busy ? (
-              <span className="flex items-center gap-2 text-sm font-light text-[#555]">
-                <Spinner size={14} /> Отправляем…
-              </span>
-            ) : (
-              <button type="button" className={LINK} onClick={resend}>Отправить письмо ещё раз</button>
-            )}
-          </div>
-        </div>
-      </FormShell>
-      </div>
-    );
-  }
 
   return (
     <div key="reg-form" className="animate-svcfade">
