@@ -223,6 +223,19 @@ function RegisterForm({ email = "" }) {
   const set = (k, v) => setForm((s) => ({ ...s, [k]: v }));
   const isEmail = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((v || "").trim());
 
+  // Зеркалит серверную политику (server/functions/auth: passwordPolicyError):
+  // ≥6 символов, хотя бы одна заглавная буква и один спецсимвол. Проверяем на
+  // клиенте, чтобы показать понятную причину под полем ПАРОЛЯ, а не глухое
+  // «проверьте почту».
+  const passPolicyError = (pwd) => {
+    const s = String(pwd || "");
+    if (!s) return "Это значение не должно быть пустым.";
+    if (s.length < 6) return "Минимум 6 символов.";
+    if (!/[A-ZА-ЯЁ]/.test(s)) return "Нужна хотя бы одна заглавная буква.";
+    if (!/[^A-Za-zА-Яа-яЁё0-9]/.test(s)) return "Нужен хотя бы один спецсимвол.";
+    return null;
+  };
+
   const onSubmit = async (e) => {
     e.preventDefault();
     if (busy) return;
@@ -231,7 +244,8 @@ function RegisterForm({ email = "" }) {
     if (!form.user.trim()) es.user = "Это значение не должно быть пустым.";
     if (!form.email.trim()) es.email = "Это значение не должно быть пустым.";
     else if (!isEmail(form.email)) es.email = "Неверный формат электронного адреса.";
-    if (!form.pass) es.pass = "Это значение не должно быть пустым.";
+    const pe = passPolicyError(form.pass);
+    if (pe) es.pass = pe;
     if (!form.pass2) es.pass2 = "Это значение не должно быть пустым.";
     if (form.pass && form.pass2 && form.pass !== form.pass2) es.pass2 = "Пароли не совпадают.";
     if (!form.agree) es.agree = "Подтвердите, что ознакомлены с условиями и принимаете их.";
@@ -259,8 +273,17 @@ function RegisterForm({ email = "" }) {
         if (window.closeModal) window.closeModal();
       }
     } catch (err) {
+      const p = String((err && err.payload && err.payload.error) || "");
       if (err.status === 409) setErrors({ ...es, email: "Аккаунт с такой почтой уже зарегистрирован." });
-      else if (err.status === 400) setErrors({ ...es, email: "Проверьте корректность введённых данных." });
+      else if (err.status === 400) {
+        // Сервер отдаёт 400 только по политике пароля — вешаем причину на
+        // поле ПАРОЛЯ, а не на почту (иначе пользователь ищет ошибку не там).
+        if (/uppercase/i.test(p)) setErrors({ ...es, pass: "Нужна хотя бы одна заглавная буква." });
+        else if (/symbol/i.test(p)) setErrors({ ...es, pass: "Нужен хотя бы один спецсимвол." });
+        else if (/short/i.test(p)) setErrors({ ...es, pass: "Минимум 6 символов." });
+        else if (/email/i.test(p)) setErrors({ ...es, email: "Неверный формат электронного адреса." });
+        else setErrors({ ...es, pass: "Проверьте пароль: минимум 6 символов, заглавная буква и спецсимвол." });
+      }
       else window.openModal("oops", { title: "Не получилось зарегистрироваться", message: err.message, retryTo: "register", retryLabel: "Вернуться к регистрации" });
     } finally {
       setBusy(false);
@@ -315,6 +338,10 @@ function RegisterForm({ email = "" }) {
             placeholder="Ещё раз" />
           <ErrorSlot text={errors.pass2} />
         </div>
+
+        <p className="col-span-2 -mt-1 text-xs font-light leading-4 text-[#a7a7a7]">
+          Пароль: минимум 6 символов, хотя бы одна заглавная буква и один спецсимвол.
+        </p>
 
         <p className="col-span-2 mb-0.5 mt-1.5 text-sm font-light leading-5 text-[#555]">
           Мы можем информировать вас по электронной почте о продуктах и услугах. <span className={MUTED_LINK}>Подробнее —</span>
