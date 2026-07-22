@@ -1,5 +1,6 @@
 // src/pages/pro.jsx
 import React from "react";
+import Spinner from "@/components/common/Spinner.jsx";
 
 /* ====== BACKEND URL ====== */
 const FALLBACK_URL = "https://functions.yandexcloud.net/d4emaopknkiq93o92km8?tag=%24latest&integration=raw";
@@ -1174,7 +1175,9 @@ export default function ProJobsPage() {
                 aria-busy={(sending || uploadingResume) ? "true" : "false"}
                 title={uploadingResume ? "Идёт загрузка файла…" : undefined}
               >
-                {sending ? "Отправка..." : (uploadingResume ? "Загрузка файла…" : "Отправить анкету")}
+                {sending
+                  ? <Spinner size={20} dot={2.5} color="#fff" />
+                  : (uploadingResume ? "Загрузка файла…" : "Отправить анкету")}
               </button>
               <ErrorSlot text={sendError}/>
             </div>
@@ -1192,26 +1195,28 @@ export default function ProJobsPage() {
         </aside>
       </div>
 
-      {/* Тост */}
+      {/* Тост — 1-в-1 как Contact.jsx: левый нижний угол, выезд из-за левого края */}
       {modal && (
-        <div role="status" aria-live="assertive" style={{
-          position: "fixed", inset: 0, zIndex: 2147483647, display: "grid", placeItems: "center", pointerEvents: "none",
-        }}>
-          <div style={{
-            background: "#000", color: "#fff", borderRadius: 12, padding: "14px 18px",
-            fontFamily: UI, fontSize: 16, lineHeight: "22px", fontWeight: 500,
-            maxWidth: 560, textAlign: "center", boxShadow: "0 6px 30px rgba(0,0,0,.35)",
-            display: "inline-flex", alignItems: "center", gap: 10,
-            animation: "toastIn .18s ease-out both, toastOut .18s ease-in both 1.82s",
-          }}>
-            <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M20 6L9 17l-5-5" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-            <span>Ваша анкета принята!</span>
-          </div>
+        <div
+          role="status"
+          aria-live="assertive"
+          style={{
+            position: "fixed", left: 24, bottom: 27, height: 60,
+            display: "inline-flex", alignItems: "center", gap: 12, padding: "0 18px",
+            background: "#1f1f1f", border: "1px solid #2a2a2a", borderRadius: 12,
+            color: "#f8fafc", boxShadow: "0 8px 24px rgba(0,0,0,.35)",
+            fontFamily: UI, fontSize: 15, fontWeight: 400, whiteSpace: "nowrap",
+            zIndex: 2147483000,
+            animation: "cubeToastLeftIn .24s cubic-bezier(.2,.8,.2,1) both, cubeToastLeftOut .2s ease-in both 1.78s",
+          }}
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M20 6L9 17l-5-5" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          <span>Ваша анкета принята!</span>
           <style>{`
-            @keyframes toastIn { from { opacity: 0; transform: translateY(4px) scale(.98) } to { opacity: 1; transform: translateY(0) scale(1) } }
-            @keyframes toastOut { from { opacity: 1; transform: translateY(0) scale(1) } to { opacity: 0; transform: translateY(4px) scale(.98) } }
+            @keyframes cubeToastLeftIn { from { opacity: 0; transform: translateX(-22px) } to { opacity: 1; transform: translateX(0) } }
+            @keyframes cubeToastLeftOut { from { opacity: 1; transform: translateX(0) } to { opacity: 0; transform: translateX(-22px) } }
           `}</style>
         </div>
       )}
