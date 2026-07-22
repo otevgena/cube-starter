@@ -1528,7 +1528,7 @@ function TabsBar({ active, isAdmin, canPartner, canSupplier, onNavigate, lineWid
         className="[scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         style={{
           display: "flex", alignItems: "center", gap: isMobile ? 22 : 24, fontSize: 14, overflowX: "auto",
-          ...(isMobile ? { WebkitOverflowScrolling: "touch", minHeight: 40, scrollSnapType: "x proximity" } : null),
+          ...(isMobile ? { WebkitOverflowScrolling: "touch", minHeight: 56, scrollSnapType: "x proximity" } : null),
         }}
       >
         {/* Начальная распорка: чтобы первая вкладка могла доехать до центра */}
@@ -1582,7 +1582,7 @@ function TabsBar({ active, isAdmin, canPartner, canSupplier, onNavigate, lineWid
 
       <div
         style={{
-          marginTop: 10,
+          marginTop: isMobile ? 0 : 10,
           position: "relative",
           width: typeof lineWidth === "number" ? `${lineWidth}px` : "100%",
           maxWidth: isDesktop ? "none" : "100%",
