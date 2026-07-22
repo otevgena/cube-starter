@@ -42,7 +42,7 @@ const withAvatar = (u) => {
 };
 
 /* ---- non-blocking refresh with timeout ---- */
-async function apiRefresh(timeoutMs = 1200) {
+async function apiRefresh(timeoutMs = 8000) {
   const ctrl = new AbortController();
   const to = setTimeout(() => ctrl.abort(), timeoutMs);
   try {

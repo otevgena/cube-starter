@@ -8,7 +8,7 @@ const API_BASE =
   "https://api.cube-tech.ru";
 const api = (p) => `${API_BASE}${p}`;
 
-async function apiRefresh(timeoutMs = 1200) {
+async function apiRefresh(timeoutMs = 8000) {
   const ctrl = new AbortController();
   const to = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
@@ -743,7 +743,7 @@ export default function AdminPage() {
   React.useEffect(() => {
     (async () => {
       let t = sessionStorage.getItem("auth:accessToken");
-      if (!t) t = await apiRefresh(1200);
+      if (!t) t = await apiRefresh(8000);
       if (!t) return;
       setToken(t);
       sessionStorage.setItem("auth:accessToken", t);

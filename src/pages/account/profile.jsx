@@ -15,7 +15,7 @@ const API_BASE =
   "https://api.cube-tech.ru";
 const api = (p) => `${API_BASE}${p}`;
 
-async function apiRefresh(timeoutMs = 1200) {
+async function apiRefresh(timeoutMs = 8000) {
   const ctrl = new AbortController();
   const to = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
@@ -333,7 +333,7 @@ async function apiAdminListUsers(token, { limit = 50, offset = 0, q = "", group 
       let r = await fetch(api(url), optsFor(tk));
       if (r.status === 401) {
         // токен протух — обновляем и повторяем, иначе список «молча» пуст
-        const fresh = await apiRefresh(1500);
+        const fresh = await apiRefresh(8000);
         if (fresh) { tk = fresh; try { sessionStorage.setItem("auth:accessToken", fresh); } catch {} r = await fetch(api(url), optsFor(tk)); }
       }
       if (!r.ok) return null;
@@ -406,7 +406,7 @@ async function apiAdminDeleteUser(token, userId) {
     try { tk = sessionStorage.getItem("auth:accessToken") || token || ""; } catch { tk = token || ""; }
     let r = await doCall(tk);
     if (r.status === 401) {
-      const fresh = await apiRefresh(1500);
+      const fresh = await apiRefresh(8000);
       if (fresh) { tk = fresh; try { sessionStorage.setItem("auth:accessToken", fresh); } catch {} r = await doCall(tk); }
     }
     if (!r.ok) return { ok: false, error: `http_${r.status}` };
@@ -430,7 +430,7 @@ async function apiAdminGetUser(token, userId) {
     try { tk = sessionStorage.getItem("auth:accessToken") || token || ""; } catch { tk = token || ""; }
     let r = await doCall(tk);
     if (r.status === 401) {
-      const fresh = await apiRefresh(1500);
+      const fresh = await apiRefresh(8000);
       if (fresh) { tk = fresh; try { sessionStorage.setItem("auth:accessToken", fresh); } catch {} r = await doCall(tk); }
     }
     if (!r.ok) return null;
@@ -473,12 +473,12 @@ async function dadataProxy(mode, query, count) {
     body: JSON.stringify({ mode, query, count }),
   });
   try {
-    if (!token) { token = (await apiRefresh(1500)) || ""; if (token) { try { sessionStorage.setItem("auth:accessToken", token); } catch {} } }
+    if (!token) { token = (await apiRefresh(8000)) || ""; if (token) { try { sessionStorage.setItem("auth:accessToken", token); } catch {} } }
     if (!token) return [];
     let r = await call(token);
     if (r.status === 401) {
       // токен протух в середине сессии — обновляем и повторяем
-      const fresh = await apiRefresh(1500);
+      const fresh = await apiRefresh(8000);
       if (fresh) { token = fresh; try { sessionStorage.setItem("auth:accessToken", token); } catch {} r = await call(token); }
     }
     if (!r.ok) return [];
