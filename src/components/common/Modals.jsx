@@ -254,12 +254,12 @@ function RegisterForm({ email = "", _previewSent = null }) {
       setBusy(true);
       const res = await registerUser({
         name: form.user.trim(),
-        email: form.email.trim(),
+        email: form.email.trim().toLowerCase(),
         password: form.pass,
       });
       // Новый флоу: сразу в аккаунт не пускаем — просим подтвердить почту.
       if (res && res.pendingVerification) {
-        setSent(res.email || form.email.trim());
+        setSent(res.email || form.email.trim().toLowerCase());
         toast("Мы отправили письмо для подтверждения почты.");
         return;
       }
@@ -325,6 +325,7 @@ function RegisterForm({ email = "", _previewSent = null }) {
         <div className="col-span-2 flex flex-col">
           <Label>ПОЧТА (*)</Label>
           <input className={inputCls(errors.email)} type="email" value={form.email}
+            autoComplete="email" autoCorrect="off" autoCapitalize="none" spellCheck={false}
             onChange={(e) => { set("email", e.target.value); if (errors.email) setErrors({ ...errors, email: "" }); }}
             placeholder="имя@домен.ру" />
           <ErrorSlot text={errors.email} />
@@ -414,7 +415,8 @@ function LoginForm({ _previewTwofa = null, _previewUnverified = null }) {
     setUnverified(null);
     try {
       setBusy(true);
-      const res = await loginUser({ idOrEmail: form.id.trim(), password: form.pass, remember: !!form.keep });
+      const rawId = form.id.trim();
+      const res = await loginUser({ idOrEmail: rawId.includes("@") ? rawId.toLowerCase() : rawId, password: form.pass, remember: !!form.keep });
       if (res && res.twoFactorRequired) {
         // переходим ко второму шагу — ввод кода из приложения
         setTwofa({ challenge: res.challenge, remember: res.remember });
@@ -530,6 +532,7 @@ function LoginForm({ _previewTwofa = null, _previewUnverified = null }) {
         <div className="col-span-2 flex flex-col">
           <Label>ПОЧТА ИЛИ ИМЯ ПОЛЬЗОВАТЕЛЯ (*)</Label>
           <input className={inputCls(errors.id)} type="text" value={form.id}
+            autoComplete="email" autoCorrect="off" autoCapitalize="none" spellCheck={false}
             onChange={(e) => { set("id", e.target.value); if (errors.id) setErrors({ ...errors, id: "" }); }}
             placeholder="имя@домен.ру или логин" />
           <ErrorSlot text={errors.id} />
@@ -587,7 +590,7 @@ function ForgotForm({ _previewSent = null }) {
     try {
       setBusy(true);
       // Ответ всегда 200 — не раскрываем, зарегистрирован ли адрес.
-      await requestPasswordReset(id.trim());
+      await requestPasswordReset(id.trim().toLowerCase());
     } catch {
       // Даже при сбое показываем нейтральное сообщение (не палим существование аккаунта).
     } finally {
@@ -595,7 +598,7 @@ function ForgotForm({ _previewSent = null }) {
     }
 
     // Успех показываем в том же брендовом окне (а не generic-карточкой).
-    setSent(id.trim());
+    setSent(id.trim().toLowerCase());
   };
 
   if (sent) {
@@ -654,6 +657,7 @@ function ForgotForm({ _previewSent = null }) {
         <div className="flex flex-col">
           <Label>ЭЛЕКТРОННАЯ ПОЧТА (*)</Label>
           <input className={inputCls(errors.id)} type="email" value={id}
+            autoComplete="email" autoCorrect="off" autoCapitalize="none" spellCheck={false}
             onChange={(e) => { setId(e.target.value); if (errors.id) setErrors({}); }}
             placeholder="имя@домен.ру" />
           <ErrorSlot text={errors.id} />
