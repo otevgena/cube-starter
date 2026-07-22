@@ -549,7 +549,7 @@ function MobileAccountMenu({ onClose, user, onLogout }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  const isAdmin = Boolean(user?.isAdmin || user?.role === "admin" || user?.group === "admin");
+  const isAdmin = Boolean(user?.isAdmin || user?.role === "admin" || user?.role === "manager" || user?.group === "admin");
   const grp = String(user?.group || user?.role || "").toLowerCase();
   const go = (to) => {
     onClose();
@@ -618,6 +618,7 @@ function MobileAccountMenu({ onClose, user, onLogout }) {
             {(isAdmin || grp === "partner") && <Item onClick={() => go("/account/partner")}>Партнёр</Item>}
             {(isAdmin || grp === "supplier") && <Item onClick={() => go("/account/supplier")}>Поставщик</Item>}
             <Item onClick={() => go("/account/personal")}>Настройки</Item>
+            {!isAdmin && <Item onClick={() => go("/account/help")}>Помощь</Item>}
             {isAdmin && (
               <>
                 <Divider />
@@ -858,7 +859,7 @@ function AvatarMenu({ user, onLogout }) {
   }, []);
 
   // вкладки аккаунта по роли (Партнёр/Поставщик — только при доступе, Администратор — только админу)
-  const isAdmin = Boolean(user?.isAdmin || user?.role === "admin" || user?.group === "admin");
+  const isAdmin = Boolean(user?.isAdmin || user?.role === "admin" || user?.role === "manager" || user?.group === "admin");
   const grp = String(user?.group || user?.role || "").toLowerCase();
 
   // пере-рендер при появлении/сбросе маркеров «новое» (данные объектов подгружаются async)
@@ -887,6 +888,7 @@ function AvatarMenu({ user, onLogout }) {
     { label: "Партнёр", href: "/account/partner", locked: !(isAdmin || grp === "partner") },
     { label: "Поставщик", href: "/account/supplier", locked: !(isAdmin || grp === "supplier") },
     { label: "Настройки", href: "/account/personal", locked: false },
+    ...(!isAdmin ? [{ label: "Помощь", href: "/account/help", locked: false }] : []),
   ];
   const go = (e, to) => {
     if (e) e.preventDefault();

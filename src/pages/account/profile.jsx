@@ -1949,12 +1949,17 @@ function AdminLauncher() {
     { key: "projects", title: "Добавить проект", sub: "Витрина работ на главной и странице «Смотреть работы»: изображения, данные и предпросмотр.", to: "/account/admin/projects", icon: AdminIcon.projects, perm: "projects.add" },
     { key: "reference", title: "Справка", sub: "Как устроен кабинет: все разделы, роли, группы и права.", to: "/account/admin/reference", icon: AdminIcon.reference, perm: null },
   ];
+  const sorted = [...cards].sort((a, b) => {
+    const aOk = !a.perm || permCan(a.perm);
+    const bOk = !b.perm || permCan(b.perm);
+    return (aOk === bOk) ? 0 : aOk ? -1 : 1;
+  });
   return (
     <div style={{ fontFamily: UI, marginTop: 8 }}>
       <div style={{ fontSize: 22, fontWeight: 600, color: TEXT }}>Администратор</div>
       <div style={{ marginTop: 6, fontSize: 14, fontWeight: 300, color: "#777" }}>Выберите раздел.</div>
       <div style={{ marginTop: 24, display: "grid", gap: 16, gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))" }}>
-        {cards.map((c) => {
+        {sorted.map((c) => {
           const ok = !c.perm || permCan(c.perm);
           if (!ok) {
             return (
