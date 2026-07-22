@@ -231,8 +231,8 @@ function RegisterForm({ email = "" }) {
     const s = String(pwd || "");
     if (!s) return "Это значение не должно быть пустым.";
     if (s.length < 6) return "Минимум 6 символов.";
-    if (!/[A-ZА-ЯЁ]/.test(s)) return "Нужна хотя бы одна заглавная буква.";
-    if (!/[^A-Za-zА-Яа-яЁё0-9]/.test(s)) return "Нужен хотя бы один спецсимвол.";
+    if (!/[A-ZА-ЯЁ]/.test(s)) return "Нужна заглавная буква.";
+    if (!/[^A-Za-zА-Яа-яЁё0-9]/.test(s)) return "Нужен спецсимвол (напр. ! или _).";
     return null;
   };
 
@@ -278,11 +278,11 @@ function RegisterForm({ email = "" }) {
       else if (err.status === 400) {
         // Сервер отдаёт 400 только по политике пароля — вешаем причину на
         // поле ПАРОЛЯ, а не на почту (иначе пользователь ищет ошибку не там).
-        if (/uppercase/i.test(p)) setErrors({ ...es, pass: "Нужна хотя бы одна заглавная буква." });
-        else if (/symbol/i.test(p)) setErrors({ ...es, pass: "Нужен хотя бы один спецсимвол." });
+        if (/uppercase/i.test(p)) setErrors({ ...es, pass: "Нужна заглавная буква." });
+        else if (/symbol/i.test(p)) setErrors({ ...es, pass: "Нужен спецсимвол (напр. ! или _)." });
         else if (/short/i.test(p)) setErrors({ ...es, pass: "Минимум 6 символов." });
         else if (/email/i.test(p)) setErrors({ ...es, email: "Неверный формат электронного адреса." });
-        else setErrors({ ...es, pass: "Проверьте пароль: минимум 6 символов, заглавная буква и спецсимвол." });
+        else setErrors({ ...es, pass: "Пароль не подходит по правилам." });
       }
       else window.openModal("oops", { title: "Не получилось зарегистрироваться", message: err.message, retryTo: "register", retryLabel: "Вернуться к регистрации" });
     } finally {
