@@ -1944,8 +1944,8 @@ function AdminLauncher() {
     { key: "employees", title: "Сотрудники", sub: "Список сотрудников компании: добавление и удаление.", to: "/account/admin/employees", icon: AdminIcon.employees, perm: "staff.view" },
     { key: "accounts", title: "Учётные записи", sub: "Зарегистрированные пользователи, роли и группы доступа.", to: "/account/admin/accounts", icon: AdminIcon.accounts, perm: "accounts.view" },
     { key: "create", title: "Создать учётную запись", sub: "Завести нового пользователя-заказчика вручную.", to: "/account/admin/create-account", icon: AdminIcon.create, perm: "accounts.manage" },
-    { key: "files", title: "Файлы", sub: "Все файлы по всем объектам в одном списке: скачать по одному или архивом.", to: "/account/admin/files", icon: AdminIcon.files, perm: "docs.upload" },
-    { key: "templates", title: "Шаблоны объектов", sub: "Типы работ: префикс для № объекта и типовые этапы.", to: "/account/admin/templates", icon: AdminIcon.templates, perm: "objects.create" },
+    { key: "files", title: "Файлы", sub: "Все файлы по всем объектам в одном списке: скачать по одному или архивом.", to: "/account/admin/files", icon: AdminIcon.files, perm: "files.view" },
+    { key: "templates", title: "Шаблоны объектов", sub: "Типы работ: префикс для № объекта и типовые этапы.", to: "/account/admin/templates", icon: AdminIcon.templates, perm: "templates.view" },
     { key: "projects", title: "Добавить проект", sub: "Витрина работ на главной и странице «Смотреть работы»: изображения, данные и предпросмотр.", to: "/account/admin/projects", icon: AdminIcon.projects, perm: "projects.add" },
     { key: "reference", title: "Справка", sub: "Как устроен кабинет: все разделы, роли, группы и права.", to: "/account/admin/reference", icon: AdminIcon.reference, perm: null },
   ];
@@ -5114,7 +5114,7 @@ function FileHoverBtn({ variant = "light", disabled, onClick, children, style })
   );
 }
 
-function AdminFiles() {
+function AdminFiles({ canDownload = true }) {
   // На планшете (iPad Air портрет) широкая таблица файлов не помещается —
   // отдаём тот же карточный список, что и на телефоне (порог 1023, как isDesktop ЛК).
   const phone = useIsTabletDown();
@@ -5268,9 +5268,11 @@ function AdminFiles() {
             <div style={{ fontSize: 22, fontWeight: 600, color: TEXT }}>{openObj ? (openObj.customerName ? `${openObj.customerName} — ${openObj.title}` : openObj.title) : openId}</div>
             <div style={{ marginTop: 4, fontSize: 13, fontWeight: 300, color: "#999" }}>{openId} · {items.length} файл(ов){openObj?.status ? ` · ${DB.labelOf(DB.OBJECT_STATUSES, openObj.status)}` : ""}</div>
           </div>
-          <FileHoverBtn variant="dark" disabled={busy || !items.length} onClick={() => downloadZip(items, `${_safeName(openId)}.zip`)} style={{ height: 40, padding: "0 18px" }}>
-            {busy ? `Собираю архив… ${prog.done}/${prog.total}` : "Скачать архивом"}
-          </FileHoverBtn>
+          {canDownload && (
+            <FileHoverBtn variant="dark" disabled={busy || !items.length} onClick={() => downloadZip(items, `${_safeName(openId)}.zip`)} style={{ height: 40, padding: "0 18px" }}>
+              {busy ? `Собираю архив… ${prog.done}/${prog.total}` : "Скачать архивом"}
+            </FileHoverBtn>
+          )}
         </div>
 
         {openObj && (openObj.inn || openObj.city || openObj.address || openObj.contractNumber || openObj.responsibleName) ? (
@@ -5305,9 +5307,11 @@ function AdminFiles() {
                       </span>
                     </div>
                   </div>
-                  <FileHoverBtn disabled={!!dlKey || busy} onClick={() => downloadOne(r)} style={{ flexShrink: 0, height: 34, padding: "0 12px" }}>
-                    {dlKey === r.key ? "…" : "Скачать"}
-                  </FileHoverBtn>
+                  {canDownload && (
+                    <FileHoverBtn disabled={!!dlKey || busy} onClick={() => downloadOne(r)} style={{ flexShrink: 0, height: 34, padding: "0 12px" }}>
+                      {dlKey === r.key ? "…" : "Скачать"}
+                    </FileHoverBtn>
+                  )}
                 </div>
                 <div style={{ borderTop: "1px dotted #ddd" }} />
               </React.Fragment>
@@ -5324,7 +5328,7 @@ function AdminFiles() {
                   <SortTh k="size" label="Размер" extra={{ textAlign: "right", width: 100 }} />
                   <SortTh k="date" label="Дата" extra={{ textAlign: "right", width: 110 }} />
                   <SortTh k="status" label="Статус" extra={{ width: 130 }} />
-                  <th style={{ ...th, textAlign: "center", width: 120, borderRight: "none", cursor: "default" }}>Действие</th>
+                  {canDownload && <th style={{ ...th, textAlign: "center", width: 120, borderRight: "none", cursor: "default" }}>Действие</th>}
                 </tr>
               </thead>
               <tbody>
@@ -5345,11 +5349,13 @@ function AdminFiles() {
                         {r.status === "draft" ? "черновик" : r.status === "published" ? "опубликован" : (r.status || "—")}
                       </span>
                     </td>
-                    <td style={{ ...td, textAlign: "center", borderRight: "none" }}>
-                      <FileHoverBtn disabled={!!dlKey || busy} onClick={() => downloadOne(r)} style={{ height: 30, padding: "0 12px" }}>
-                        {dlKey === r.key ? "…" : "Скачать"}
-                      </FileHoverBtn>
-                    </td>
+                    {canDownload && (
+                      <td style={{ ...td, textAlign: "center", borderRight: "none" }}>
+                        <FileHoverBtn disabled={!!dlKey || busy} onClick={() => downloadOne(r)} style={{ height: 30, padding: "0 12px" }}>
+                          {dlKey === r.key ? "…" : "Скачать"}
+                        </FileHoverBtn>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -5416,9 +5422,11 @@ function AdminFiles() {
                     </div>
                     {meta ? <div style={{ marginTop: 4, fontSize: 12, fontWeight: 300, color: "#b0b0b0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{meta}</div> : null}
                   </div>
-                  <FileHoverBtn disabled={busy}
-                    onClick={(e) => { e.stopPropagation(); downloadZip(c.files, `${_safeName(c.id)}.zip`); }}
-                    style={{ flexShrink: 0 }}>Архивом</FileHoverBtn>
+                  {canDownload && (
+                    <FileHoverBtn disabled={busy}
+                      onClick={(e) => { e.stopPropagation(); downloadZip(c.files, `${_safeName(c.id)}.zip`); }}
+                      style={{ flexShrink: 0 }}>Архивом</FileHoverBtn>
+                  )}
                   <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" style={{ color: "#b1b1b1", flexShrink: 0 }}>
                     <path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
@@ -6796,13 +6804,13 @@ export default function AccountProfilePage() {
                 ) : adminModule === "create-account" ? (
                   permCan("accounts.manage") ? <AdminCreateAccount token={token} /> : <AdminLauncher />
                 ) : adminModule === "templates" ? (
-                  <TemplatesModule backTo="/account/admin" />
+                  permCan("templates.view") ? <TemplatesModule backTo="/account/admin" canManage={permCan("templates.manage")} /> : <AdminLauncher />
                 ) : adminModule === "projects" ? (
                   <ProjectsAdmin backTo="/account/admin" canAdd={isAdmin || permCan("projects.add")} canManage={isAdmin || permCan("projects.manage")} />
                 ) : adminModule === "reference" ? (
                   <AdminReference />
                 ) : adminModule === "files" ? (
-                  <AdminFiles />
+                  permCan("files.view") ? <AdminFiles canDownload={permCan("files.download")} /> : <AdminLauncher />
                 ) : (
                   <AdminLauncher />
                 )}

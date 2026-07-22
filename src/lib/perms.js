@@ -21,6 +21,14 @@ export const PERMISSIONS = {
   messages: [
     ["messages.reply", "Отвечать заказчику"],
   ],
+  templates: [
+    ["templates.view", "Видеть шаблоны объектов"],
+    ["templates.manage", "Редактировать шаблоны и типовые этапы"],
+  ],
+  files: [
+    ["files.view", "Видеть файлы по всем объектам"],
+    ["files.download", "Скачивать файлы и архивы"],
+  ],
   projects: [
     ["projects.add", "Добавлять проекты в витрину"],
     ["projects.manage", "Редактировать и удалять проекты"],
@@ -48,6 +56,8 @@ export const PERM_GROUP_LABELS = {
   objects: "Объекты",
   docs: "Документы",
   messages: "Переписка",
+  templates: "Шаблоны",
+  files: "Файлы",
   projects: "Проекты (витрина)",
   staff: "Сотрудники",
   accounts: "Учётные записи",
@@ -62,7 +72,7 @@ export const permLabel = (p) => PERM_LABEL[p] || p;
 /* 2) РОЛИ-ПРЕСЕТЫ. Токены: '*' = всё; 'ns.*' = весь раздел; иначе конкретное право. */
 export const ROLE_PERMS = {
   admin: ["*"],
-  manager: ["objects.*", "docs.*", "messages.reply", "accounts.view", "staff.view", "projects.*", "partners.*", "suppliers.*"],
+  manager: ["objects.*", "docs.*", "messages.reply", "templates.view", "files.view", "files.download", "accounts.view", "staff.view", "projects.*", "partners.*", "suppliers.*"],
   executor: ["objects.view", "objects.edit", "objects.publish", "docs.upload", "messages.reply", "partners.view", "suppliers.view"],
   viewer: ["objects.view", "partners.view", "suppliers.view"],
   customer: [],

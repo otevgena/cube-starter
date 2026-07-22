@@ -3005,7 +3005,7 @@ function TemplateForm({ tpl, onCancel, onSaved }) {
   );
 }
 
-export function TemplatesModule({ backTo }) {
+export function TemplatesModule({ backTo, canManage = true }) {
   const force = useForceUpdate();
   const phone = useIsPhone();
   const [q, setQ] = React.useState("");
@@ -3026,11 +3026,11 @@ export function TemplatesModule({ backTo }) {
           <div style={h1}>Шаблоны объектов</div>
           <div style={{ marginTop: 6, fontSize: 14, fontWeight: 300, color: MUTED }}>Тип работ задаёт префикс для № объекта и типовые этапы при создании.</div>
         </div>
-        {/* Кнопку держим в потоке всегда (на «Типовых этапах» — прячем через
-            visibility), чтобы шапка и вкладки ниже не прыгали при переключении. */}
-        <span style={{ visibility: section === "templates" ? "visible" : "hidden" }} aria-hidden={section !== "templates"}>
-          <FillBtn big onClick={() => setView({ tpl: null })}>+ Новый шаблон</FillBtn>
-        </span>
+        {canManage && (
+          <span style={{ visibility: section === "templates" ? "visible" : "hidden" }} aria-hidden={section !== "templates"}>
+            <FillBtn big onClick={() => setView({ tpl: null })}>+ Новый шаблон</FillBtn>
+          </span>
+        )}
       </div>
 
       {/* Переключатель разделов — как «Кабинет заказчика / Кабинет команды» в Справке */}
@@ -3046,7 +3046,7 @@ export function TemplatesModule({ backTo }) {
       </div>
 
       {section === "library" ? (
-        <div key="tpl-library" className="animate-svcfade"><StageLibraryEditor /></div>
+        <div key="tpl-library" className="animate-svcfade"><StageLibraryEditor readOnly={!canManage} /></div>
       ) : (
         <div key="tpl-templates" className="animate-svcfade">
           <div style={{ marginTop: 22 }}><UnderSearch value={q} onChange={setQ} placeholder="Поиск: название, префикс…" /></div>
@@ -3057,7 +3057,7 @@ export function TemplatesModule({ backTo }) {
             {list.map((x) => {
               const modified = x.base && isTemplateModified(x.code);
               return (
-                <ListRow key={x.code} onOpen={() => setView({ tpl: x })}>
+                <ListRow key={x.code} onOpen={canManage ? () => setView({ tpl: x }) : undefined}>
                   <div style={{ display: "flex", alignItems: "flex-start", gap: 16, minWidth: 0, flex: 1 }}>
                     <span style={{ flexShrink: 0, fontSize: 12, fontWeight: 700, letterSpacing: ".06em", color: "#fff", background: "#111", padding: "5px 10px", borderRadius: 7 }}>{x.prefix}</span>
                     <div style={{ minWidth: 0, flex: 1 }}>
@@ -3066,11 +3066,9 @@ export function TemplatesModule({ backTo }) {
                       {x.stages.length > 0 && <div style={{ marginTop: 8, fontSize: 11, letterSpacing: ".04em", textTransform: "uppercase", fontWeight: 400, color: "#888", lineHeight: 1.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{x.stages.map(stTitle).join("  ·  ")}</div>}
                     </div>
                   </div>
-                  {(() => {
+                  {canManage && (() => {
                     const editAction = () => setView({ tpl: x });
                     const removeAction = async () => { if (await confirmDialog(x.base ? { title: "Скрыть шаблон?", message: `Базовый шаблон «${x.label}» будет скрыт.`, confirmText: "Скрыть" } : { title: "Удалить шаблон?", message: `Шаблон «${x.label}» будет удалён.`, confirmText: "Удалить" })) { removeTemplate(x.code); force(); } };
-                    // Мобилка: компактный ряд иконок (как действия над документом);
-                    // десктоп: текстовые кнопки как были.
                     if (phone) {
                       return (
                         <div onClick={(ev) => ev.stopPropagation()} style={{ display: "flex", alignItems: "center", flexShrink: 0 }}>
@@ -3100,7 +3098,7 @@ export function TemplatesModule({ backTo }) {
 /* Редактор общей библиотеки типовых этапов (раздел «Типовые этапы»). Переиспользует
    StageListEditor: переставить (↑/↓/drag), переименовать, описание, добавить/удалить.
    Любое изменение сразу пишется в getStageLibrary/setStageLibrary. */
-function StageLibraryEditor() {
+function StageLibraryEditor({ readOnly }) {
   const toEditable = (arr) => arr.map((s) => (s.description ? { title: s.title, description: s.description } : s.title));
   const [stages, setStagesRaw] = React.useState(() => toEditable(getStageLibrary()));
   const setStages = React.useCallback((updater) => {
@@ -3113,11 +3111,27 @@ function StageLibraryEditor() {
   return (
     <div style={{ marginTop: 22 }}>
       <div style={{ fontSize: 14, fontWeight: 300, color: MUTED, lineHeight: 1.6, maxWidth: 660 }}>
-        Общий список типовых этапов. Их можно вставить в любой шаблон или объект кнопкой <b style={{ fontWeight: 500, color: TEXT }}>«+ Из типовых»</b>. Здесь — переставить (стрелками или перетаскиванием), переименовать, добавить описание, что входит в этап.
+        Общий список типовых этапов. Их можно вставить в любой шаблон или объект кнопкой <b style={{ fontWeight: 500, color: TEXT }}>«+ Из типовых»</b>.{!readOnly && " Здесь — переставить (стрелками или перетаскиванием), переименовать, добавить описание, что входит в этап."}
       </div>
-      <div style={{ marginTop: 18 }}>
-        <StageListEditor stages={stages} setStages={setStages} />
-      </div>
+      {readOnly ? (
+        <div style={{ marginTop: 18 }}>
+          {stages.length === 0 ? (
+            <div style={{ color: MUTED, fontSize: 14, fontWeight: 300 }}>Библиотека пуста.</div>
+          ) : stages.map((s, i) => (
+            <div key={i} style={{ display: "flex", gap: 14, padding: "10px 0", borderBottom: `1px dotted ${LINE}` }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: "#999", minWidth: 22, paddingTop: 2 }}>{i + 1}</span>
+              <div>
+                <div style={{ fontSize: 15, fontWeight: 300, color: TEXT }}>{typeof s === "string" ? s : s.title}</div>
+                {typeof s !== "string" && s.description ? <div style={{ marginTop: 3, fontSize: 13, fontWeight: 300, color: MUTED }}>{s.description}</div> : null}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div style={{ marginTop: 18 }}>
+          <StageListEditor stages={stages} setStages={setStages} />
+        </div>
+      )}
     </div>
   );
 }
