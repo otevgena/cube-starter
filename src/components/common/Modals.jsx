@@ -3,8 +3,7 @@
 import React from "react";
 import { createPortal } from "react-dom";
 import { registerUser, loginUser, verifyTwoFactor, requestPasswordReset, resendVerify, auth } from "@/lib/auth";
-import { CenterSpinner } from "@/components/common/Spinner.jsx";
-import { toast } from "@/components/common/Toast.jsx";
+import { Spinner, CenterSpinner } from "@/components/common/Spinner.jsx";
 
 /* После входа: если сохранён returnTo (напр. из ссылки в письме), возвращаем туда. */
 function returnToAfterLogin() {
@@ -230,8 +229,8 @@ function RegisterForm({ email = "", _previewSent = null }) {
     try {
       setBusy(true);
       await resendVerify(sent);
-      toast("Письмо отправлено ещё раз — проверьте почту.");
-    } catch { toast("Не удалось отправить письмо. Попробуйте позже.", { tone: "error" }); }
+      window.showDockToast?.("Письмо отправлено ещё раз — проверьте почту.");
+    } catch { window.showDockToast?.("Не удалось отправить письмо. Попробуйте позже.", 3000, "error"); }
     finally { setBusy(false); }
   };
 
@@ -260,7 +259,6 @@ function RegisterForm({ email = "", _previewSent = null }) {
       // Новый флоу: сразу в аккаунт не пускаем — просим подтвердить почту.
       if (res && res.pendingVerification) {
         setSent(res.email || form.email.trim().toLowerCase());
-        toast("Мы отправили письмо для подтверждения почты.");
         return;
       }
       // Обратная совместимость (если бэкенд ещё логинит сразу).
@@ -293,7 +291,13 @@ function RegisterForm({ email = "", _previewSent = null }) {
           </p>
           <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
             <button className={BTN} type="button" onClick={() => window.openModal("login")}>Перейти ко входу</button>
-            <button type="button" className={LINK} onClick={resend} disabled={busy}>Отправить письмо ещё раз</button>
+            {busy ? (
+              <span className="flex items-center gap-2 text-sm font-light text-[#555]">
+                <Spinner size={14} /> Отправляем…
+              </span>
+            ) : (
+              <button type="button" className={LINK} onClick={resend}>Отправить письмо ещё раз</button>
+            )}
           </div>
         </div>
       </FormShell>
@@ -371,7 +375,13 @@ function RegisterForm({ email = "", _previewSent = null }) {
         <div className="col-span-2"><ErrorSlot text={errors.agree} /></div>
 
         <div className="col-span-2 mt-2">
-          <button className={`${BTN} w-full`} type="submit" disabled={busy}>{busy ? "Создаём…" : "Создать аккаунт"}</button>
+          {busy ? (
+            <div className="flex h-[48px] w-full items-center justify-center">
+              <Spinner size={24} />
+            </div>
+          ) : (
+            <button className={`${BTN} w-full`} type="submit">Создать аккаунт</button>
+          )}
         </div>
       </form>
 
@@ -400,8 +410,8 @@ function LoginForm({ _previewTwofa = null, _previewUnverified = null }) {
     try {
       setBusy(true);
       await resendVerify(unverified);
-      toast("Письмо для подтверждения отправлено ещё раз.");
-    } catch { toast("Не удалось отправить письмо. Попробуйте позже.", { tone: "error" }); }
+      window.showDockToast?.("Письмо для подтверждения отправлено ещё раз.");
+    } catch { window.showDockToast?.("Не удалось отправить письмо. Попробуйте позже.", 3000, "error"); }
     finally { setBusy(false); }
   };
 
@@ -432,7 +442,7 @@ function LoginForm({ _previewTwofa = null, _previewUnverified = null }) {
     } catch (err) {
       if (err.status === 403 && err.payload && err.payload.error === "email_not_verified") {
         setUnverified(err.payload.email || form.id.trim());
-        toast("Сначала подтвердите почту — мы отправили вам ссылку.", { tone: "error" });
+        window.showDockToast?.("Сначала подтвердите почту — мы отправили вам ссылку.", 3500, "error");
       }
       else if (err.status === 400) setErrors({ ...es, id: "Укажите e-mail или логин и пароль." });
       else if (err.status === 401) setErrors({ id: "Неверный e-mail/логин или пароль.", pass: "Проверьте пароль." });
@@ -575,11 +585,10 @@ function LoginForm({ _previewTwofa = null, _previewUnverified = null }) {
 }
 
 /* ===== Восстановление пароля ===== */
-function ForgotForm({ _previewSent = null }) {
-  const [id, setId] = React.useState(_previewSent || "");
+function ForgotForm() {
+  const [id, setId] = React.useState("");
   const [errors, setErrors] = React.useState({});
   const [busy, setBusy] = React.useState(false);
-  const [sent, setSent] = React.useState(_previewSent); // адрес, на который отправили | null
   const isEmail = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((v || "").trim());
 
   const onSubmit = async (e) => {
@@ -601,45 +610,10 @@ function ForgotForm({ _previewSent = null }) {
       setBusy(false);
     }
 
-    // Успех показываем в том же брендовом окне (а не generic-карточкой).
-    setSent(id.trim().toLowerCase());
+    // Закрываем модалку + уведомление снизу слева.
+    window.showDockToast?.("Письмо отправлено. Проверьте почту.");
+    if (window.closeModal) window.closeModal();
   };
-
-  if (sent) {
-    return (
-      <FormShell
-        welcome="Почти готово"
-        title="Проверьте почту"
-        bottom={
-          <>
-            Вспомнили пароль?{" "}
-            <a className={LINK} href="/login" onClick={(e) => { e.preventDefault(); window.openModal("login"); }}>Войдите</a>
-          </>
-        }
-      >
-        <div className="flex flex-col gap-y-[16px] self-start">
-          <p className="text-sm font-light leading-6 text-[#444]">
-            Если адрес <span className="font-semibold text-[#111]">«{sent}»</span> зарегистрирован, мы отправили на него ссылку для сброса пароля. Ссылка действует 30 минут.
-          </p>
-          <p className="text-[13px] font-light leading-5 text-[#8a8a8a]">
-            Не пришло письмо? Проверьте папку «Спам» или отправьте запрос ещё раз.
-          </p>
-
-          <div className="mt-2">
-            <button className={`${BTN} w-full`} type="button" onClick={() => window.openModal("login")}>
-              Вернуться ко входу
-            </button>
-          </div>
-
-          <div className="flex justify-center">
-            <button type="button" className={LINK} onClick={() => setSent(null)}>Отправить ещё раз</button>
-          </div>
-        </div>
-
-        <div className="self-end" aria-hidden="true" />
-      </FormShell>
-    );
-  }
 
   return (
     <FormShell
