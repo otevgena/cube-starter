@@ -6115,7 +6115,7 @@ export default function AccountProfilePage() {
 
       setPhone(String(u.phone || ""));
       setGroupCode(toCode(u.group || u.role || "user"));
-      const admin = Boolean(u.isAdmin || u.role === "admin" || u.group === "admin");
+      const admin = Boolean(u.isAdmin || u.role === "admin" || u.role === "manager" || u.group === "admin");
       setIsAdmin(admin);
       try { sessionStorage.setItem("auth:isAdmin", admin ? "1" : "0"); } catch {}
       // Реальные права из бэкенда → рантайм-хранилище (can()). Админ — всё; иначе набор от сервера.
