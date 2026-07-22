@@ -1847,20 +1847,23 @@ function AdminPanelCore({ token, filterGroup }) {
   };
 
   if (openUser) {
+    // key/animate-svcfade — плавный переход список ↔ карточка учётной записи (house-стиль)
     return (
-      <AccountDetail
-        token={token}
-        user={openUser}
-        onBack={() => setOpenUser(null)}
-        onChanged={() => setReload((v) => v + 1)}
-        onDeleted={() => { setOpenUser(null); setReload((v) => v + 1); }}
-      />
+      <div key="acc-detail" className="animate-svcfade">
+        <AccountDetail
+          token={token}
+          user={openUser}
+          onBack={() => setOpenUser(null)}
+          onChanged={() => setReload((v) => v + 1)}
+          onDeleted={() => { setOpenUser(null); setReload((v) => v + 1); }}
+        />
+      </div>
     );
   }
 
   const title = filterGroup ? `Участники группы: ${labelByCode(filterGroup)}` : "Зарегистрированные учётные записи";
   return (
-    <div style={{ fontFamily: UI }}>
+    <div key="acc-list" className="animate-svcfade" style={{ fontFamily: UI }}>
       <div style={{ fontSize: 22, fontWeight: 600, color: TEXT }}>{title}</div>
       <div style={{ marginTop: 6, fontSize: 14, fontWeight: 300, color: "#777" }}>Нажмите на запись — посмотреть данные (ИНН, организация), изменить группу/роль или удалить.</div>
 
@@ -2425,7 +2428,7 @@ function ReferenceRoles({ onBack }) {
 
       {/* Роли */}
       {refTab === "roles" && (
-        <div style={{ marginTop: 18, display: "flex", flexDirection: "column", gap: 14, maxWidth: 720 }}>
+        <div className="animate-svcfade" style={{ marginTop: 18, display: "flex", flexDirection: "column", gap: 14, maxWidth: 720 }}>
           {REF_ROLES.map((r) => (
             <div key={r} style={{ display: "flex", flexDirection: phone ? "column" : "row", gap: phone ? 2 : 14, alignItems: phone ? "stretch" : "baseline" }}>
               <div style={{ minWidth: phone ? 0 : 132, fontSize: 15, fontWeight: 500, color: TEXT }}>{ROLE_LABELS[r]}</div>
@@ -2441,7 +2444,7 @@ function ReferenceRoles({ onBack }) {
       {/* Матрица прав × роли */}
       {refTab === "matrix" && (phone ? (
         /* Телефон: широкую таблицу не показываем — выбираем роль, ниже её права по группам */
-        <div style={{ marginTop: 18 }}>
+        <div className="animate-svcfade" style={{ marginTop: 18 }}>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
             {REF_ROLES.map((r, i) => (
               <button key={r} type="button" onClick={() => setMRole(i)}
@@ -2475,7 +2478,7 @@ function ReferenceRoles({ onBack }) {
           </div>
         </div>
       ) : (
-        <div style={{ marginTop: 18, overflowX: "auto" }}>
+        <div className="animate-svcfade" style={{ marginTop: 18, overflowX: "auto" }}>
           <table style={{ borderCollapse: "collapse", width: "100%", maxWidth: 760, fontSize: 13 }}>
             <thead>
               <tr>
@@ -2513,7 +2516,7 @@ function ReferenceRoles({ onBack }) {
 
       {/* Группы */}
       {refTab === "groups" && (
-        <div style={{ marginTop: 18, maxWidth: 720 }}>
+        <div className="animate-svcfade" style={{ marginTop: 18, maxWidth: 720 }}>
           <div style={{ fontSize: 14, fontWeight: 300, color: "#333", marginBottom: 14, lineHeight: 1.6 }}>
             Группа не даёт прав — это классификация контрагента. Разделы «Партнёры» и «Поставщики»
             в кабинете открываются <b>правами</b> (partners.view / suppliers.view), а не группой.
@@ -2538,8 +2541,9 @@ function AdminReference({ customer = false }) {
   const [mode, setMode] = React.useState(customer ? "customer" : "team");
 
   const topic = topicKey ? REF_TOPICS.find((t) => t.key === topicKey) : null;
-  if (topic && topic.interactive) return <ReferenceRoles onBack={() => setTopicKey(null)} />;
-  if (topic) return <ReferenceArticle topic={{ ...topic, body: REF_ARTICLES[topic.key] || [] }} onBack={() => setTopicKey(null)} />;
+  // key+animate-svcfade — плавный переход список тем ↔ статья ↔ интерактив (house-стиль)
+  if (topic && topic.interactive) return <div key={`ref-${topicKey}`} className="animate-svcfade"><ReferenceRoles onBack={() => setTopicKey(null)} /></div>;
+  if (topic) return <div key={`ref-${topicKey}`} className="animate-svcfade"><ReferenceArticle topic={{ ...topic, body: REF_ARTICLES[topic.key] || [] }} onBack={() => setTopicKey(null)} /></div>;
 
   // Лендинг справки — темы выбранного режима, сгруппированные по категориям.
   const visible = REF_TOPICS.filter((t) => t.aud === "both" || t.aud === mode);
@@ -2553,7 +2557,7 @@ function AdminReference({ customer = false }) {
     // строки-темы растягивались, а статьи — нет, из-за чего справка выглядела «не чётко».
     // Единый maxWidth:760 держит и лендинг, и статьи одной аккуратной колонкой (телефон/iPad Air
     // <760 — no-op, ширину не режет). Колонка левоприжата к краю шапки, как и формы ЛК.
-    <div style={{ fontFamily: UI, marginTop: 8, maxWidth: 760 }}>
+    <div key="ref-landing" className="animate-svcfade" style={{ fontFamily: UI, marginTop: 8, maxWidth: 760 }}>
       <RefKeyframes />
       {customer ? null : (
         <button type="button" onClick={() => adminNav("/account/admin")} style={{ border: "none", background: "none", padding: 0, cursor: "pointer", fontFamily: UI, fontSize: 14, fontWeight: 300, color: "#777" }}>← К модулям</button>
@@ -5243,7 +5247,7 @@ function AdminFiles() {
       </th>
     );
     return (
-      <div style={{ fontFamily: UI, marginTop: 8 }}>
+      <div key={`files-${openId}`} className="animate-svcfade" style={{ fontFamily: UI, marginTop: 8 }}>
         <button type="button" onClick={() => setOpenId(null)} style={{ border: "none", background: "none", padding: 0, cursor: "pointer", fontFamily: UI, fontSize: 14, fontWeight: 300, color: "#777" }}>← К объектам</button>
         <div style={{ marginTop: 14, display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 14, flexWrap: "wrap" }}>
           <div style={{ minWidth: 0 }}>
@@ -5346,7 +5350,7 @@ function AdminFiles() {
 
   // ── Список объектов ──
   return (
-    <div style={{ fontFamily: UI, marginTop: 8 }}>
+    <div key="files-list" className="animate-svcfade" style={{ fontFamily: UI, marginTop: 8 }}>
       <button type="button" onClick={() => adminNav("/account/admin")} style={{ border: "none", background: "none", padding: 0, cursor: "pointer", fontFamily: UI, fontSize: 14, fontWeight: 300, color: "#777" }}>← К модулям</button>
       <div style={{ marginTop: 14, fontSize: 22, fontWeight: 600, color: TEXT }}>Файлы</div>
       <div style={{ marginTop: 6, fontSize: 14, fontWeight: 300, color: "#777" }}>
@@ -5557,7 +5561,7 @@ function AdminCreateAccount({ token }) {
           </div>
         </div>
       ) : (
-        <div style={{ marginTop: 22, maxWidth: 520, display: "grid", gap: 18 }}>
+        <div className="animate-svcfade" style={{ marginTop: 22, maxWidth: 520, display: "grid", gap: 18 }}>
           {/* способ входа */}
           <div>
             <div style={{ fontSize: 13, fontWeight: 300, color: "#777", marginBottom: 8 }}>Способ входа</div>
@@ -6767,7 +6771,10 @@ export default function AccountProfilePage() {
                 <ObjectsSection pathname={pathname} userEmail={userEmail} userId={userId} isAdmin={isAdmin} />
               </div>
             ) : tab === "admin" && isAdmin ? (
-              <div className="animate-svcfade" style={isDesktop ? { width: MID_COL + GAP_COL + RIGHT_COL } : { marginTop: 8 }}>
+              // key={adminModule} — при переходе между под-модулями админки (лаунчер ↔ учётки ↔
+              // создание ↔ шаблоны ↔ проекты ↔ справка ↔ файлы) узел ремаунтится и house-анимация
+              // svcfade проигрывается заново, а не «переключается топорно».
+              <div key={`adm-${adminModule || "home"}`} className="animate-svcfade" style={isDesktop ? { width: MID_COL + GAP_COL + RIGHT_COL } : { marginTop: 8 }}>
                 {adminModule === "employees" ? (
                   <EmployeesModule backTo="/account/admin" />
                 ) : adminModule === "accounts" ? (

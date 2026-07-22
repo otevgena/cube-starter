@@ -642,7 +642,7 @@ function HelpReference() {
 
           {/* Роли — карточки */}
           {tab === "roles" && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <div className="animate-svcfade" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {HELP_ROLES.map((r) => (
                 <div key={r} style={{ display: "flex", gap: 12, alignItems: "baseline" }}>
                   <div style={{ minWidth: 132, fontSize: 14, fontWeight: 600 }}>{ROLE_LABELS[r]}</div>
@@ -657,7 +657,7 @@ function HelpReference() {
 
           {/* Матрица прав × роли */}
           {tab === "matrix" && (
-            <div style={{ overflowX: "auto" }}>
+            <div className="animate-svcfade" style={{ overflowX: "auto" }}>
               <table style={{ borderCollapse: "collapse", width: "100%", fontSize: 13 }}>
                 <thead>
                   <tr>
@@ -702,7 +702,7 @@ function HelpReference() {
 
           {/* Группы */}
           {tab === "groups" && (
-            <div>
+            <div className="animate-svcfade">
               <div style={{ fontSize: 14, fontWeight: 300, marginBottom: 12 }}>
                 Группа не даёт прав — это классификация контрагента. Разделы «Партнёры» и «Поставщики»
                 в кабинете открываются <b>правами</b> (partners.view / suppliers.view), а не группой.

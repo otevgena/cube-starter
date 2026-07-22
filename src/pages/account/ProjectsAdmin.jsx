@@ -381,7 +381,8 @@ export default function ProjectsAdmin({ backTo = "/account/admin", canAdd = true
         )}
       </div>
 
-      <div style={{ marginTop: 24 }}>
+      {/* key меняется список ↔ форма (новый/редактирование) → house-анимация svcfade */}
+      <div key={mode ? `proj-form-${mode}` : "proj-list"} className="animate-svcfade" style={{ marginTop: 24 }}>
         {mode ? (
           <ProjectForm
             editId={editing ? editing.id : null}

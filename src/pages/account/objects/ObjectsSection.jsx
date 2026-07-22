@@ -671,11 +671,12 @@ function AdminObjectsList() {
   const reset = () => { setQ(""); setFStatus(""); setFResp(""); setFCity(""); };
 
   if (creating) {
-    return <CreateObjectForm onCancel={() => setCreating(false)} onCreated={(id) => navigate(`/account/objects/${encodeURIComponent(id)}`)} />;
+    // плавный переход список ↔ форма создания объекта (house-стиль svcfade)
+    return <div key="obj-create" className="animate-svcfade"><CreateObjectForm onCancel={() => setCreating(false)} onCreated={(id) => navigate(`/account/objects/${encodeURIComponent(id)}`)} /></div>;
   }
 
   return (
-    <div style={{ fontFamily: UI, marginTop: 8 }}>
+    <div key="obj-admin-list" className="animate-svcfade" style={{ fontFamily: UI, marginTop: 8 }}>
       {/* ПК: заголовок слева + кнопка справа над фильтром. На мобилке весь ряд скрыт —
           заголовок «Объекты» уже в шапке (aside), а кнопку показываем под фильтром. */}
       <div className="hidden items-center justify-between gap-3 lg:flex">
@@ -2900,14 +2901,16 @@ export function EmployeesModule({ backTo }) {
 
   if (view) {
     return (
-      <EmployeeForm emp={view.emp} accounts={accounts}
-        onCancel={() => setView(null)}
-        onSaved={() => { setView(null); reloadAccounts(); force(); }} />
+      <div key={view.emp ? `emp-${view.emp.id}` : "emp-new"} className="animate-svcfade">
+        <EmployeeForm emp={view.emp} accounts={accounts}
+          onCancel={() => setView(null)}
+          onSaved={() => { setView(null); reloadAccounts(); force(); }} />
+      </div>
     );
   }
 
   return (
-    <div style={{ fontFamily: UI, marginTop: 8 }}>
+    <div key="emp-list" className="animate-svcfade" style={{ fontFamily: UI, marginTop: 8 }}>
       {backTo && <button type="button" onClick={() => navigate(backTo)} style={backBtn}>← К модулям</button>}
       <div style={{ marginTop: backTo ? 14 : 0, display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
         <div>
@@ -3012,11 +3015,11 @@ export function TemplatesModule({ backTo }) {
   const list = getTemplates().filter((x) => !t || `${x.label} ${x.prefix}`.toLowerCase().includes(t));
 
   if (view) {
-    return <TemplateForm tpl={view.tpl} onCancel={() => setView(null)} onSaved={() => { setView(null); force(); }} />;
+    return <div key={view.tpl ? `tpl-${view.tpl.code}` : "tpl-new"} className="animate-svcfade"><TemplateForm tpl={view.tpl} onCancel={() => setView(null)} onSaved={() => { setView(null); force(); }} /></div>;
   }
 
   return (
-    <div style={{ fontFamily: UI, marginTop: 8 }}>
+    <div key="tpl-list" className="animate-svcfade" style={{ fontFamily: UI, marginTop: 8 }}>
       {backTo && <button type="button" onClick={() => navigate(backTo)} style={backBtn}>← К модулям</button>}
       <div style={{ marginTop: backTo ? 14 : 0, display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
         <div>
@@ -3043,9 +3046,9 @@ export function TemplatesModule({ backTo }) {
       </div>
 
       {section === "library" ? (
-        <StageLibraryEditor />
+        <div key="tpl-library" className="animate-svcfade"><StageLibraryEditor /></div>
       ) : (
-        <>
+        <div key="tpl-templates" className="animate-svcfade">
           <div style={{ marginTop: 22 }}><UnderSearch value={q} onChange={setQ} placeholder="Поиск: название, префикс…" /></div>
 
           <div style={{ marginTop: 26 }}>
@@ -3088,7 +3091,7 @@ export function TemplatesModule({ backTo }) {
             })}
             {list.length === 0 && <div style={{ padding: "28px 8px", color: MUTED, fontSize: 14, fontWeight: 300 }}>Ничего не найдено.</div>}
           </div>
-        </>
+        </div>
       )}
     </div>
   );
@@ -3170,7 +3173,9 @@ export default function ObjectsSection({ userEmail, userId, isAdmin }) {
   } else {
     child = <CustomerObjectsList email={userEmail} accountId={userId} />;
   }
-  return <>{child}<ObjMobileCSS /></>;
+  // key меняется при навигации список ↔ объект (и объект→объект) → house-анимация
+  // svcfade проигрывается заново на каждом переходе внутри «Объектов», а не «скачком».
+  return <><div key={objId || "obj-list"} className="animate-svcfade">{child}</div><ObjMobileCSS /></>;
 }
 
 /* Мобильная адаптация раскладок (файл на инлайн-стилях; !important перебивает inline).
