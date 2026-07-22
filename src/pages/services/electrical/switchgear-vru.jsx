@@ -37,7 +37,7 @@ function CheckTabs() {
   return (
     <div>
       <MiniTabs items={keys.map((x) => ({ key: x, label: CHECK[x].label }))} value={k} onChange={setK} />
-      <ul className="grid grid-cols-1 sm:grid-cols-2" style={{ margin: "18px 0 0", padding: 0, listStyle: "none", gap: 10 }}>
+      <ul key={k} className="animate-svcfade grid grid-cols-1 sm:grid-cols-2" style={{ margin: "18px 0 0", padding: 0, listStyle: "none", gap: 10 }}>
         {CHECK[k].items.map((it, i) => (
           <li key={i} style={{ display: "flex", alignItems: "baseline", gap: 12, padding: "12px 16px", border: `1px solid ${INK}`, borderRadius: 12, background: BG }}>
             <span style={{ fontSize: 12, fontWeight: 700, color: INK, fontVariantNumeric: "tabular-nums" }}>{String(i + 1).padStart(2, "0")}</span>

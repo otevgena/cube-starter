@@ -144,7 +144,7 @@ export function ScenarioSwitcher({ scenarios = [], fields = [] }) {
   return (
     <div>
       <MiniTabs items={scenarios.map((s) => ({ key: s.key, label: s.label }))} value={k} onChange={setK} />
-      <div className="grid grid-cols-1 md:grid-cols-2" style={{ ...gridBox, marginTop: 18 }}>
+      <div key={k} className="animate-svcfade grid grid-cols-1 md:grid-cols-2" style={{ ...gridBox, marginTop: 18 }}>
         {fields.map((f) => (
           <div key={f.key} style={cell}>
             <div style={{ fontSize: 12, letterSpacing: ".06em", textTransform: "uppercase", color: MUTED, fontWeight: 400, marginBottom: 8 }}>{f.label}</div>

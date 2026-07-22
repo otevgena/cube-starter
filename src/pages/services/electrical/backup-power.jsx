@@ -69,7 +69,7 @@ function LoadTabs() {
   return (
     <div>
       <MiniTabs items={keys.map((x) => ({ key: x, label: LOADS[x].label }))} value={k} onChange={setK} />
-      <div className="grid grid-cols-1 md:grid-cols-3" style={{ marginTop: 18, gap: 12 }}>
+      <div key={k} className="animate-svcfade grid grid-cols-1 md:grid-cols-3" style={{ marginTop: 18, gap: 12 }}>
         {LOAD_FIELDS.map((f) => (
           <div key={f.key} style={{ padding: 16, border: `1px solid ${INK}`, borderRadius: 12, background: BG }}>
             <div style={{ fontSize: 11, letterSpacing: ".06em", textTransform: "uppercase", color: MUTED, fontWeight: 400, marginBottom: 8 }}>{f.label}</div>

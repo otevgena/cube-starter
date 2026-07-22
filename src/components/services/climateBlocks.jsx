@@ -233,7 +233,7 @@ export function TabbedList({ tabs = [] }) {
   return (
     <div>
       <MiniTabs items={tabs.map((t) => ({ key: t.key, label: t.label }))} value={k} onChange={setK} />
-      <div style={{ marginTop: 18, ...cardCss }}>
+      <div key={k} className="animate-svcfade" style={{ marginTop: 18, ...cardCss }}>
         <ul style={{ margin: 0, paddingLeft: 18, listStyle: "disc" }}>
           {(cur.items || []).map((x, i) => <li key={i} style={{ fontSize: 14, lineHeight: "22px", fontWeight: 300, color: "#222", marginBottom: 6 }}>{x}</li>)}
         </ul>

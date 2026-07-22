@@ -44,7 +44,7 @@ function Documents() {
   return (
     <div>
       <MiniTabs items={keys.map((x) => ({ key: x, label: DOCS[x].label }))} value={k} onChange={setK} />
-      <div style={{ marginTop: 16, maxWidth: 760, fontSize: 16, lineHeight: "24px", fontWeight: 300, color: "#333" }}>{DOCS[k].text}</div>
+      <div key={k} className="animate-svcfade" style={{ marginTop: 16, maxWidth: 760, fontSize: 16, lineHeight: "24px", fontWeight: 300, color: "#333" }}>{DOCS[k].text}</div>
     </div>
   );
 }

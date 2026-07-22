@@ -180,7 +180,7 @@ export function SignalTabs({ tabs = [] }) {
   return (
     <div>
       <MiniTabs items={tabs.map((t) => ({ key: t.key, label: t.label }))} value={k} onChange={setK} />
-      <div style={{ marginTop: 18, ...cardCss }}>
+      <div key={k} className="animate-svcfade" style={{ marginTop: 18, ...cardCss }}>
         <Bullets items={cur.items || []} />
       </div>
     </div>

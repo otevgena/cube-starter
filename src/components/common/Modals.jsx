@@ -281,6 +281,7 @@ function RegisterForm({ email = "", _previewSent = null }) {
   // Экран после регистрации: подтверждение почты (в аккаунт ещё не пускаем).
   if (sent) {
     return (
+      <div key="reg-sent" className="animate-svcfade">
       <FormShell welcome="Почти готово" title="Подтвердите почту">
         <div className="flex max-w-[420px] flex-col gap-5 self-start">
           <p className="text-[15px] font-light leading-6 text-[#444]">
@@ -296,10 +297,12 @@ function RegisterForm({ email = "", _previewSent = null }) {
           </div>
         </div>
       </FormShell>
+      </div>
     );
   }
 
   return (
+    <div key="reg-form" className="animate-svcfade">
     <FormShell
       welcome="Добро пожаловать!"
       title="Регистрация по почте"
@@ -370,6 +373,7 @@ function RegisterForm({ email = "", _previewSent = null }) {
 
       <SocialSlab text="или зарегистрируйтесь через" />
     </FormShell>
+    </div>
   );
 }
 
@@ -465,6 +469,7 @@ function LoginForm({ _previewTwofa = null, _previewUnverified = null }) {
   // ── Второй шаг: ввод кода 2FA ──
   if (twofa) {
     return (
+      <div key="login-twofa" className="animate-svcfade">
       <FormShell
         welcome="Ещё один шаг"
         title="Двухфакторная защита"
@@ -498,10 +503,12 @@ function LoginForm({ _previewTwofa = null, _previewUnverified = null }) {
         </form>
         )}
       </FormShell>
+      </div>
     );
   }
 
   return (
+    <div key="login-form" className="animate-svcfade">
     <FormShell
       welcome="С возвращением!"
       title="Вход"
@@ -556,6 +563,7 @@ function LoginForm({ _previewTwofa = null, _previewUnverified = null }) {
       <SocialSlab text="Или войдите через" />
       </>)}
     </FormShell>
+    </div>
   );
 }
 
