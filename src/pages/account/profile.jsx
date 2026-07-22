@@ -1958,7 +1958,7 @@ function AdminLauncher() {
           const ok = !c.perm || permCan(c.perm);
           if (!ok) {
             return (
-              <div key={c.to} style={{ display: "flex", flexDirection: "column", borderRadius: 12, padding: 30, background: "#e9e9e9", minHeight: 123, opacity: 0.45, cursor: "not-allowed", userSelect: "none" }}>
+              <div key={c.to} style={{ display: "flex", flexDirection: "column", borderRadius: 12, padding: 30, background: "#e9e9e9", minHeight: 123, opacity: 0.45, userSelect: "none" }}>
                 <span style={{ color: "#bbb", display: "inline-flex" }}>{c.icon}</span>
                 <div style={{ marginTop: "auto", paddingTop: 28 }}>
                   <div style={{ fontSize: 14, lineHeight: "19.6px", fontWeight: 600, color: "#aaa" }}>{c.title}</div>
