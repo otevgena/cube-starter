@@ -1010,7 +1010,7 @@ export default function Header() {
         if (t0) accessRef.current = t0;
 
         if (!accessRef.current) {
-          const t = await apiRefresh(900);
+          const t = await apiRefresh(8000);
           if (t) {
             accessRef.current = t;
             try { sessionStorage.setItem("auth:accessToken", t); } catch {}
@@ -1026,7 +1026,7 @@ export default function Header() {
             setAuthReady(true);
             return;
           }
-          const t2 = await apiRefresh(900);
+          const t2 = await apiRefresh(8000);
           if (t2) {
             accessRef.current = t2;
             try { sessionStorage.setItem("auth:accessToken", t2); } catch {}
@@ -1052,7 +1052,7 @@ export default function Header() {
 
     const onFocus = async () => {
       if (user) return;
-      const t = await apiRefresh(800);
+      const t = await apiRefresh(8000);
       if (t) {
         accessRef.current = t;
         try { sessionStorage.setItem("auth:accessToken", t); } catch {}
