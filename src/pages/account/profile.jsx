@@ -1941,31 +1941,45 @@ const AdminIcon = {
 
 function AdminLauncher() {
   const cards = [
-    { key: "employees", title: "Сотрудники", sub: "Список сотрудников компании: добавление и удаление.", to: "/account/admin/employees", icon: AdminIcon.employees },
-    { key: "accounts", title: "Учётные записи", sub: "Зарегистрированные пользователи, роли и группы доступа.", to: "/account/admin/accounts", icon: AdminIcon.accounts },
-    { key: "create", title: "Создать учётную запись", sub: "Завести нового пользователя-заказчика вручную.", to: "/account/admin/create-account", icon: AdminIcon.create },
-    { key: "files", title: "Файлы", sub: "Все файлы по всем объектам в одном списке: скачать по одному или архивом.", to: "/account/admin/files", icon: AdminIcon.files },
-    { key: "templates", title: "Шаблоны объектов", sub: "Типы работ: префикс для № объекта и типовые этапы.", to: "/account/admin/templates", icon: AdminIcon.templates },
-    { key: "projects", title: "Добавить проект", sub: "Витрина работ на главной и странице «Смотреть работы»: изображения, данные и предпросмотр.", to: "/account/admin/projects", icon: AdminIcon.projects },
-    { key: "reference", title: "Справка", sub: "Как устроен кабинет: все разделы, роли, группы и права.", to: "/account/admin/reference", icon: AdminIcon.reference },
+    { key: "employees", title: "Сотрудники", sub: "Список сотрудников компании: добавление и удаление.", to: "/account/admin/employees", icon: AdminIcon.employees, perm: "staff.view" },
+    { key: "accounts", title: "Учётные записи", sub: "Зарегистрированные пользователи, роли и группы доступа.", to: "/account/admin/accounts", icon: AdminIcon.accounts, perm: "accounts.view" },
+    { key: "create", title: "Создать учётную запись", sub: "Завести нового пользователя-заказчика вручную.", to: "/account/admin/create-account", icon: AdminIcon.create, perm: "accounts.manage" },
+    { key: "files", title: "Файлы", sub: "Все файлы по всем объектам в одном списке: скачать по одному или архивом.", to: "/account/admin/files", icon: AdminIcon.files, perm: "docs.upload" },
+    { key: "templates", title: "Шаблоны объектов", sub: "Типы работ: префикс для № объекта и типовые этапы.", to: "/account/admin/templates", icon: AdminIcon.templates, perm: "objects.create" },
+    { key: "projects", title: "Добавить проект", sub: "Витрина работ на главной и странице «Смотреть работы»: изображения, данные и предпросмотр.", to: "/account/admin/projects", icon: AdminIcon.projects, perm: "projects.add" },
+    { key: "reference", title: "Справка", sub: "Как устроен кабинет: все разделы, роли, группы и права.", to: "/account/admin/reference", icon: AdminIcon.reference, perm: null },
   ];
   return (
     <div style={{ fontFamily: UI, marginTop: 8 }}>
       <div style={{ fontSize: 22, fontWeight: 600, color: TEXT }}>Администратор</div>
       <div style={{ marginTop: 6, fontSize: 14, fontWeight: 300, color: "#777" }}>Выберите раздел.</div>
       <div style={{ marginTop: 24, display: "grid", gap: 16, gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))" }}>
-        {cards.map((c) => (
-          <a key={c.to} href={c.to} onClick={(e) => { e.preventDefault(); adminNav(c.to); }}
-            style={{ display: "flex", flexDirection: "column", textDecoration: "none", color: "inherit", border: "none", borderRadius: 12, padding: 30, background: "#e9e9e9", minHeight: 123, transition: "background-color .18s ease, box-shadow .18s ease, transform .18s ease" }}
-            onMouseEnter={(e) => { e.currentTarget.style.background = "#fff"; e.currentTarget.style.boxShadow = "0 12px 32px rgba(0,0,0,.08)"; e.currentTarget.style.transform = "translateY(-2px)"; }}
-            onMouseLeave={(e) => { e.currentTarget.style.background = "#e9e9e9"; e.currentTarget.style.boxShadow = "none"; e.currentTarget.style.transform = "none"; }}>
-            <span style={{ color: TEXT, display: "inline-flex" }}>{c.icon}</span>
-            <div style={{ marginTop: "auto", paddingTop: 28 }}>
-              <div style={{ fontSize: 14, lineHeight: "19.6px", fontWeight: 600, color: "#222222" }}>{c.title}</div>
-              <div style={{ marginTop: 8, fontSize: 14, lineHeight: "19.6px", fontWeight: 300, color: "#222222" }}>{c.sub}</div>
-            </div>
-          </a>
-        ))}
+        {cards.map((c) => {
+          const ok = !c.perm || permCan(c.perm);
+          if (!ok) {
+            return (
+              <div key={c.to} style={{ display: "flex", flexDirection: "column", borderRadius: 12, padding: 30, background: "#e9e9e9", minHeight: 123, opacity: 0.45, cursor: "not-allowed", userSelect: "none" }}>
+                <span style={{ color: "#bbb", display: "inline-flex" }}>{c.icon}</span>
+                <div style={{ marginTop: "auto", paddingTop: 28 }}>
+                  <div style={{ fontSize: 14, lineHeight: "19.6px", fontWeight: 600, color: "#aaa" }}>{c.title}</div>
+                  <div style={{ marginTop: 8, fontSize: 13, lineHeight: "19.6px", fontWeight: 300, color: "#bbb" }}>Нет доступа</div>
+                </div>
+              </div>
+            );
+          }
+          return (
+            <a key={c.to} href={c.to} onClick={(e) => { e.preventDefault(); adminNav(c.to); }}
+              style={{ display: "flex", flexDirection: "column", textDecoration: "none", color: "inherit", border: "none", borderRadius: 12, padding: 30, background: "#e9e9e9", minHeight: 123, transition: "background-color .18s ease, box-shadow .18s ease, transform .18s ease" }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = "#fff"; e.currentTarget.style.boxShadow = "0 12px 32px rgba(0,0,0,.08)"; e.currentTarget.style.transform = "translateY(-2px)"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = "#e9e9e9"; e.currentTarget.style.boxShadow = "none"; e.currentTarget.style.transform = "none"; }}>
+              <span style={{ color: TEXT, display: "inline-flex" }}>{c.icon}</span>
+              <div style={{ marginTop: "auto", paddingTop: 28 }}>
+                <div style={{ fontSize: 14, lineHeight: "19.6px", fontWeight: 600, color: "#222222" }}>{c.title}</div>
+                <div style={{ marginTop: 8, fontSize: 14, lineHeight: "19.6px", fontWeight: 300, color: "#222222" }}>{c.sub}</div>
+              </div>
+            </a>
+          );
+        })}
       </div>
     </div>
   );
@@ -6776,11 +6790,11 @@ export default function AccountProfilePage() {
               // svcfade проигрывается заново, а не «переключается топорно».
               <div key={`adm-${adminModule || "home"}`} className="animate-svcfade" style={isDesktop ? { width: MID_COL + GAP_COL + RIGHT_COL } : { marginTop: 8 }}>
                 {adminModule === "employees" ? (
-                  <EmployeesModule backTo="/account/admin" />
+                  <EmployeesModule backTo="/account/admin" canManage={permCan("staff.manage")} />
                 ) : adminModule === "accounts" ? (
                   <AdminAccounts token={token} />
                 ) : adminModule === "create-account" ? (
-                  <AdminCreateAccount token={token} />
+                  permCan("accounts.manage") ? <AdminCreateAccount token={token} /> : <AdminLauncher />
                 ) : adminModule === "templates" ? (
                   <TemplatesModule backTo="/account/admin" />
                 ) : adminModule === "projects" ? (

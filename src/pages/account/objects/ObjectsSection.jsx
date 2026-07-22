@@ -2866,7 +2866,7 @@ function EmployeeForm({ emp, accounts, onCancel, onSaved }) {
   );
 }
 
-export function EmployeesModule({ backTo }) {
+export function EmployeesModule({ backTo, canManage = true }) {
   const force = useForceUpdate();
   const phone = useIsPhone();
   const [q, setQ] = React.useState("");
@@ -2917,7 +2917,7 @@ export function EmployeesModule({ backTo }) {
           <div style={h1}>Сотрудники</div>
           <div style={{ marginTop: 6, fontSize: 14, fontWeight: 300, color: MUTED }}>Учётные записи со штатной ролью и правами. Назначаются ответственными за объекты.</div>
         </div>
-        <FillBtn big onClick={() => setView({ emp: null })}>+ Добавить сотрудника</FillBtn>
+        {canManage && <FillBtn big onClick={() => setView({ emp: null })}>+ Добавить сотрудника</FillBtn>}
       </div>
       <div style={{ marginTop: 20 }}><UnderSearch value={q} onChange={setQ} placeholder="Поиск: ФИО, должность, e-mail…" /></div>
 
@@ -2927,7 +2927,7 @@ export function EmployeesModule({ backTo }) {
         {list.map((e) => {
           const busy = busyId === e.id;
           return (
-            <ListRow key={e.id} onOpen={() => setView({ emp: e })}>
+            <ListRow key={e.id} onOpen={canManage ? () => setView({ emp: e }) : undefined}>
               <div style={{ minWidth: 0, flex: 1 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                   <span style={{ fontSize: 17, fontWeight: 500, color: TEXT, lineHeight: 1.3 }}>{e.fio}</span>
@@ -2938,7 +2938,7 @@ export function EmployeesModule({ backTo }) {
                   {e.role === "admin" ? "Полный доступ" : (e.perms.length === 0 ? "Прав не выдано" : e.perms.map((p) => permLabel(p)).join("  ·  "))}
                 </div>
               </div>
-              {phone ? (
+              {canManage && (phone ? (
                 <div onClick={(ev) => ev.stopPropagation()} style={{ display: "flex", alignItems: "center", flexShrink: 0 }}>
                   <DocIconBtn onClick={() => setView({ emp: e })} title="Права"><IconPencil /></DocIconBtn>
                   <DocIconBtn color={CARROT} onClick={() => demote(e)} title="Убрать из сотрудников">{busy ? <span style={{ fontSize: 18 }}>…</span> : <IconTrash size={21} />}</DocIconBtn>
@@ -2948,7 +2948,7 @@ export function EmployeesModule({ backTo }) {
                   <FillBtn onClick={() => setView({ emp: e })}>Права</FillBtn>
                   <FillBtn fill={CARROT} onClick={() => demote(e)} disabled={busy}>{busy ? "…" : "Убрать"}</FillBtn>
                 </div>
-              )}
+              ))}
             </ListRow>
           );
         })}
