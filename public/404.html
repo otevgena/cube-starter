@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <title>КУБ</title>
+    <script type="text/javascript">
+      // SPA-фолбэк для GitHub Pages. Прямой заход по «глубокой» ссылке
+      // (например, /verify-email?token=... из письма) отдаёт этот 404.html,
+      // т.к. статического файла по такому пути нет. Здесь мы кодируем путь+query
+      // и уходим на корень «/», где скрипт в index.html восстановит настоящий
+      // адрес ДО загрузки React-роутера. Приём rafgraph/spa-github-pages.
+      var pathSegmentsToKeep = 0; // кастомный домен cube-tech.ru → корень сайта
+      var l = window.location;
+      l.replace(
+        l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '') +
+        l.pathname.split('/').slice(0, 1 + pathSegmentsToKeep).join('/') + '/?/' +
+        l.pathname.slice(1).split('/').slice(pathSegmentsToKeep).join('/').replace(/&/g, '~and~') +
+        (l.search ? '&' + l.search.slice(1).replace(/&/g, '~and~') : '') +
+        l.hash
+      );
+    </script>
+  </head>
+  <body></body>
+</html>
