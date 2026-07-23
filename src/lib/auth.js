@@ -47,7 +47,15 @@ async function doFetch(path, opt = {}) {
 }
 
 // ===== состояние токена + подписки =====
-let accessToken = null;
+// Сидируем in-memory токен из sessionStorage при загрузке модуля. На жёстком
+// обновлении (F5) память обнуляется, но sessionStorage хранит последний access.
+// Без сида первый authed-запрос через api() (напр. GET /objects) уходит БЕЗ
+// Authorization → 401 → лишний refresh+retry и красная строка в консоли.
+// С сидом — первый же запрос идёт с токеном (а если он протух — прежний путь
+// refresh-on-401 отработает как раньше).
+let accessToken = (() => {
+  try { return sessionStorage.getItem('auth:accessToken') || null; } catch { return null; }
+})();
 const listeners = new Set();
 const debug = () => Boolean(localStorage.getItem('auth:debug'));
 
