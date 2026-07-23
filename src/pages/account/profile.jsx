@@ -8,6 +8,7 @@ import { confirmDialog } from "@/components/common/Confirm.jsx";
 import ProjectsAdmin from "@/pages/account/ProjectsAdmin.jsx";
 import * as DB from "@/data/objects.js";
 import { setMyAuth, can as permCan, ROLE_LABELS, PERMISSIONS, PERM_GROUP_LABELS, effectivePerms } from "@/lib/perms.js";
+import { refreshOnce } from "@/lib/auth.js";
 
 /* ===== API helpers ===== */
 const API_BASE =
@@ -15,24 +16,12 @@ const API_BASE =
   "https://api.cube-tech.ru";
 const api = (p) => `${API_BASE}${p}`;
 
-async function apiRefresh(timeoutMs = 8000) {
-  const ctrl = new AbortController();
-  const to = setTimeout(() => ctrl.abort(), timeoutMs);
-  try {
-    const r = await fetch(api("/auth/refresh"), {
-      method: "POST",
-      credentials: "include",
-      signal: ctrl.signal,
-      cache: "no-store",
-    });
-    clearTimeout(to);
-    if (!r.ok) return null;
-    const j = await r.json().catch(() => null);
-    return j?.accessToken || null;
-  } catch {
-    clearTimeout(to);
-    return null;
-  }
+// Рефреш идёт ТОЛЬКО через общий single-flight из @/lib/auth.js.
+// Иначе profile/Header/admin параллельно дёргают /auth/refresh и ротируют
+// одноразовый refresh-token наперегонки → 401 → logout → «Нет данных».
+async function apiRefresh() {
+  try { return await refreshOnce({ force: true }); }
+  catch { return null; }
 }
 
 async function apiMe(token) {

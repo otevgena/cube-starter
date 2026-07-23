@@ -8,6 +8,7 @@ import { createPortal } from "react-dom";
 import { ChevronDown, Search, Menu, X, UserRound } from "lucide-react";
 import { search } from "@/data/search-index";
 import * as DB from "@/data/objects.js";
+import { refreshOnce } from "@/lib/auth.js";
 
 /* === API base === */
 const API_BASE =
@@ -41,25 +42,13 @@ const withAvatar = (u) => {
   } catch { return u; }
 };
 
-/* ---- non-blocking refresh with timeout ---- */
-async function apiRefresh(timeoutMs = 8000) {
-  const ctrl = new AbortController();
-  const to = setTimeout(() => ctrl.abort(), timeoutMs);
-  try {
-    const r = await fetch(api("/auth/refresh"), {
-      method: "POST",
-      credentials: "include",
-      signal: ctrl.signal,
-      cache: "no-store",
-    });
-    clearTimeout(to);
-    if (!r.ok) return null;
-    const j = await r.json().catch(() => null);
-    return j?.accessToken || null;
-  } catch {
-    clearTimeout(to);
-    return null;
-  }
+/* ---- refresh через общий single-flight (@/lib/auth.js) ----
+   Никаких собственных fetch('/auth/refresh'): все вызовы должны идти через
+   один refreshOnce, иначе Header/profile/admin ротируют одноразовый
+   refresh-token наперегонки → 401 → logout → «сессия слетела». */
+async function apiRefresh() {
+  try { return await refreshOnce({ force: true }); }
+  catch { return null; }
 }
 
 async function apiMe(token, timeoutMs = 3000) {

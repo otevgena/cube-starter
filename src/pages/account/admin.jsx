@@ -1,6 +1,7 @@
 // src/pages/account/admin.jsx
 import React from "react";
 import { PERMISSIONS, PERM_GROUP_LABELS, ROLE_LABELS, effectivePerms } from "@/lib/perms.js";
+import { refreshOnce } from "@/lib/auth.js";
 
 /* ===== API helpers ===== */
 const API_BASE =
@@ -8,24 +9,13 @@ const API_BASE =
   "https://api.cube-tech.ru";
 const api = (p) => `${API_BASE}${p}`;
 
-async function apiRefresh(timeoutMs = 8000) {
-  const ctrl = new AbortController();
-  const to = setTimeout(() => ctrl.abort(), timeoutMs);
-  try {
-    const r = await fetch(api("/auth/refresh"), {
-      method: "POST",
-      credentials: "include",
-      signal: ctrl.signal,
-      cache: "no-store",
-    });
-    clearTimeout(to);
-    if (!r.ok) return null;
-    const j = await r.json().catch(() => null);
-    return j?.accessToken || null;
-  } catch {
-    clearTimeout(to);
-    return null;
-  }
+// Делегируем в ЕДИНЫЙ single-flight рефреш из auth.js. Своя копия fetch('/auth/refresh')
+// здесь гонялась с копиями в Header/profile за одноразовый refresh-token: один вызов
+// ротировал токен, остальные получали 401 → clearCookie → logout → «Нет данных».
+// force:true — обходим cooldown, т.к. зовём только когда токен реально отвергнут (401).
+async function apiRefresh() {
+  try { return await refreshOnce({ force: true }); }
+  catch { return null; }
 }
 
 async function apiMe(token) {
@@ -54,25 +44,42 @@ async function apiAdminListUsers(token, { limit = 50, offset = 0, q = "", group 
     ...(group ? { group } : {}),
   }).toString();
 
-  const opts = {
-    method: "GET",
-    headers: { Authorization: `Bearer ${token}` },
-    credentials: "include",
-    cache: "no-store",
-  };
-  const tryOne = async (url) => {
-    try {
-      const r = await fetch(api(url), opts);
-      if (!r.ok) return null;
-      return await r.json().catch(() => null);
-    } catch { return null; }
+  // Один прогон по всем путям заданным токеном. Флаг authErr — был ли где-то 401
+  // (значит токен протух: надо освежить и повторить, а не молча отдать пустой список).
+  const runWith = async (tk) => {
+    const opts = {
+      method: "GET",
+      headers: { Authorization: `Bearer ${tk}` },
+      credentials: "include",
+      cache: "no-store",
+    };
+    let authErr = false;
+    const tryOne = async (url) => {
+      try {
+        const r = await fetch(api(url), opts);
+        if (r.status === 401) { authErr = true; return null; }
+        if (!r.ok) return null;
+        return await r.json().catch(() => null);
+      } catch { return null; }
+    };
+    const raw =
+      (await tryOne(`/users?admin=1&${qs}`)) ||   // ← сначала не-404 путь
+      (await tryOne(`/admin/users?${qs}`)) ||
+      (await tryOne(`/admin/list-users?${qs}`)) ||
+      null;
+    return { raw, authErr };
   };
 
-  const raw =
-    (await tryOne(`/users?admin=1&${qs}`)) ||   // ← сначала не-404 путь
-    (await tryOne(`/admin/users?${qs}`)) ||
-    (await tryOne(`/admin/list-users?${qs}`)) ||
-    { users: [], total: 0 };
+  let { raw, authErr } = await runWith(token);
+  // Токен отвергнут (401) — освежаем единым рефрешем и пробуем ещё раз.
+  if (!raw && authErr) {
+    const nt = await apiRefresh();
+    if (nt) {
+      try { sessionStorage.setItem("auth:accessToken", nt); } catch {}
+      ({ raw } = await runWith(nt));
+    }
+  }
+  raw = raw || { users: [], total: 0 };
 
   const users = Array.isArray(raw?.users) ? raw.users : Array.isArray(raw) ? raw : [];
   const total = Number(raw?.total ?? users.length ?? 0);
@@ -742,14 +749,21 @@ export default function AdminPage() {
 
   React.useEffect(() => {
     (async () => {
+      // Токен из sessionStorage мог протухнуть за время простоя. Раньше мы освежали
+      // его ТОЛЬКО когда он отсутствовал — а просроченный (но присутствующий) токен
+      // молча уходил в 401 → «Нет данных». Теперь: проверяем /auth/me, и если токен
+      // отвергнут — освежаем единым рефрешем и пробуем снова.
       let t = sessionStorage.getItem("auth:accessToken");
-      if (!t) t = await apiRefresh(8000);
-      if (!t) return;
+      let u = t ? await apiMe(t) : null;
+      if (!u) {
+        t = await apiRefresh();
+        if (!t) return;
+        u = await apiMe(t);
+      }
+      if (!t || !u) return;
+
       setToken(t);
       sessionStorage.setItem("auth:accessToken", t);
-
-      const u = await apiMe(t);
-      if (!u) return;
       setIsAdmin(Boolean(u.isAdmin || u.role === "admin" || u.group === "admin"));
       setUserName(u.name || u.email || "Пользователь");
     })();

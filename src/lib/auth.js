@@ -312,4 +312,7 @@ export async function logout() {
 }
 
 // экспорт на всякий случай
-export { API_BASE, getAPIBase };
+// refreshOnce — единый single-flight рефреш: все страницы (Header/profile/admin)
+// должны звать именно его, иначе параллельные вызовы /auth/refresh ротируют
+// одноразовый refresh-token наперегонки → 401 → logout → «сессия слетела».
+export { API_BASE, getAPIBase, refreshOnce };
