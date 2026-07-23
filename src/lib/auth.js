@@ -170,12 +170,14 @@ async function refreshOnce({ force = false } = {}) {
       // ok без токена — считаем провалом
     }
 
-    // 401/400/… — считаем провалом, сразу чистим rt на сервере
+    // 401/400/… — считаем провалом. РАНЬШЕ здесь звали /auth/logout, что
+    // ДОБИВАЛО сессию: одна неудачная попытка рефреша (таймаут, гонка, холодный
+    // старт функции) удаляла refresh-token на сервере → войти уже нельзя без
+    // пароля, даже если cookie была жива. Больше так не делаем — просто ставим
+    // cooldown и возвращаем null; сессия остаётся, следующий refresh её поднимет.
+    // (Осознанный выход — только через auth.forceLogout()/logout().)
     _lastFailAt = Date.now();
-    try {
-      await fetch(base + '/auth/logout', { method: 'POST', credentials: 'include' });
-      if (debug()) console.log('[auth] logout after failed refresh');
-    } catch {}
+    if (debug()) console.warn('[auth] refresh failed (session kept)');
     _refreshInflight = null;
     return null;
   })();
@@ -304,9 +306,19 @@ export async function resetPassword({ token, newPassword }) {
 export async function requestEmailVerify() {
   return api('/auth/request-verify', { method: 'POST', authRequired: true });
 }
-// Подтверждение почты по одноразовому токену из письма.
+// Подтверждение почты по одноразовому токену из письма. Бэкенд теперь заодно
+// выдаёт сессию (accessToken + refresh-cookie) — авто-вход по ссылке, чтобы не
+// просить логин/пароль после «ПОЧТА ПОДТВЕРЖДЕНА». Ставим токен как при login.
 export async function verifyEmail(token) {
-  return api('/auth/verify', { method: 'POST', authRequired: false, body: { token } });
+  const data = await api('/auth/verify', { method: 'POST', authRequired: false, body: { token } });
+  if (data && data.accessToken) {
+    accessToken = data.accessToken;
+    // подтверждение почты = намеренный вход с этого устройства → помним сессию
+    try { localStorage.setItem('remember', '1'); localStorage.setItem('accessToken', accessToken); } catch {}
+    syncSession(accessToken);
+    emit();
+  }
+  return data; // { ok, email, accessToken?, user? }
 }
 
 export async function me()  { return api('/auth/me',    { method: 'GET',  authRequired: true  }); }

@@ -306,7 +306,14 @@ function ActionButtons() {
 
 function AuthControls({ user, authReady, onLogout }) {
   if (user) return <AvatarMenu user={user} onLogout={onLogout} />;
-  if (!authReady) return <div className="h-8 w-[120px]" />;
+  // Оптимистично показываем «Вход/Регистрация» СРАЗУ, не дожидаясь authReady.
+  // Раньше здесь висела пустая заглушка h-8 w-[120px] до конца bootstrap
+  // (refresh+me, до 3.5 c) — первый заход «думал», потом появлялись кнопки
+  // (жалоба #1). Залогиненного вернувшегося пользователя уже покрывает user из
+  // readCachedUser() → аватар без мигания; для гостя (у него нет сессии)
+  // мигания нет вовсе. Если сессия жива, но кэша нет (новая вкладка) —
+  // кратко мелькнут кнопки и сменятся аватаром: приемлемый размен ради
+  // мгновенного отклика вместо секундной паузы.
   return (
     <div className="flex items-center gap-4">
       <button type="button" onClick={() => window.openModal?.("login")} className={NAV_LINK_CLASS}>

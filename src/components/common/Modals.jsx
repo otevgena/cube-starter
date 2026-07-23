@@ -116,14 +116,47 @@ export function FancyCheckbox({ checked, onChange, ariaLabel }) {
 
 /* ===== Оболочка модалки ===== */
 function ModalShell({ children, onClose, width }) {
+  const overlayRef = React.useRef(null);
+
   React.useEffect(() => {
     const onKey = (e) => { if ((e.key || "").toLowerCase() === "escape") onClose(); };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
+  // Пиним оверлей ровно к ВИДИМОЙ области (visual viewport). Корень бага #4:
+  // на iOS Safari «форм-ассистент» при фокусе в поле ПАНОРАМИРУЕТ visual
+  // viewport (и игнорирует html{overflow:hidden}), а fixed-оверлей остаётся
+  // привязан к layout-viewport → из-под него вылезает страница (услуги
+  // «Климат/слаботочные системы»). Прошлая попытка (bg-white на обёртке,
+  // c797e9c) не помогла, потому что уезжал сам оверлей. Следуя за
+  // vv.offsetTop/offsetLeft/width/height на событиях resize/scroll, оверлей
+  // всегда точно закрывает экран, а скроллится его собственное содержимое.
+  // На десктопе/без visualViewport остаётся обычный fixed inset-0.
+  React.useEffect(() => {
+    const vv = (typeof window !== "undefined") && window.visualViewport;
+    const el = overlayRef.current;
+    if (!vv || !el) return;
+    const sync = () => {
+      el.style.top = vv.offsetTop + "px";
+      el.style.left = vv.offsetLeft + "px";
+      el.style.width = vv.width + "px";
+      el.style.height = vv.height + "px";
+      el.style.right = "auto";
+      el.style.bottom = "auto";
+    };
+    sync();
+    vv.addEventListener("resize", sync);
+    vv.addEventListener("scroll", sync);
+    return () => {
+      vv.removeEventListener("resize", sync);
+      vv.removeEventListener("scroll", sync);
+    };
+  }, []);
+
   return (
     <div
+      ref={overlayRef}
       aria-modal="true"
       role="dialog"
       className="fixed inset-0 z-[1000] animate-svcfade overflow-y-auto overflow-x-hidden bg-black/55 font-tight"
@@ -149,7 +182,7 @@ function ModalShell({ children, onClose, width }) {
         aria-label="Закрыть"
         title="Закрыть"
         onClick={onClose}
-        className="fixed right-0 top-0 z-[1001] grid h-14 w-14 place-items-center bg-[#111] text-white transition-colors hover:bg-[#262626] md:hidden"
+        className="absolute right-0 top-0 z-[1001] grid h-14 w-14 place-items-center bg-[#111] text-white transition-colors hover:bg-[#262626] md:hidden"
       >
         <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
           <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
@@ -220,6 +253,10 @@ function RegisterForm({ email = "" }) {
   const [errors, setErrors] = React.useState({});
   const [busy, setBusy] = React.useState(false);
   const [showPass, setShowPass] = React.useState(false);
+  // Экран «письмо отправлено» после успешной регистрации (жалоба #5: раньше
+  // модалка просто закрывалась и пользователь не понимал, что делать дальше).
+  const [doneEmail, setDoneEmail] = React.useState(null);
+  const [resent, setResent] = React.useState(false);
 
   const set = (k, v) => setForm((s) => ({ ...s, [k]: v }));
   const isEmail = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((v || "").trim());
@@ -261,10 +298,11 @@ function RegisterForm({ email = "" }) {
         password: form.pass,
       });
       // Новый флоу: сразу в аккаунт не пускаем — просим подтвердить почту.
+      // Показываем экран успеха ПРЯМО в модалке (не закрываем её), чтобы
+      // пользователь видел, что письмо ушло и куда именно (жалоба #5).
       if (res && res.pendingVerification) {
         const email = res.email || form.email.trim().toLowerCase();
-        window.showDockToast?.(`Письмо отправлено на ${email}. Перейдите по ссылке в письме.`, 5000);
-        if (window.closeModal) window.closeModal();
+        setDoneEmail(email);
         return;
       }
       // Обратная совместимость (если бэкенд ещё логинит сразу).
@@ -290,6 +328,60 @@ function RegisterForm({ email = "" }) {
       setBusy(false);
     }
   };
+
+  // Экран успеха: письмо с подтверждением отправлено.
+  if (doneEmail) {
+    const resend = async () => {
+      if (busy) return;
+      try { setBusy(true); await resendVerify(doneEmail); setResent(true); }
+      catch {} finally { setBusy(false); }
+    };
+    return (
+      <div key="reg-done" className="animate-svcfade">
+        <FormShell
+          welcome="Почти готово!"
+          title="Подтвердите почту"
+          badge={<SmileBadge />}
+          bottom={<>Письмо не пришло за пару минут? Загляните в папку «Спам».</>}
+        >
+          <div className="flex flex-col gap-4 self-start">
+            <p className="text-[15px] font-light leading-6 text-[#111]">
+              Мы отправили письмо со ссылкой подтверждения на{" "}
+              <span className="font-semibold break-all">{doneEmail}</span>.
+            </p>
+            <p className="text-sm font-light leading-6 text-[#666]">
+              Откройте письмо и нажмите «Подтвердить почту» — после этого вы сразу
+              попадёте в личный кабинет, повторно логин и пароль вводить не нужно.
+            </p>
+
+            <div className="mt-2 flex flex-col gap-3">
+              <button
+                type="button"
+                className={`${BTN} w-full`}
+                onClick={() => window.closeModal?.()}
+              >
+                Понятно
+              </button>
+
+              <div className="text-sm font-light text-[#666]">
+                {resent ? (
+                  <span>Письмо отправлено ещё раз.</span>
+                ) : busy ? (
+                  <span className="inline-flex items-center gap-2"><Spinner size={16} /> Отправляем…</span>
+                ) : (
+                  <>Не получили письмо?{" "}
+                    <a href="#" className={LINK} onClick={(e) => { e.preventDefault(); resend(); }}>
+                      Отправить ещё раз
+                    </a>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        </FormShell>
+      </div>
+    );
+  }
 
   return (
     <div key="reg-form" className="animate-svcfade">

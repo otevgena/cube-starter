@@ -13,7 +13,7 @@ const RISE = "cubeRise .5s cubic-bezier(.2,.8,.2,1) both";
 // Дедуп запроса по токену: страница может перемонтироваться (ремоунт роутера),
 // и без этого /auth/verify улетал бы дважды — а токен одноразовый, второй раз
 // давал бы «ссылка недействительна». Здесь один и тот же токен → один запрос.
-const _verifyRuns = new Map(); // token -> Promise<void>
+const _verifyRuns = new Map(); // token -> Promise<data>
 function verifyOnce(token) {
   if (!_verifyRuns.has(token)) _verifyRuns.set(token, verifyEmail(token));
   return _verifyRuns.get(token);
@@ -68,7 +68,13 @@ export default function VerifyEmailPage({ _preview = null }) {
     let alive = true;
     (async () => {
       try {
-        await verifyOnce(token);
+        const data = await verifyOnce(token);
+        // Авто-вход: бэкенд выдал сессию — сразу поднимаем шапку в аватар и
+        // ведём кнопку «В личный кабинет», без повторного логина.
+        if (data && data.accessToken) {
+          try { window.setHeaderUser?.(data.user, data.accessToken); } catch {}
+          if (alive) setAuthed(true);
+        }
         if (alive) setState("ok");
       } catch {
         if (alive) setState("invalid");

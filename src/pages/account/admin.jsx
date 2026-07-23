@@ -72,18 +72,26 @@ async function apiAdminListUsers(token, { limit = 50, offset = 0, q = "", group 
 
   let { raw, authErr } = await runWith(token);
   // Токен отвергнут (401) — освежаем единым рефрешем и пробуем ещё раз.
+  // authExpired=true означает, что сессия действительно мертва (рефреш не помог):
+  // тогда показываем «Сессия истекла, войдите», а НЕ молчаливый «0/Нет данных»
+  // (жалоба #3 — админ видел пустоту и не понимал, что нужно перелогиниться).
+  let authExpired = false;
   if (!raw && authErr) {
     const nt = await apiRefresh();
     if (nt) {
       try { sessionStorage.setItem("auth:accessToken", nt); } catch {}
-      ({ raw } = await runWith(nt));
+      const retry = await runWith(nt);
+      raw = retry.raw;
+      if (!raw && retry.authErr) authExpired = true;
+    } else {
+      authExpired = true;
     }
   }
   raw = raw || { users: [], total: 0 };
 
   const users = Array.isArray(raw?.users) ? raw.users : Array.isArray(raw) ? raw : [];
   const total = Number(raw?.total ?? users.length ?? 0);
-  return { users, total };
+  return { users, total, authExpired };
 }
 
 /* --- админ: обновление роли/группы (с фоллбеками и id в POST) --- */
@@ -276,6 +284,7 @@ function UsersTable({ token }) {
   const [list, setList] = React.useState([]);
   const [total, setTotal] = React.useState(0);
   const [loading, setLoading] = React.useState(true);
+  const [expired, setExpired] = React.useState(false); // сессия мертва → предложить перелогин
   const [drafts, setDrafts] = React.useState({}); // { [id]: { group?, role? } }
 
   const dottedWidth = MID_COL + GAP_COL + RIGHT_COL - LINE_RIGHT_INSET;
@@ -284,6 +293,8 @@ function UsersTable({ token }) {
     if (!token) return;
     setLoading(true);
     const j = await apiAdminListUsers(token, { limit: 100, offset: 0, q, group: groupFilter || undefined });
+    if (j?.authExpired) { setExpired(true); setLoading(false); return; }
+    setExpired(false);
     const users = Array.isArray(j?.users) ? j.users : Array.isArray(j) ? j : [];
     setList(users);
     setTotal(Number(j?.total || users.length || 0));
@@ -346,6 +357,34 @@ function UsersTable({ token }) {
         <div style={{ fontSize: 22, fontWeight: 600 }}>Зарегистрированные учётные записи</div>
         <div style={{ fontSize: 14, fontWeight: 300, color: "#222" }}>Всего: {total}</div>
       </div>
+
+      {/* Сессия истекла (рефреш не помог) — явно предлагаем перелогин, чтобы
+          админ не видел молчаливый «0/Нет данных» и не думал, что данные пропали. */}
+      {expired && (
+        <div
+          role="alert"
+          style={{
+            display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap",
+            width: `${dottedWidth}px`, maxWidth: "100%",
+            marginBottom: 16, padding: "12px 14px",
+            border: `1px solid ${ERR}`, borderRadius: 10,
+            background: "#fff6f2", color: "#7a2a10", fontSize: 14, fontWeight: 300,
+          }}
+        >
+          <span>Сессия истекла. Войдите заново, чтобы увидеть список.</span>
+          <button
+            type="button"
+            onClick={() => window.openModal?.("login")}
+            style={{
+              height: 36, padding: "0 14px", border: "none", borderRadius: 8,
+              background: "#1c1c1c", color: "#fff", fontFamily: UI, fontSize: 13,
+              fontWeight: 400, cursor: "pointer",
+            }}
+          >
+            Войти
+          </button>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_220px_140px]" style={{ marginBottom: 16 }}>
         <Input value={q} onChange={setQ} placeholder="Поиск по имени, e-mail или телефону…" />
