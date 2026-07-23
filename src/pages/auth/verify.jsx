@@ -4,7 +4,7 @@
 // Разметка 1-в-1 со страницы «Новый пароль» (reset.jsx) / «Контакты»:
 // центральный заголовок, две колонки, во время проверки — брендовый «кружок с точками».
 import React from "react";
-import { verifyEmail } from "@/lib/auth";
+import { verifyEmail, auth, refreshOnce } from "@/lib/auth";
 import Spinner from "@/components/common/Spinner.jsx";
 
 // Мягкое появление (как на остальном сайте: лёгкий подъём + проявление).
@@ -34,6 +34,10 @@ const goHome = () => {
   window.history.pushState({}, "", "/");
   window.dispatchEvent(new PopStateEvent("popstate"));
 };
+const goAccount = () => {
+  window.history.pushState({}, "", "/account");
+  window.dispatchEvent(new PopStateEvent("popstate"));
+};
 
 // Тихая вторичная ссылка «в нашем стиле»: серая база + выезжающая тёмная линия.
 const LINK =
@@ -45,6 +49,18 @@ export default function VerifyEmailPage({ _preview = null }) {
   const [token] = React.useState(getToken);
   // "checking" | "ok" | "invalid"
   const [state, setState] = React.useState(_preview || (token ? "checking" : "invalid"));
+
+  // Уже вошёл ли пользователь в ЭТОМ браузере? Письмо открывается в НОВОЙ
+  // вкладке, поэтому sessionStorage пуст — надёжно скажет только рефреш по
+  // httpOnly-cookie. Если сессия жива, кнопка ведёт прямо в кабинет, а не
+  // просит логин заново (жалоба: «уже подтвердил и вроде вошёл, а спрашивает пароль»).
+  const [authed, setAuthed] = React.useState(!!auth.get());
+  React.useEffect(() => {
+    if (_preview) return;
+    const unsub = auth.subscribe((t) => setAuthed(!!t));
+    refreshOnce({ force: true }).then((t) => { if (t) setAuthed(true); }).catch(() => {});
+    return unsub;
+  }, [_preview]);
 
   React.useEffect(() => {
     if (_preview) return; // витрина: состояние задано вручную, сеть не дёргаем
@@ -89,7 +105,9 @@ export default function VerifyEmailPage({ _preview = null }) {
                 <p className="text-[21px] font-semibold leading-7">Готово!</p>
                 <p className="mt-2 text-[21px] font-semibold leading-7">Ваш адрес электронной почты подтверждён.</p>
                 <p className="mt-[18px] text-sm font-light leading-6">
-                  Теперь можно войти в личный кабинет с вашим логином и паролем.
+                  {authed
+                    ? "Вы уже вошли — можно сразу перейти в личный кабинет."
+                    : "Теперь можно войти в личный кабинет с вашим логином и паролем."}
                 </p>
               </>
             ) : (
@@ -110,10 +128,10 @@ export default function VerifyEmailPage({ _preview = null }) {
           <div className="w-[683px] max-w-full text-left">
             <button
               type="button"
-              onClick={goLogin}
+              onClick={state === "ok" && authed ? goAccount : goLogin}
               className="block h-[60px] w-[210px] rounded-[10px] bg-[#1c1c1c] text-sm font-semibold uppercase tracking-[0.02em] text-white transition-colors hover:bg-[#2a2a2a]"
             >
-              Войти
+              {state === "ok" && authed ? "В личный кабинет" : "Войти"}
             </button>
             <button type="button" onClick={goHome} className={`${LINK} mt-5`}>
               На главную

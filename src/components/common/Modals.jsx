@@ -133,7 +133,7 @@ function ModalShell({ children, onClose, width }) {
           короткая карточка центрируется (md:items-center), а если контент выше экрана,
           обёртка растёт и оверлей её прокручивает — карточка НИКОГДА не «залипает» внизу.
           На телефоне (base) items-stretch растягивает лист на весь экран. */}
-      <div className="flex min-h-full w-full items-stretch justify-center md:items-center md:p-6">
+      <div className="flex min-h-full w-full items-stretch justify-center bg-white md:items-center md:bg-transparent md:p-6">
         <div
           className="relative w-full overflow-x-hidden bg-white text-[#111] md:my-auto md:h-auto md:w-[var(--mw)] md:rounded-[10px] md:border md:border-[#dcdcdc] md:shadow-[0_16px_48px_rgba(0,0,0,.35)]"
           style={{ ["--mw"]: `min(${width || 980}px, calc(100vw - 48px))` }}
@@ -219,6 +219,7 @@ function RegisterForm({ email = "" }) {
   const [form, setForm] = React.useState({ user: "", email, pass: "", pass2: "", news: false, agree: false });
   const [errors, setErrors] = React.useState({});
   const [busy, setBusy] = React.useState(false);
+  const [showPass, setShowPass] = React.useState(false);
 
   const set = (k, v) => setForm((s) => ({ ...s, [k]: v }));
   const isEmail = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((v || "").trim());
@@ -323,7 +324,7 @@ function RegisterForm({ email = "" }) {
 
         <div className="flex flex-col">
           <Label>ПАРОЛЬ (*)</Label>
-          <input className={inputCls(errors.pass)} type="password" value={form.pass}
+          <input className={inputCls(errors.pass)} type={showPass ? "text" : "password"} value={form.pass}
             autoComplete="new-password"
             onChange={(e) => { set("pass", e.target.value); if (errors.pass) setErrors({ ...errors, pass: "" }); }}
             placeholder="Пароль" />
@@ -332,7 +333,7 @@ function RegisterForm({ email = "" }) {
 
         <div className="flex flex-col">
           <Label>ПОВТОР ПАРОЛЯ (*)</Label>
-          <input className={inputCls(errors.pass2)} type="password" value={form.pass2}
+          <input className={inputCls(errors.pass2)} type={showPass ? "text" : "password"} value={form.pass2}
             autoComplete="new-password"
             onChange={(e) => { set("pass2", e.target.value); if (errors.pass2) setErrors({ ...errors, pass2: "" }); }}
             placeholder="Ещё раз" />
@@ -343,13 +344,9 @@ function RegisterForm({ email = "" }) {
           Пароль: минимум 6 символов, хотя бы одна заглавная буква и один спецсимвол.
         </p>
 
-        <p className="col-span-2 mb-0.5 mt-1.5 text-sm font-light leading-5 text-[#555]">
-          Мы можем информировать вас по электронной почте о продуктах и услугах. <span className={MUTED_LINK}>Подробнее —</span>
-        </p>
-
-        <div className="col-span-2 flex items-center gap-2.5 text-sm font-light text-[#111]">
-          <FancyCheckbox checked={!!form.news} onChange={(v) => set("news", v)} ariaLabel="Связываться со мной по почте" />
-          <span>Связываться со мной по почте</span>
+        <div className="col-span-2 mt-1 flex items-center gap-2.5 text-sm font-light text-[#111]">
+          <FancyCheckbox checked={showPass} onChange={setShowPass} ariaLabel="Показать пароль" />
+          <span>Показать пароль</span>
         </div>
 
         <div className="col-span-2 flex items-center gap-2.5 text-sm font-light text-[#111]">
@@ -385,6 +382,7 @@ function LoginForm({ _previewTwofa = null, _previewUnverified = null }) {
   const [form, setForm] = React.useState({ id: "", pass: "", keep: false });
   const [errors, setErrors] = React.useState({});
   const [busy, setBusy] = React.useState(false);
+  const [showPass, setShowPass] = React.useState(false);
   const set = (k, v) => setForm((s) => ({ ...s, [k]: v }));
 
   // Второй шаг при 2FA
@@ -542,11 +540,16 @@ function LoginForm({ _previewTwofa = null, _previewUnverified = null }) {
 
         <div className="col-span-2 flex flex-col">
           <Label>ПАРОЛЬ (*)</Label>
-          <input className={inputCls(errors.pass)} type="password" value={form.pass}
+          <input className={inputCls(errors.pass)} type={showPass ? "text" : "password"} value={form.pass}
             autoComplete="current-password"
             onChange={(e) => { set("pass", e.target.value); if (errors.pass) setErrors({ ...errors, pass: "" }); }}
             placeholder="Пароль" />
           <ErrorSlot text={errors.pass} />
+        </div>
+
+        <div className="col-span-2 flex items-center gap-2.5 text-sm font-light text-[#111]">
+          <FancyCheckbox checked={showPass} onChange={setShowPass} ariaLabel="Показать пароль" />
+          <span>Показать пароль</span>
         </div>
 
         <div className="col-span-2 flex items-center gap-2.5 text-sm font-light text-[#111]">
