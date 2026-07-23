@@ -1814,6 +1814,9 @@ function AccountDetail({ token, user, onBack, onChanged, onDeleted }) {
   };
 
   const secLbl = { fontSize: 12, letterSpacing: ".08em", textTransform: "uppercase", color: "#a7a7a7", fontWeight: 300, marginBottom: 12 };
+  // Капсульная кнопка «как Подробнее в услугах»: контур → чёрная заливка на hover (см. Capsule в detailBlocks).
+  const capsuleBtn = { height: 42, padding: "0 18px", borderRadius: 12, border: "1px solid #111", background: "transparent", color: "#111", fontFamily: UI, fontSize: 14, fontWeight: 400, whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", justifyContent: "center" };
+  const capsuleBtnHover = { background: "#111", color: "#fff" };
   return (
     <div style={{ fontFamily: UI, marginTop: 8 }}>
       <button type="button" onClick={onBack} style={{ border: "none", background: "none", padding: 0, cursor: "pointer", fontFamily: UI, fontSize: 14, fontWeight: 300, color: "#777" }}>← К учётным записям</button>
@@ -1875,15 +1878,13 @@ function AccountDetail({ token, user, onBack, onChanged, onDeleted }) {
               </div>
             </div>
             {full.emailVerified ? (
-              <button type="button" onClick={() => doVerifyEmail(false)} disabled={evBusy}
-                style={{ height: 42, padding: "0 16px", borderRadius: 12, border: "1px solid #d9d9d9", background: "#fff", color: "#777", fontFamily: UI, fontSize: 14, cursor: evBusy ? "default" : "pointer", whiteSpace: "nowrap" }}>
+              <HoverBtn onClick={() => doVerifyEmail(false)} disabled={evBusy} style={capsuleBtn} hoverStyle={capsuleBtnHover}>
                 {evBusy ? "…" : "Снять подтверждение"}
-              </button>
+              </HoverBtn>
             ) : (
-              <button type="button" onClick={() => doVerifyEmail(true)} disabled={evBusy}
-                style={{ height: 42, padding: "0 18px", borderRadius: 12, border: "1px solid #2f855a", background: evBusy ? "#2f855a" : "transparent", color: evBusy ? "#fff" : "#2f855a", fontFamily: UI, fontSize: 14, fontWeight: 400, cursor: evBusy ? "default" : "pointer", whiteSpace: "nowrap" }}>
+              <HoverBtn onClick={() => doVerifyEmail(true)} disabled={evBusy} style={capsuleBtn} hoverStyle={capsuleBtnHover}>
                 {evBusy ? "Подтверждаем…" : "Подтвердить почту"}
-              </button>
+              </HoverBtn>
             )}
           </div>
 
@@ -1892,8 +1893,13 @@ function AccountDetail({ token, user, onBack, onChanged, onDeleted }) {
           <div style={{ display: "grid", gap: 12, maxWidth: 420 }}>
             <Field label="Новый пароль"><Input value={newPass} onChange={(v) => { setNewPass(v); setPwErr(""); }} placeholder="Задайте новый пароль" /></Field>
             {pwErr ? <div style={{ fontSize: 13, color: "#fa5d29", marginTop: -4 }}>{pwErr}</div> : null}
-            <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", fontSize: 13, fontWeight: 300, color: "#555" }}>
-              <input type="checkbox" checked={requireChange} onChange={(e) => setRequireChange(e.target.checked)} style={{ width: 16, height: 16, accentColor: "#111", cursor: "pointer" }} />
+            <label style={{ display: "inline-flex", alignItems: "center", gap: 11, cursor: "pointer", fontSize: 13, fontWeight: 300, color: "#555", userSelect: "none" }}>
+              <span role="checkbox" aria-checked={requireChange} tabIndex={0}
+                onClick={(e) => { e.preventDefault(); setRequireChange((v) => !v); }}
+                onKeyDown={(e) => { if (e.key === " " || e.key === "Enter") { e.preventDefault(); setRequireChange((v) => !v); } }}
+                style={{ width: 18, height: 18, flexShrink: 0, borderRadius: 4, border: "1px solid #d9d9d9", display: "inline-grid", placeItems: "center", cursor: "pointer" }}>
+                <span aria-hidden="true" style={{ width: 10, height: 10, borderRadius: 3, background: "#111", transition: "transform .15s ease", transform: requireChange ? "scale(1)" : "scale(0)" }} />
+              </span>
               Потребовать смену пароля при первом входе
             </label>
             <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
@@ -6140,6 +6146,7 @@ export default function AccountProfilePage() {
   const [sessions, setSessions] = React.useState([]);
   const [sessionsLoading, setSessionsLoading] = React.useState(false);
   const [revokingSid, setRevokingSid] = React.useState("");
+  const [sessionsExpanded, setSessionsExpanded] = React.useState(false); // список сессий свёрнут: 3 видно + бледная 4-я + точки
 
   /* безопасность / опасная зона */
   const [logoutAllBusy, setLogoutAllBusy] = React.useState(false);
@@ -6530,6 +6537,29 @@ export default function AccountProfilePage() {
     }
     return [...map.values()].sort((a, b) => (Number(b.current) - Number(a.current)) || (b.lastSeen - a.lastSeen));
   }, [sessions]);
+
+  // Карточка сгруппированной сессии — переиспользуется в списке и как бледная превью-4-я.
+  const renderSessionCard = (g, animate = false) => (
+    <div key={g.key} className={animate ? "animate-svcfade" : undefined} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "12px 14px", borderRadius: 12, border: g.current ? "1px solid #000" : "1px solid #e6e6e6", background: g.current ? "#fafafa" : "#fff" }}>
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontSize: 14, fontWeight: 500, color: TEXT, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          {describeUserAgent(g.userAgent)}
+          {g.current && (<span style={{ fontSize: 11, fontWeight: 500, color: "#0a7d32", background: "#e7f6ec", borderRadius: 6, padding: "2px 7px" }}>текущая</span>)}
+        </div>
+        <div style={{ fontSize: 12, fontWeight: 300, color: "#888", marginTop: 3 }}>
+          {[g.ip, formatSessionTime(g.lastSeen), g.count > 1 ? `${g.count} входов` : ""].filter(Boolean).join(" · ")}
+        </div>
+      </div>
+      {!g.current && (
+        <button type="button" onClick={() => handleRevokeGroup(g)} disabled={revokingSid === g.key}
+          style={{ flexShrink: 0, height: 36, padding: "0 14px", borderRadius: 9, background: "#fff", color: "#c0392b", border: "1px solid #e3b4ae", fontFamily: UI, fontSize: 13, fontWeight: 300, cursor: revokingSid === g.key ? "not-allowed" : "pointer", opacity: revokingSid === g.key ? 0.6 : 1, transition: "background-color .18s ease, color .18s ease, border-color .18s ease" }}
+          onMouseEnter={(e) => { if (revokingSid === g.key) return; e.currentTarget.style.background = "#c0392b"; e.currentTarget.style.color = "#fff"; e.currentTarget.style.borderColor = "#c0392b"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = "#fff"; e.currentTarget.style.color = "#c0392b"; e.currentTarget.style.borderColor = "#e3b4ae"; }}>
+          {revokingSid === g.key ? "…" : "Отозвать"}
+        </button>
+      )}
+    </div>
+  );
 
   async function handleRevokeGroup(g) {
     if (!g || !token || !g.sids.length) return;
@@ -7076,28 +7106,36 @@ export default function AccountProfilePage() {
                   <div style={{ fontSize: 14, fontWeight: 300, color: "#999" }}>Загрузка сессий…</div>
                 ) : sessions.length === 0 ? (
                   <div style={{ fontSize: 14, fontWeight: 300, color: "#999" }}>Активных сессий не найдено.</div>
-                ) : (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                    {groupedSessions.map((g) => (
-                      <div key={g.key} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "12px 14px", borderRadius: 12, border: g.current ? "1px solid #000" : "1px solid #e6e6e6", background: g.current ? "#fafafa" : "#fff" }}>
-                        <div style={{ minWidth: 0 }}>
-                          <div style={{ fontSize: 14, fontWeight: 500, color: TEXT, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                            {describeUserAgent(g.userAgent)}
-                            {g.current && (<span style={{ fontSize: 11, fontWeight: 500, color: "#0a7d32", background: "#e7f6ec", borderRadius: 6, padding: "2px 7px" }}>текущая</span>)}
-                          </div>
-                          <div style={{ fontSize: 12, fontWeight: 300, color: "#888", marginTop: 3 }}>
-                            {[g.ip, formatSessionTime(g.lastSeen), g.count > 1 ? `${g.count} входов` : ""].filter(Boolean).join(" · ")}
-                          </div>
-                        </div>
-                        {!g.current && (
-                          <button type="button" onClick={() => handleRevokeGroup(g)} disabled={revokingSid === g.key} style={{ flexShrink: 0, height: 36, padding: "0 14px", borderRadius: 9, background: "#fff", color: "#c0392b", border: "1px solid #e3b4ae", fontFamily: UI, fontSize: 13, fontWeight: 300, cursor: revokingSid === g.key ? "not-allowed" : "pointer", opacity: revokingSid === g.key ? 0.6 : 1 }}>
-                            {revokingSid === g.key ? "…" : "Отозвать"}
-                          </button>
+                ) : (() => {
+                    const SHOWN = 3; // сколько записей видно свёрнутым
+                    const collapsed = !sessionsExpanded && groupedSessions.length > SHOWN;
+                    const visible = collapsed ? groupedSessions.slice(0, SHOWN) : groupedSessions;
+                    const peek = collapsed ? groupedSessions[SHOWN] : null; // 4-я — бледная превью
+                    const hiddenCount = groupedSessions.length - SHOWN;
+                    return (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                        {/* первые SHOWN — без анимации; раскрытые сверх того — house-fade svcfade */}
+                        {visible.map((g, i) => renderSessionCard(g, i >= SHOWN))}
+
+                        {/* Бледная 4-я запись + точки внизу — раскрыть остальное */}
+                        {collapsed && (
+                          <>
+                            <div style={{ opacity: 0.4, WebkitMaskImage: "linear-gradient(to bottom,#000 0%,transparent 92%)", maskImage: "linear-gradient(to bottom,#000 0%,transparent 92%)", pointerEvents: "none" }}>
+                              {peek && renderSessionCard(peek)}
+                            </div>
+                            <div style={{ display: "flex", justifyContent: "center", marginTop: -2 }}>
+                              <button type="button" onClick={() => setSessionsExpanded(true)} title={`Показать все — ещё ${hiddenCount}`}
+                                style={{ display: "inline-flex", alignItems: "center", gap: 5, height: 34, padding: "0 18px", borderRadius: 999, border: "1px solid #d4d4d4", background: "transparent", cursor: "pointer", transition: "border-color .18s ease" }}
+                                onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#111"; }}
+                                onMouseLeave={(e) => { e.currentTarget.style.borderColor = "#d4d4d4"; }}>
+                                {[0, 1, 2].map((i) => <span key={i} style={{ width: 4, height: 4, borderRadius: 999, background: "#111", display: "block" }} />)}
+                              </button>
+                            </div>
+                          </>
                         )}
                       </div>
-                    ))}
-                  </div>
-                )}
+                    );
+                  })()}
               </SettingsRow>
 
               {/* ——— Двухфакторная аутентификация ——— */}

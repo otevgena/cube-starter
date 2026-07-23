@@ -15,6 +15,8 @@ export default function SpaLink({
   title,
   ariaLabel,
   onNavigated, // optional callback после смены пути
+  ...rest       // прочие пропсы (onMouseEnter/onMouseLeave/onFocus…) должны доходить до <a>,
+                // иначе hover-эффекты, навешенные снаружи (напр. капсула «Подробнее»), теряются
 }) {
   const onClick = (e) => {
     e.preventDefault();
@@ -35,6 +37,7 @@ export default function SpaLink({
       style={style}
       title={title}
       aria-label={ariaLabel}
+      {...rest}
     >
       {children}
     </a>
