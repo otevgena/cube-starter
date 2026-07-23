@@ -2873,6 +2873,7 @@ export function EmployeesModule({ backTo, canManage = true }) {
   const [accounts, setAccounts] = React.useState([]);
   const [view, setView] = React.useState(null);   // null=список | {emp:null}=добавить | {emp}=редактировать
   const [busyId, setBusyId] = React.useState("");  // id учётки, которую сейчас понижаем
+  const [loading, setLoading] = React.useState(true); // первичная загрузка списка — показываем спиннер, не «Сотрудников пока нет»
   // Учётки (для выбора при добавлении) + актуальный список сотрудников с бэкенда.
   React.useEffect(() => {
     let alive = true;
@@ -2880,7 +2881,7 @@ export function EmployeesModule({ backTo, canManage = true }) {
       const list = await DB.listAccounts();
       if (alive) setAccounts(list);
       await hydrateStaff(true);
-      if (alive) force();
+      if (alive) { setLoading(false); force(); }
     })();
     return () => { alive = false; };
   }, []);
@@ -2922,9 +2923,10 @@ export function EmployeesModule({ backTo, canManage = true }) {
       <div style={{ marginTop: 20 }}><UnderSearch value={q} onChange={setQ} placeholder="Поиск: ФИО, должность, e-mail…" /></div>
 
       <div style={{ marginTop: 26 }}>
-        <ListHead label="Сотрудники" count={list.length} />
+        <ListHead label="Сотрудники" count={loading ? 0 : list.length} />
         <DottedLine />
-        {list.map((e) => {
+        {loading && <CenterSpinner minHeight={160} label="Загружаем сотрудников…" />}
+        {!loading && list.map((e) => {
           const busy = busyId === e.id;
           return (
             <ListRow key={e.id} onOpen={canManage ? () => setView({ emp: e }) : undefined}>
@@ -2952,7 +2954,7 @@ export function EmployeesModule({ backTo, canManage = true }) {
             </ListRow>
           );
         })}
-        {list.length === 0 && <div style={{ padding: "28px 8px", color: MUTED, fontSize: 14, fontWeight: 300 }}>{all.length === 0 ? "Сотрудников пока нет." : "Ничего не найдено."}</div>}
+        {!loading && list.length === 0 && <div style={{ padding: "28px 8px", color: MUTED, fontSize: 14, fontWeight: 300 }}>{all.length === 0 ? "Сотрудников пока нет." : "Ничего не найдено."}</div>}
       </div>
     </div>
   );

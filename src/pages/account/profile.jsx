@@ -364,6 +364,43 @@ async function apiAdminUpdateUser(token, userId, patch) {
   return await tryJSON(`/admin/users/${encodeURIComponent(id)}`, "PATCH", patch);
 }
 
+/* --- админ: PATCH одной учётки с 401-retry, возвращает {ok, error, user} --- */
+async function apiAdminPatchUser(token, userId, patch) {
+  const id = userId;
+  if (!id) return { ok: false, error: "no_id" };
+  const doCall = async (tk) => fetch(api(`/admin/users/${encodeURIComponent(id)}`), {
+    method: "PATCH",
+    credentials: "include",
+    headers: { Authorization: `Bearer ${tk}`, "Content-Type": "application/json" },
+    body: JSON.stringify(patch),
+  });
+  try {
+    let tk = "";
+    try { tk = sessionStorage.getItem("auth:accessToken") || token || ""; } catch { tk = token || ""; }
+    let r = await doCall(tk);
+    if (r.status === 401) {
+      const fresh = await apiRefresh(8000);
+      if (fresh) { tk = fresh; try { sessionStorage.setItem("auth:accessToken", fresh); } catch {} r = await doCall(tk); }
+    }
+    const data = await r.json().catch(() => null);
+    if (!r.ok) return { ok: false, error: (data && data.error) || `http_${r.status}` };
+    return { ok: true, user: (data && data.user) || null };
+  } catch {
+    return { ok: false, error: "network" };
+  }
+}
+
+/* --- админ: сброс пароля учётке (задаёт новый пароль; requireChange — потребовать
+       смену при первом входе). Все сессии пользователя инвалидируются на бэке. --- */
+async function apiAdminResetPassword(token, userId, newPassword, requireChange = false) {
+  return apiAdminPatchUser(token, userId, { newPassword, requirePasswordChange: !!requireChange });
+}
+
+/* --- админ: ручное подтверждение/снятие подтверждения почты учётки --- */
+async function apiAdminSetEmailVerified(token, userId, verified = true) {
+  return apiAdminPatchUser(token, userId, { emailVerified: !!verified });
+}
+
 /* --- админ: создание новой учётной записи --- */
 async function apiAdminCreateUser(token, { email, login, password, name, group, role, org, inn, kpp, legalAddress } = {}) {
   try {
@@ -1676,6 +1713,13 @@ function AccountDetail({ token, user, onBack, onChanged, onDeleted }) {
   const [confirmDel, setConfirmDel] = React.useState(false);
   const [deleting, setDeleting] = React.useState(false);
   const [innBusy, setInnBusy] = React.useState(false);
+  // Безопасность: сброс пароля + ручное подтверждение почты
+  const [newPass, setNewPass] = React.useState("");
+  const [requireChange, setRequireChange] = React.useState(false);
+  const [pwBusy, setPwBusy] = React.useState(false);
+  const [pwErr, setPwErr] = React.useState("");
+  const [pwDone, setPwDone] = React.useState(false);
+  const [evBusy, setEvBusy] = React.useState(false);
 
   // Ввод ИНН → как только 10/12 цифр, подтягиваем организацию/КПП/адрес из DaData.
   const onInnChange = async (v) => {
@@ -1740,6 +1784,35 @@ function AccountDetail({ token, user, onBack, onChanged, onDeleted }) {
     onDeleted?.();
   };
 
+  // Перевод серверных ошибок пароля на русский (см. passwordPolicyError на бэке).
+  const pwErrRu = (e) => ({
+    "password too short": "Минимум 6 символов",
+    "password needs uppercase": "Нужна заглавная буква",
+    "password needs symbol": "Нужен спецсимвол",
+  }[e] || "Не удалось сбросить пароль");
+
+  const doResetPassword = async () => {
+    setPwErr("");
+    const np = newPass.trim();
+    if (!np) { setPwErr("Введите новый пароль"); return; }
+    setPwBusy(true);
+    const res = await apiAdminResetPassword(token, id, np, requireChange);
+    setPwBusy(false);
+    if (!res || res.ok === false) { setPwErr(pwErrRu(res && res.error)); return; }
+    setNewPass(""); setRequireChange(false);
+    setPwDone(true); setTimeout(() => setPwDone(false), 2200);
+    window.showDockToast?.("Пароль обновлён · сессии сброшены");
+  };
+
+  const doVerifyEmail = async (verified) => {
+    setEvBusy(true);
+    const res = await apiAdminSetEmailVerified(token, id, verified);
+    setEvBusy(false);
+    if (!res || res.ok === false) { window.showDockToast?.("Не удалось изменить статус почты"); return; }
+    setFull((prev) => ({ ...prev, emailVerified: verified }));
+    window.showDockToast?.(verified ? "Почта подтверждена" : "Подтверждение снято");
+  };
+
   const secLbl = { fontSize: 12, letterSpacing: ".08em", textTransform: "uppercase", color: "#a7a7a7", fontWeight: 300, marginBottom: 12 };
   return (
     <div style={{ fontFamily: UI, marginTop: 8 }}>
@@ -1779,6 +1852,58 @@ function AccountDetail({ token, user, onBack, onChanged, onDeleted }) {
         <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
           <DarkTextBtn onClick={save} disabled={busy}>{busy ? "Сохраняем…" : "Сохранить изменения"}</DarkTextBtn>
           {saved && <span style={{ fontSize: 13, color: "#3a8a3a" }}>Сохранено ✓</span>}
+        </div>
+
+        <div style={{ borderTop: "1px solid #eee", paddingTop: 16 }}>
+          <div style={secLbl}>Безопасность</div>
+
+          {/* Подтверждение почты вручную — на случай недоставки письма (напр. mail.ru) */}
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 20 }}>
+            <div style={{ minWidth: 0, flex: "1 1 240px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 14, fontWeight: 400, color: TEXT }}>Почта</span>
+                <span style={{
+                  fontSize: 12, fontWeight: 400, padding: "2px 9px", borderRadius: 999,
+                  background: full.emailVerified ? "#e9f5ec" : "#fbece7",
+                  color: full.emailVerified ? "#2f855a" : "#c0392b",
+                }}>{full.emailVerified ? "подтверждена" : "не подтверждена"}</span>
+              </div>
+              <div style={{ marginTop: 5, fontSize: 13, fontWeight: 300, color: "#888", lineHeight: 1.5 }}>
+                {full.emailVerified
+                  ? "Вход по e-mail разрешён."
+                  : "Пока почта не подтверждена, вход по e-mail заблокирован. Если письмо не дошло — подтвердите вручную."}
+              </div>
+            </div>
+            {full.emailVerified ? (
+              <button type="button" onClick={() => doVerifyEmail(false)} disabled={evBusy}
+                style={{ height: 42, padding: "0 16px", borderRadius: 12, border: "1px solid #d9d9d9", background: "#fff", color: "#777", fontFamily: UI, fontSize: 14, cursor: evBusy ? "default" : "pointer", whiteSpace: "nowrap" }}>
+                {evBusy ? "…" : "Снять подтверждение"}
+              </button>
+            ) : (
+              <button type="button" onClick={() => doVerifyEmail(true)} disabled={evBusy}
+                style={{ height: 42, padding: "0 18px", borderRadius: 12, border: "1px solid #2f855a", background: evBusy ? "#2f855a" : "transparent", color: evBusy ? "#fff" : "#2f855a", fontFamily: UI, fontSize: 14, fontWeight: 400, cursor: evBusy ? "default" : "pointer", whiteSpace: "nowrap" }}>
+                {evBusy ? "Подтверждаем…" : "Подтвердить почту"}
+              </button>
+            )}
+          </div>
+
+          {/* Сброс пароля админом */}
+          <div style={{ fontSize: 14, fontWeight: 400, color: TEXT, marginBottom: 10 }}>Сброс пароля</div>
+          <div style={{ display: "grid", gap: 12, maxWidth: 420 }}>
+            <Field label="Новый пароль"><Input value={newPass} onChange={(v) => { setNewPass(v); setPwErr(""); }} placeholder="Задайте новый пароль" /></Field>
+            {pwErr ? <div style={{ fontSize: 13, color: "#fa5d29", marginTop: -4 }}>{pwErr}</div> : null}
+            <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", fontSize: 13, fontWeight: 300, color: "#555" }}>
+              <input type="checkbox" checked={requireChange} onChange={(e) => setRequireChange(e.target.checked)} style={{ width: 16, height: 16, accentColor: "#111", cursor: "pointer" }} />
+              Потребовать смену пароля при первом входе
+            </label>
+            <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+              <DarkTextBtn onClick={doResetPassword} disabled={pwBusy}>{pwBusy ? "Сбрасываем…" : "Сбросить пароль"}</DarkTextBtn>
+              {pwDone && <span style={{ fontSize: 13, color: "#3a8a3a" }}>Готово ✓</span>}
+            </div>
+            <div style={{ fontSize: 12, fontWeight: 300, color: "#999", lineHeight: 1.5 }}>
+              Минимум 6 символов, заглавная буква и спецсимвол. После сброса пользователь выйдет из всех сессий.
+            </div>
+          </div>
         </div>
 
         <div style={{ borderTop: "1px solid #eee", paddingTop: 16, marginTop: 4 }}>
