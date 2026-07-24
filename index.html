@@ -45,7 +45,19 @@
     </script>
   </head>
   <body>
-    <div id="root"></div>
+    <!-- Мгновенная заставка на время загрузки бандла (2 МБ). Показывается ДО JS,
+         поэтому пользователь по deeplink из письма (/verify-email, /reset) видит
+         брендовый «кружок с точками», а не белый экран. React затирает #root при
+         монтировании — заставка исчезает сама, без скриптов. -->
+    <style>
+      #boot{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+        background:#f8f8f8;font-family:'Inter Tight',system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif}
+      #boot .r{width:38px;height:38px;border-radius:50%;
+        border:2px solid rgba(0,0,0,.12);border-top-color:#1c1c1c;
+        animation:bootspin .7s linear infinite}
+      @keyframes bootspin{to{transform:rotate(360deg)}}
+    </style>
+    <div id="root"><div id="boot"><div class="r"></div></div></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
