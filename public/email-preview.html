@@ -1,298 +1,153 @@
 <!doctype html>
 <html lang="ru">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>КУБ — превью письма</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Превью писем · КУБ</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{ --ink:#151515; --muted:#7a7a7a; --line:#e6e6e6; --page:#f8f8f8; }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; }
+  body{
+    font-family:'Inter Tight',Inter,system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;
+    color:var(--ink); background:var(--page);
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{ max-width:1320px; margin:0 auto; padding:40px 24px 80px; }
+  header.top{ margin-bottom:8px; }
+  .eyebrow{ font-size:13px; font-weight:500; color:var(--muted); letter-spacing:.02em; }
+  h1{
+    margin:6px 0 0; font-weight:700; text-transform:uppercase; letter-spacing:.01em; line-height:1;
+    font-size:clamp(40px,8vw,84px);
+  }
+  .lead{ margin:18px 0 0; max-width:720px; font-size:15px; line-height:24px; font-weight:400; color:#3a3a3a; }
+  .lead b{ font-weight:600; }
 
-  <!-- Inter Tight 400/700/800 (используем 400 для "c.") -->
-  <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;700;800&display=swap" rel="stylesheet">
+  /* Тулбар */
+  .toolbar{ display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin:28px 0 22px; }
+  .seg{ display:inline-flex; background:#ededed; border-radius:12px; padding:4px; gap:2px; }
+  .seg button{
+    border:0; background:transparent; cursor:pointer; font:inherit; font-size:13px; font-weight:600;
+    color:#555; padding:8px 16px; border-radius:9px; transition:all .18s ease;
+  }
+  .seg button.active{ background:#1c1c1c; color:#fff; }
+  .hint{ font-size:12.5px; color:var(--muted); }
 
-  <style>
-    *{box-sizing:border-box}
-    body{
-      margin:0; background:#0b0b0b; color:#eaeaea;
-      font:14px/1.45 'Inter Tight', Inter, Arial, sans-serif; font-weight:400;
-    }
-    .wrap{display:grid; grid-template-columns:380px 1fr; gap:18px; padding:18px; min-height:100vh}
-    .panel{background:#121212; border:1px solid #1f1f1f; border-radius:14px; padding:16px}
-    .row{display:grid; grid-template-columns:140px 1fr; gap:10px; align-items:center; margin:8px 0}
-    label{color:#b9b9b9; font-size:12px; text-transform:uppercase; letter-spacing:.04em}
-    input, textarea, select{
-      width:100%; background:#0f0f0f; border:1px solid #2a2a2a; color:#eaeaea;
-      border-radius:10px; padding:10px 12px; outline:none; font:14px/1.4 inherit;
-    }
-    textarea{resize:vertical; min-height:90px}
-    .btns{display:flex; gap:10px; flex-wrap:wrap; margin-top:12px}
-    button{
-      background:#00d4aa; color:#091011; border:none; border-radius:10px; padding:10px 14px;
-      font-weight:700; cursor:pointer;
-    }
-    button.secondary{ background:#1b1b1b; color:#eaeaea; border:1px solid #2a2a2a; font-weight:400;}
-    .title{font-size:13px; font-weight:800; letter-spacing:.06em; color:#bcbcbc; margin:0 0 8px; text-transform:uppercase}
-    .preview{height:calc(100vh - 36px); background:#0a0a0a; border:1px solid #1f1f1f; border-radius:14px; overflow:hidden}
-    iframe{width:100%; height:100%; border:0; background:#fff}
-    hr{border:none; border-top:1px solid #1f1f1f; margin:12px 0}
-  </style>
+  /* Колонки писем */
+  .stage{ display:grid; grid-template-columns:1fr 1fr; gap:22px; align-items:start; }
+  @media (max-width:900px){ .stage{ grid-template-columns:1fr; } }
+  .col{ min-width:0; }
+  .col-head{ display:flex; align-items:center; gap:8px; margin:0 0 12px; font-size:13px; font-weight:600; }
+  .swatch{ width:14px; height:14px; border-radius:4px; border:1px solid rgba(0,0,0,.08); }
+  .frame{
+    border-radius:16px; overflow:hidden; border:1px solid var(--line);
+    box-shadow:0 1px 0 rgba(0,0,0,.02), 0 18px 40px -24px rgba(0,0,0,.25);
+  }
+  .frame.light{ background:#ffffff; }
+  .frame.dark{ background:#0e0e0e; border-color:#242424; }
+  iframe{ width:100%; border:0; display:block; }
+
+  /* Дизайн-заметки */
+  .notes{ margin-top:52px; }
+  .notes h2{ font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:#111; margin:0 0 16px; }
+  .cards{ display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:14px; }
+  .card{ background:#fff; border:1px solid var(--line); border-radius:14px; padding:16px 18px; }
+  .card .k{ font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); }
+  .card .v{ margin-top:6px; font-size:14px; line-height:20px; font-weight:500; }
+  .dots{ margin-top:10px; color:#c8c8c8; font-size:12px; line-height:1; overflow:hidden; white-space:nowrap; }
+</style>
 </head>
 <body>
   <div class="wrap">
-    <div class="panel">
-      <h3 class="title">Данные заявки</h3>
+    <header class="top">
+      <div class="eyebrow">cube-tech.ru · транзакционные письма</div>
+      <h1>Превью писем</h1>
+      <p class="lead">
+        Живое превью письма <b>без отправки на почту</b> — то, что реально соберёт бэкенд (рендеры взяты из <b>mailer.js</b> один-в-один).
+        Слева — светлая тема, справа — как письмо выглядит в <b>тёмной теме</b> почтового клиента.
+        Дизайн подтянут под сайт: скругления, «точки», кнопка как «Войти».
+      </p>
+    </header>
 
-      <div class="row"><label>Шаблон</label>
-        <select id="tpl">
-          <option value="admin">Письмо вам (админу)</option>
-          <option value="client">Автоответ клиенту</option>
-        </select>
+    <div class="toolbar">
+      <div class="seg" id="segType">
+        <button data-type="verify" class="active">Подтверждение почты</button>
+        <button data-type="reset">Сброс пароля</button>
       </div>
+      <span class="hint">Обе колонки видны сразу — тему ОС переключать не нужно.</span>
+    </div>
 
-      <div class="row"><label>ID заявки</label> <input id="appId" value="Cube-00230" /></div>
-      <div class="row"><label>Имя</label>       <input id="name"  value="Евгений" /></div>
-      <div class="row"><label>Email</label>     <input id="email" value="saip0904@gmail.com" /></div>
-      <div class="row"><label>Телефон</label>   <input id="phone" value="+7 900 000-00-00" /></div>
-      <div class="row"><label>Вариант</label>   <input id="option" value="Рассчитать стоимость работ" /></div>
-      <div class="row"><label>Сообщение</label> <textarea id="message">Здравствуйте! Хочу рассчитать стоимость работ… Длинный-длинный комментарий для проверки переноса: супердлинноесловобез_пробелов_которое_нужно_переносить_без_растяжения_ширины.</textarea></div>
-      <div class="row"><label>Страница</label>  <input id="page"  value="https://cube-tech.ru/contact" /></div>
-
-      <hr/>
-      <h3 class="title">Бренд письма</h3>
-      <div class="row"><label>Название</label> <input id="brandName" value="КУБ" /></div>
-      <div class="row"><label>Сайт</label>     <input id="brandSite" value="https://cube-tech.ru" /></div>
-      <div class="row"><label>Логотип (URL)</label> <input id="brandLogo" placeholder="https://.../logo.png (необязательно)" /></div>
-
-      <div class="btns">
-        <button id="apply">Обновить превью</button>
-        <button id="copy" class="secondary">Копировать HTML</button>
-        <button id="download" class="secondary">Скачать HTML</button>
+    <div class="stage">
+      <div class="col">
+        <div class="col-head"><span class="swatch" style="background:#ffffff"></span>Светлая тема</div>
+        <div class="frame light"><iframe id="fLight" title="Светлое письмо"></iframe></div>
+      </div>
+      <div class="col">
+        <div class="col-head"><span class="swatch" style="background:#0e0e0e"></span>Тёмная тема (как в почте)</div>
+        <div class="frame dark"><iframe id="fDark" title="Тёмное письмо"></iframe></div>
       </div>
     </div>
 
-    <div class="preview panel">
-      <iframe id="frame" title="Email preview"></iframe>
-    </div>
+    <section class="notes">
+      <h2>Что взято из дизайна сайта</h2>
+      <div class="cards">
+        <div class="card">
+          <div class="k">Кнопка</div>
+          <div class="v">#1c1c1c, радиус 10px, UPPERCASE, трекинг .06em — как «Войти» / «Оставить заявку».</div>
+        </div>
+        <div class="card">
+          <div class="k">Карточка</div>
+          <div class="v">Фон #f8f8f8 (как фон сайта), радиус 12px, чёрная шапка-плашка с лого «c.» внутри.</div>
+        </div>
+        <div class="card">
+          <div class="k">«Точки» — фирменный приём</div>
+          <div class="v">Разделитель строк точками, как на сайте.</div>
+          <div class="dots">. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .</div>
+        </div>
+        <div class="card">
+          <div class="k">Шрифт</div>
+          <div class="v">Inter Tight — тот же, что во всём интерфейсе.</div>
+        </div>
+        <div class="card">
+          <div class="k">Тёмная тема</div>
+          <div class="v">meta color-scheme + dark-медиазапрос закрепляют светлую палитру карточки; текст кнопки принудительно белый (табличная кнопка не даёт клиенту инвертировать текст).</div>
+        </div>
+      </div>
+    </section>
   </div>
 
-  <script>
-    // ========= Константы =========
-    const EMAIL_W     = 600;     // ширина письма
-    const LOGO_TEXT   = "c.";    // текст логотипа
-    const LOGO_SIZE   = 30;      // px — размер "c."
-    const LOGO_WEIGHT = 700;     // 400 = Regular, 700 = Bold, 800 = ExtraBold
+<script>
+  var DATA = {"verifyLight":"<!doctype html>\n<html lang=\"ru\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<meta name=\"color-scheme\" content=\"light dark\">\n<meta name=\"supported-color-schemes\" content=\"light dark\">\n<link href=\"https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;700;800&display=swap\" rel=\"stylesheet\">\n<style>\n  /* Тёмная тема писем. Проблема (мобильный Gmail/iOS Mail): клиент сам\n     «затемняет» письмо — фон карточки #f8f8f8 темнеет, а тёмный текст (#222),\n     чёрная шапка и чёрная кнопка сливаются с новым фоном → логотип «c.»,\n     заголовок и кнопка почти не видны. Решение: заявляем поддержку тёмной темы\n     (meta color-scheme, чтобы клиент отдал управление нам) и в dark-режиме\n     ПРИНУДИТЕЛЬНО закрепляем СВЕТЛУЮ палитру карточки — весь исходный контраст\n     сохраняется. Светлую тему это не трогает (медиазапрос срабатывает только при\n     prefers-color-scheme: dark). !important в <style> перебивает inline-стили,\n     поэтому клиентская авто-инверсия не проходит. */\n  \n  /* Outlook.com dark-режим (data-ogs*) — тот же смысл. */\n  [data-ogsc] .cube-card { background:#f8f8f8 !important; }\n  [data-ogsc] .cube-title, [data-ogsc] .cube-text, [data-ogsc] .cube-text a { color:#222222 !important; }\n  [data-ogsc] .cube-muted { color:#666666 !important; }\n  [data-ogsb] .cube-head { background:#000000 !important; }\n  [data-ogsb] .cube-btn { background:#1c1c1c !important; }\n  [data-ogsc] .cube-logo { color:#ffffff !important; }\n  [data-ogsc] .cube-btn-a, [data-ogsc] .cube-btn a { color:#ffffff !important; }\n</style></head>\n<body class=\"cube-body\" style=\"margin:0; padding:0; background:#ffffff;\">\n  <div class=\"cube-page\" style=\"margin:0; padding:0; background:#ffffff;\">\n    <table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\" style=\"background:#ffffff;\">\n      <tr><td align=\"center\" style=\"padding:16px;\">\n        <table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" style=\"width:600px; max-width:600px; table-layout:fixed; font-family:'Inter Tight', Inter, Arial, sans-serif; color:#222222;\">\n          <tr><td style=\"padding:0;\">\n            <div class=\"cube-card\" style=\"border-radius:12px; overflow:hidden; background:#f8f8f8;\">\n              <div class=\"cube-head\" style=\"background:#000000; padding:16px 20px;\"><span class=\"cube-logo\" style=\"display:inline-block; font-size:30px; font-weight:700; letter-spacing:.02em; color:#ffffff; font-family:'Inter Tight','Inter',Arial,sans-serif;\">c.</span></div>\n              <div class=\"cube-text\" style=\"padding:20px;\">\n                <div class=\"cube-title\" style=\"margin:0 0 12px; font-size:18px; line-height:24px; letter-spacing:.02em; text-transform:uppercase; font-weight:700;\">Подтверждение почты</div>\n                <div style=\"margin:0 0 6px; font-size:14px; font-weight:700;\">Здравствуйте!</div><div style=\"margin:0 0 14px; font-size:14px; line-height:22px;\">Подтвердите ваш адрес электронной почты для аккаунта на <a href=\"https://cube-tech.ru\" style=\"color:#222222;\">cube-tech.ru</a>. Нажмите кнопку ниже.</div>\n    <table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" style=\"width:100%; table-layout:fixed; font-size:14px; line-height:22px;\">\n      <tr>\n        <td style=\"padding:0; vertical-align:baseline; font-weight:600; white-space:nowrap; width:1%;\">Ссылка действует</td>\n        <td style=\"padding:0; vertical-align:baseline; text-align:right; white-space:normal; word-break:break-word; overflow-wrap:anywhere;\">24 часа</td>\n      </tr>\n    </table><div style=\"margin-top:4px; margin-bottom:10px;\"><div style=\"color:#c8c8c8; line-height:1; font-size:12px; overflow:hidden; white-space:nowrap; word-spacing:1px;\">. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . </div></div><table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" style=\"margin-top:4px; border-collapse:separate;\">\n    <tr>\n      <td class=\"cube-btn\" bgcolor=\"#1c1c1c\" style=\"border-radius:10px; background:#1c1c1c;\">\n        <a class=\"cube-btn-a\" href=\"https://cube-tech.ru/verify-email?token=demo-1a2b3c4d5e6f7g8h9i0j\" style=\"display:inline-block; padding:15px 30px; font-family:'Inter Tight', Inter, Arial, sans-serif; font-size:13px; line-height:14px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:#ffffff; text-decoration:none; border-radius:10px;\"><span class=\"cube-btn-a\" style=\"color:#ffffff;\">Подтвердить почту</span></a>\n      </td>\n    </tr>\n  </table><div style=\"margin:14px 0 0; font-size:12px; line-height:18px; color:#666666;\">Если вы не регистрировались на cube-tech.ru — просто проигнорируйте это письмо.<br/>Если кнопка не работает, скопируйте ссылку:<br/><span style=\"word-break:break-all; color:#222222;\">https://cube-tech.ru/verify-email?token=demo-1a2b3c4d5e6f7g8h9i0j</span></div>\n                <div style=\"height:16px;\"></div>\n                <p class=\"cube-muted\" style=\"margin:0; font-size:12px; line-height:18px; color:#666666;\">\n                  Это автоматическое письмо от <a href=\"https://cube-tech.ru\" style=\"color:#222222; text-decoration:none;\">https://cube-tech.ru</a>.\n                </p>\n              </div>\n            </div>\n          </td></tr>\n          <tr><td style=\"height:16px;\"></td></tr>\n        </table>\n      </td></tr>\n    </table>\n  </div>\n</body></html>","verifyDark":"<!doctype html>\n<html lang=\"ru\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<meta name=\"color-scheme\" content=\"light dark\">\n<meta name=\"supported-color-schemes\" content=\"light dark\">\n<link href=\"https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;700;800&display=swap\" rel=\"stylesheet\">\n<style>\n  /* Тёмная тема писем. Проблема (мобильный Gmail/iOS Mail): клиент сам\n     «затемняет» письмо — фон карточки #f8f8f8 темнеет, а тёмный текст (#222),\n     чёрная шапка и чёрная кнопка сливаются с новым фоном → логотип «c.»,\n     заголовок и кнопка почти не видны. Решение: заявляем поддержку тёмной темы\n     (meta color-scheme, чтобы клиент отдал управление нам) и в dark-режиме\n     ПРИНУДИТЕЛЬНО закрепляем СВЕТЛУЮ палитру карточки — весь исходный контраст\n     сохраняется. Светлую тему это не трогает (медиазапрос срабатывает только при\n     prefers-color-scheme: dark). !important в <style> перебивает inline-стили,\n     поэтому клиентская авто-инверсия не проходит. */\n  @media all {\n    .cube-page, .cube-body { background:#0e0e0e !important; }\n    .cube-card { background:#f8f8f8 !important; }\n    .cube-head { background:#000000 !important; }\n    .cube-logo { color:#ffffff !important; }\n    .cube-title, .cube-text, .cube-text a { color:#222222 !important; }\n    .cube-muted, .cube-muted a { color:#666666 !important; }\n    /* Кнопка: фон тёмный, текст ПРИНУДИТЕЛЬНО белый (иначе клиент инвертирует\n       белый текст ссылки в тёмный → тёмное-на-тёмном). Дублируем на <a> и <span>. */\n    .cube-btn { background:#1c1c1c !important; }\n    .cube-btn a, .cube-btn-a, a.cube-btn-a, .cube-btn-a span { color:#ffffff !important; }\n  }\n  /* Outlook.com dark-режим (data-ogs*) — тот же смысл. */\n  [data-ogsc] .cube-card { background:#f8f8f8 !important; }\n  [data-ogsc] .cube-title, [data-ogsc] .cube-text, [data-ogsc] .cube-text a { color:#222222 !important; }\n  [data-ogsc] .cube-muted { color:#666666 !important; }\n  [data-ogsb] .cube-head { background:#000000 !important; }\n  [data-ogsb] .cube-btn { background:#1c1c1c !important; }\n  [data-ogsc] .cube-logo { color:#ffffff !important; }\n  [data-ogsc] .cube-btn-a, [data-ogsc] .cube-btn a { color:#ffffff !important; }\n</style></head>\n<body class=\"cube-body\" style=\"margin:0; padding:0; background:#ffffff;\">\n  <div class=\"cube-page\" style=\"margin:0; padding:0; background:#ffffff;\">\n    <table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\" style=\"background:#ffffff;\">\n      <tr><td align=\"center\" style=\"padding:16px;\">\n        <table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" style=\"width:600px; max-width:600px; table-layout:fixed; font-family:'Inter Tight', Inter, Arial, sans-serif; color:#222222;\">\n          <tr><td style=\"padding:0;\">\n            <div class=\"cube-card\" style=\"border-radius:12px; overflow:hidden; background:#f8f8f8;\">\n              <div class=\"cube-head\" style=\"background:#000000; padding:16px 20px;\"><span class=\"cube-logo\" style=\"display:inline-block; font-size:30px; font-weight:700; letter-spacing:.02em; color:#ffffff; font-family:'Inter Tight','Inter',Arial,sans-serif;\">c.</span></div>\n              <div class=\"cube-text\" style=\"padding:20px;\">\n                <div class=\"cube-title\" style=\"margin:0 0 12px; font-size:18px; line-height:24px; letter-spacing:.02em; text-transform:uppercase; font-weight:700;\">Подтверждение почты</div>\n                <div style=\"margin:0 0 6px; font-size:14px; font-weight:700;\">Здравствуйте!</div><div style=\"margin:0 0 14px; font-size:14px; line-height:22px;\">Подтвердите ваш адрес электронной почты для аккаунта на <a href=\"https://cube-tech.ru\" style=\"color:#222222;\">cube-tech.ru</a>. Нажмите кнопку ниже.</div>\n    <table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" style=\"width:100%; table-layout:fixed; font-size:14px; line-height:22px;\">\n      <tr>\n        <td style=\"padding:0; vertical-align:baseline; font-weight:600; white-space:nowrap; width:1%;\">Ссылка действует</td>\n        <td style=\"padding:0; vertical-align:baseline; text-align:right; white-space:normal; word-break:break-word; overflow-wrap:anywhere;\">24 часа</td>\n      </tr>\n    </table><div style=\"margin-top:4px; margin-bottom:10px;\"><div style=\"color:#c8c8c8; line-height:1; font-size:12px; overflow:hidden; white-space:nowrap; word-spacing:1px;\">. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . </div></div><table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" style=\"margin-top:4px; border-collapse:separate;\">\n    <tr>\n      <td class=\"cube-btn\" bgcolor=\"#1c1c1c\" style=\"border-radius:10px; background:#1c1c1c;\">\n        <a class=\"cube-btn-a\" href=\"https://cube-tech.ru/verify-email?token=demo-1a2b3c4d5e6f7g8h9i0j\" style=\"display:inline-block; padding:15px 30px; font-family:'Inter Tight', Inter, Arial, sans-serif; font-size:13px; line-height:14px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:#ffffff; text-decoration:none; border-radius:10px;\"><span class=\"cube-btn-a\" style=\"color:#ffffff;\">Подтвердить почту</span></a>\n      </td>\n    </tr>\n  </table><div style=\"margin:14px 0 0; font-size:12px; line-height:18px; color:#666666;\">Если вы не регистрировались на cube-tech.ru — просто проигнорируйте это письмо.<br/>Если кнопка не работает, скопируйте ссылку:<br/><span style=\"word-break:break-all; color:#222222;\">https://cube-tech.ru/verify-email?token=demo-1a2b3c4d5e6f7g8h9i0j</span></div>\n                <div style=\"height:16px;\"></div>\n                <p class=\"cube-muted\" style=\"margin:0; font-size:12px; line-height:18px; color:#666666;\">\n                  Это автоматическое письмо от <a href=\"https://cube-tech.ru\" style=\"color:#222222; text-decoration:none;\">https://cube-tech.ru</a>.\n                </p>\n              </div>\n            </div>\n          </td></tr>\n          <tr><td style=\"height:16px;\"></td></tr>\n        </table>\n      </td></tr>\n    </table>\n  </div>\n</body></html>","resetLight":"<!doctype html>\n<html lang=\"ru\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<meta name=\"color-scheme\" content=\"light dark\">\n<meta name=\"supported-color-schemes\" content=\"light dark\">\n<link href=\"https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;700;800&display=swap\" rel=\"stylesheet\">\n<style>\n  /* Тёмная тема писем. Проблема (мобильный Gmail/iOS Mail): клиент сам\n     «затемняет» письмо — фон карточки #f8f8f8 темнеет, а тёмный текст (#222),\n     чёрная шапка и чёрная кнопка сливаются с новым фоном → логотип «c.»,\n     заголовок и кнопка почти не видны. Решение: заявляем поддержку тёмной темы\n     (meta color-scheme, чтобы клиент отдал управление нам) и в dark-режиме\n     ПРИНУДИТЕЛЬНО закрепляем СВЕТЛУЮ палитру карточки — весь исходный контраст\n     сохраняется. Светлую тему это не трогает (медиазапрос срабатывает только при\n     prefers-color-scheme: dark). !important в <style> перебивает inline-стили,\n     поэтому клиентская авто-инверсия не проходит. */\n  \n  /* Outlook.com dark-режим (data-ogs*) — тот же смысл. */\n  [data-ogsc] .cube-card { background:#f8f8f8 !important; }\n  [data-ogsc] .cube-title, [data-ogsc] .cube-text, [data-ogsc] .cube-text a { color:#222222 !important; }\n  [data-ogsc] .cube-muted { color:#666666 !important; }\n  [data-ogsb] .cube-head { background:#000000 !important; }\n  [data-ogsb] .cube-btn { background:#1c1c1c !important; }\n  [data-ogsc] .cube-logo { color:#ffffff !important; }\n  [data-ogsc] .cube-btn-a, [data-ogsc] .cube-btn a { color:#ffffff !important; }\n</style></head>\n<body class=\"cube-body\" style=\"margin:0; padding:0; background:#ffffff;\">\n  <div class=\"cube-page\" style=\"margin:0; padding:0; background:#ffffff;\">\n    <table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\" style=\"background:#ffffff;\">\n      <tr><td align=\"center\" style=\"padding:16px;\">\n        <table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" style=\"width:600px; max-width:600px; table-layout:fixed; font-family:'Inter Tight', Inter, Arial, sans-serif; color:#222222;\">\n          <tr><td style=\"padding:0;\">\n            <div class=\"cube-card\" style=\"border-radius:12px; overflow:hidden; background:#f8f8f8;\">\n              <div class=\"cube-head\" style=\"background:#000000; padding:16px 20px;\"><span class=\"cube-logo\" style=\"display:inline-block; font-size:30px; font-weight:700; letter-spacing:.02em; color:#ffffff; font-family:'Inter Tight','Inter',Arial,sans-serif;\">c.</span></div>\n              <div class=\"cube-text\" style=\"padding:20px;\">\n                <div class=\"cube-title\" style=\"margin:0 0 12px; font-size:18px; line-height:24px; letter-spacing:.02em; text-transform:uppercase; font-weight:700;\">Сброс пароля</div>\n                <div style=\"margin:0 0 6px; font-size:14px; font-weight:700;\">Здравствуйте!</div><div style=\"margin:0 0 14px; font-size:14px; line-height:22px;\">Вы запросили сброс пароля для аккаунта на <a href=\"https://cube-tech.ru\" style=\"color:#222222;\">cube-tech.ru</a>. Нажмите кнопку ниже, чтобы задать новый пароль.</div>\n    <table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" style=\"width:100%; table-layout:fixed; font-size:14px; line-height:22px;\">\n      <tr>\n        <td style=\"padding:0; vertical-align:baseline; font-weight:600; white-space:nowrap; width:1%;\">Ссылка действует</td>\n        <td style=\"padding:0; vertical-align:baseline; text-align:right; white-space:normal; word-break:break-word; overflow-wrap:anywhere;\">30 минут</td>\n      </tr>\n    </table><div style=\"margin-top:4px; margin-bottom:10px;\"><div style=\"color:#c8c8c8; line-height:1; font-size:12px; overflow:hidden; white-space:nowrap; word-spacing:1px;\">. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . </div></div><table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" style=\"margin-top:4px; border-collapse:separate;\">\n    <tr>\n      <td class=\"cube-btn\" bgcolor=\"#1c1c1c\" style=\"border-radius:10px; background:#1c1c1c;\">\n        <a class=\"cube-btn-a\" href=\"https://cube-tech.ru/reset?token=demo-9z8y7x6w5v4u3t2s1r0q\" style=\"display:inline-block; padding:15px 30px; font-family:'Inter Tight', Inter, Arial, sans-serif; font-size:13px; line-height:14px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:#ffffff; text-decoration:none; border-radius:10px;\"><span class=\"cube-btn-a\" style=\"color:#ffffff;\">Задать новый пароль</span></a>\n      </td>\n    </tr>\n  </table><div style=\"margin:14px 0 0; font-size:12px; line-height:18px; color:#666666;\">Если вы не запрашивали сброс — просто проигнорируйте это письмо, пароль останется прежним.<br/>Если кнопка не работает, скопируйте ссылку:<br/><span style=\"word-break:break-all; color:#222222;\">https://cube-tech.ru/reset?token=demo-9z8y7x6w5v4u3t2s1r0q</span></div>\n                <div style=\"height:16px;\"></div>\n                <p class=\"cube-muted\" style=\"margin:0; font-size:12px; line-height:18px; color:#666666;\">\n                  Это автоматическое письмо от <a href=\"https://cube-tech.ru\" style=\"color:#222222; text-decoration:none;\">https://cube-tech.ru</a>.\n                </p>\n              </div>\n            </div>\n          </td></tr>\n          <tr><td style=\"height:16px;\"></td></tr>\n        </table>\n      </td></tr>\n    </table>\n  </div>\n</body></html>","resetDark":"<!doctype html>\n<html lang=\"ru\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<meta name=\"color-scheme\" content=\"light dark\">\n<meta name=\"supported-color-schemes\" content=\"light dark\">\n<link href=\"https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;700;800&display=swap\" rel=\"stylesheet\">\n<style>\n  /* Тёмная тема писем. Проблема (мобильный Gmail/iOS Mail): клиент сам\n     «затемняет» письмо — фон карточки #f8f8f8 темнеет, а тёмный текст (#222),\n     чёрная шапка и чёрная кнопка сливаются с новым фоном → логотип «c.»,\n     заголовок и кнопка почти не видны. Решение: заявляем поддержку тёмной темы\n     (meta color-scheme, чтобы клиент отдал управление нам) и в dark-режиме\n     ПРИНУДИТЕЛЬНО закрепляем СВЕТЛУЮ палитру карточки — весь исходный контраст\n     сохраняется. Светлую тему это не трогает (медиазапрос срабатывает только при\n     prefers-color-scheme: dark). !important в <style> перебивает inline-стили,\n     поэтому клиентская авто-инверсия не проходит. */\n  @media all {\n    .cube-page, .cube-body { background:#0e0e0e !important; }\n    .cube-card { background:#f8f8f8 !important; }\n    .cube-head { background:#000000 !important; }\n    .cube-logo { color:#ffffff !important; }\n    .cube-title, .cube-text, .cube-text a { color:#222222 !important; }\n    .cube-muted, .cube-muted a { color:#666666 !important; }\n    /* Кнопка: фон тёмный, текст ПРИНУДИТЕЛЬНО белый (иначе клиент инвертирует\n       белый текст ссылки в тёмный → тёмное-на-тёмном). Дублируем на <a> и <span>. */\n    .cube-btn { background:#1c1c1c !important; }\n    .cube-btn a, .cube-btn-a, a.cube-btn-a, .cube-btn-a span { color:#ffffff !important; }\n  }\n  /* Outlook.com dark-режим (data-ogs*) — тот же смысл. */\n  [data-ogsc] .cube-card { background:#f8f8f8 !important; }\n  [data-ogsc] .cube-title, [data-ogsc] .cube-text, [data-ogsc] .cube-text a { color:#222222 !important; }\n  [data-ogsc] .cube-muted { color:#666666 !important; }\n  [data-ogsb] .cube-head { background:#000000 !important; }\n  [data-ogsb] .cube-btn { background:#1c1c1c !important; }\n  [data-ogsc] .cube-logo { color:#ffffff !important; }\n  [data-ogsc] .cube-btn-a, [data-ogsc] .cube-btn a { color:#ffffff !important; }\n</style></head>\n<body class=\"cube-body\" style=\"margin:0; padding:0; background:#ffffff;\">\n  <div class=\"cube-page\" style=\"margin:0; padding:0; background:#ffffff;\">\n    <table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\" style=\"background:#ffffff;\">\n      <tr><td align=\"center\" style=\"padding:16px;\">\n        <table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" style=\"width:600px; max-width:600px; table-layout:fixed; font-family:'Inter Tight', Inter, Arial, sans-serif; color:#222222;\">\n          <tr><td style=\"padding:0;\">\n            <div class=\"cube-card\" style=\"border-radius:12px; overflow:hidden; background:#f8f8f8;\">\n              <div class=\"cube-head\" style=\"background:#000000; padding:16px 20px;\"><span class=\"cube-logo\" style=\"display:inline-block; font-size:30px; font-weight:700; letter-spacing:.02em; color:#ffffff; font-family:'Inter Tight','Inter',Arial,sans-serif;\">c.</span></div>\n              <div class=\"cube-text\" style=\"padding:20px;\">\n                <div class=\"cube-title\" style=\"margin:0 0 12px; font-size:18px; line-height:24px; letter-spacing:.02em; text-transform:uppercase; font-weight:700;\">Сброс пароля</div>\n                <div style=\"margin:0 0 6px; font-size:14px; font-weight:700;\">Здравствуйте!</div><div style=\"margin:0 0 14px; font-size:14px; line-height:22px;\">Вы запросили сброс пароля для аккаунта на <a href=\"https://cube-tech.ru\" style=\"color:#222222;\">cube-tech.ru</a>. Нажмите кнопку ниже, чтобы задать новый пароль.</div>\n    <table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" style=\"width:100%; table-layout:fixed; font-size:14px; line-height:22px;\">\n      <tr>\n        <td style=\"padding:0; vertical-align:baseline; font-weight:600; white-space:nowrap; width:1%;\">Ссылка действует</td>\n        <td style=\"padding:0; vertical-align:baseline; text-align:right; white-space:normal; word-break:break-word; overflow-wrap:anywhere;\">30 минут</td>\n      </tr>\n    </table><div style=\"margin-top:4px; margin-bottom:10px;\"><div style=\"color:#c8c8c8; line-height:1; font-size:12px; overflow:hidden; white-space:nowrap; word-spacing:1px;\">. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . </div></div><table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" style=\"margin-top:4px; border-collapse:separate;\">\n    <tr>\n      <td class=\"cube-btn\" bgcolor=\"#1c1c1c\" style=\"border-radius:10px; background:#1c1c1c;\">\n        <a class=\"cube-btn-a\" href=\"https://cube-tech.ru/reset?token=demo-9z8y7x6w5v4u3t2s1r0q\" style=\"display:inline-block; padding:15px 30px; font-family:'Inter Tight', Inter, Arial, sans-serif; font-size:13px; line-height:14px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:#ffffff; text-decoration:none; border-radius:10px;\"><span class=\"cube-btn-a\" style=\"color:#ffffff;\">Задать новый пароль</span></a>\n      </td>\n    </tr>\n  </table><div style=\"margin:14px 0 0; font-size:12px; line-height:18px; color:#666666;\">Если вы не запрашивали сброс — просто проигнорируйте это письмо, пароль останется прежним.<br/>Если кнопка не работает, скопируйте ссылку:<br/><span style=\"word-break:break-all; color:#222222;\">https://cube-tech.ru/reset?token=demo-9z8y7x6w5v4u3t2s1r0q</span></div>\n                <div style=\"height:16px;\"></div>\n                <p class=\"cube-muted\" style=\"margin:0; font-size:12px; line-height:18px; color:#666666;\">\n                  Это автоматическое письмо от <a href=\"https://cube-tech.ru\" style=\"color:#222222; text-decoration:none;\">https://cube-tech.ru</a>.\n                </p>\n              </div>\n            </div>\n          </td></tr>\n          <tr><td style=\"height:16px;\"></td></tr>\n        </table>\n      </td></tr>\n    </table>\n  </div>\n</body></html>"};
+  var fLight = document.getElementById('fLight');
+  var fDark = document.getElementById('fDark');
+  var current = 'verify';
 
-    // ========= Утилиты =========
-    const esc = (s="") => s.replace(/[&<>"']/g, m => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[m]));
-    const br  = (s="") => esc(s).replace(/\n/g,"<br/>");
+  function render(){
+    fLight.srcdoc = current === 'verify' ? DATA.verifyLight : DATA.resetLight;
+    fDark.srcdoc  = current === 'verify' ? DATA.verifyDark  : DATA.resetDark;
+  }
+  // Подгоняем высоту iframe под контент письма.
+  function fit(f){
+    try{
+      var doc = f.contentDocument || f.contentWindow.document;
+      var h = Math.max(doc.body.scrollHeight, doc.documentElement.scrollHeight);
+      f.style.height = (h + 8) + 'px';
+    }catch(e){}
+  }
+  fLight.addEventListener('load', function(){ fit(fLight); });
+  fDark.addEventListener('load', function(){ fit(fDark); });
 
-    const state = {
-      BRAND: {
-        name: "КУБ",
-        site: "https://cube-tech.ru",
-        logo: null, // если укажешь URL, покажется картинкой вместо "c."
-        font: "'Inter Tight', Inter, Arial, sans-serif",
-        colors: {
-          pageBg:"#ffffff",
-          headerBg:"#000000",
-          headerText:"#ffffff",
-          cardBg:"#f8f8f8",
-          text:"#222222",
-          muted:"#666666",
-          dot:"#c8c8c8",
-          btnBg:"#000000",
-          btnText:"#ffffff",
-        }
-      },
-      data: {
-        appId:"Cube-00230",
-        name:"Евгений", email:"saip0904@gmail.com", phone:"+7 900 000-00-00",
-        option:"Рассчитать стоимость работ",
-        message:"Здравствуйте! Хочу рассчитать стоимость работ… Длинный-длинный комментарий для проверки переноса: супердлинноесловобез_пробелов_которое_нужно_переносить_без_растяжения_ширины.",
-        page:"https://cube-tech.ru/contact"
-      }
-    };
-
-    // ========= Шаблоны =========
-    function emailShell({ title="", bodyHtml="" }) {
-      const B = state.BRAND, C = B.colors;
-
-      // Заголовок: "c." Inter Tight Regular (weight 400), размер из константы
-      const header = B.logo
-        ? `<img src="${B.logo}" alt="${esc(B.name)}" height="28" style="display:block; max-width:100%; height:28px;" />`
-        : `<span style="
-              display:inline-block;
-              font-size:${LOGO_SIZE}px;
-              font-weight:${LOGO_WEIGHT};
-              letter-spacing:.02em;
-              color:${C.headerText};
-              font-family:'Inter Tight','Inter',Arial,sans-serif;
-            ">${LOGO_TEXT}</span>`;
-
-      return `
-      <div style="margin:0; padding:0; background:${C.pageBg};">
-        <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:${C.pageBg};">
-          <tr>
-            <td align="center" style="padding:0 16px;">
-              <table role="presentation" cellpadding="0" cellspacing="0"
-                     style="width:${EMAIL_W}px; max-width:${EMAIL_W}px; table-layout:fixed; font-family:${B.font}; color:${C.text};">
-                <tr>
-                  <td style="padding:0;">
-                    <div style="border-radius:12px; overflow:hidden; background:${C.cardBg};">
-                      <div style="background:${C.headerBg}; padding:16px 20px;">
-                        ${header}
-                      </div>
-                      <div style="padding:20px;">
-                        ${title ? `<div style="margin:0 0 12px; font-size:18px; line-height:24px; letter-spacing:.02em; text-transform:uppercase; font-weight:700;">${esc(title)}</div>` : ""}
-                        ${bodyHtml}
-                        <div style="height:16px;"></div>
-                        <p style="margin:0; font-size:12px; line-height:18px; color:${C.muted};">
-                          Это автоматическое письмо от <a href="${B.site}" style="color:${C.text}; text-decoration:none;">${B.site}</a>.
-                        </p>
-                      </div>
-                    </div>
-                  </td>
-                </tr>
-                <tr><td style="height:16px;"></td></tr>
-              </table>
-            </td>
-          </tr>
-        </table>
-      </div>`;
-    }
-
-    // ====== Линия точек с увеличенным пробелом на 1px ======
-    function dotRule() {
-      const C = state.BRAND.colors;
-      const dots = (". ").repeat(800);
-      return `
-        <div style="
-          color:${C.dot};
-          line-height:1;
-          font-size:12px;
-          overflow:hidden;
-          white-space:nowrap;
-          word-spacing:1px;   /* +1px между точками */
-        ">${dots}</div>`;
-    }
-
-    // Строчная строка (метка слева — значение справа)
-    function dottedRow(label, value, opts={}) {
-      const alignRight = opts.alignRight !== false;
-      const valueStyles = `
-        padding:0; vertical-align:baseline;
-        ${alignRight ? "text-align:right;" : "text-align:left;"}
-        white-space:normal; word-break:break-word; overflow-wrap:anywhere;
-      `;
-      const firstLine = `
-        <table role="presentation" cellpadding="0" cellspacing="0"
-               style="width:100%; table-layout:fixed; font-size:14px; line-height:22px;">
-          <tr>
-            <td style="padding:0; vertical-align:baseline; font-weight:600; white-space:nowrap; width:1%;">${esc(label)}</td>
-            <td style="${valueStyles}">${value ? br(String(value)) : "—"}</td>
-          </tr>
-        </table>`;
-      const dots = `<div style="margin-top:4px; margin-bottom:10px;">${dotRule()}</div>`;
-      return firstLine + dots;
-    }
-
-    // Блочная строка (метка сверху, текст ниже, всё слева) — для «Сообщение» и «Страница»
-    function dottedRowBlock(label, value) {
-      const firstLine = `
-        <div style="font-size:14px; line-height:22px; font-weight:600; margin:0 0 2px;">${esc(label)}</div>
-        <div style="font-size:14px; line-height:22px; font-weight:400; white-space:normal; word-break:break-word; overflow-wrap:anywhere;">
-          ${value ? br(String(value)) : "—"}
-        </div>`;
-      const dots = `<div style="margin-top:4px; margin-bottom:10px;">${dotRule()}</div>`;
-      return firstLine + dots;
-    }
-
-    function ctaBtn(text, href){
-      const C = state.BRAND.colors;
-      return `
-        <div style="margin-top:2px;">
-          <a href="${esc(href)}"
-             style="display:inline-block; background:${C.btnBg}; color:${C.btnText}; text-decoration:none; padding:10px 16px; border-radius:10px; font-weight:700;">
-            ${esc(text)}
-          </a>
-        </div>`;
-    }
-
-    // Админу
-    function adminHtml({ appId, name, email, phone, option, message, page }) {
-      const body =
-          dottedRow("ID заявки", appId || "—")
-        + dottedRow("Имя", name)
-        + dottedRow("Email", email)
-        + dottedRow("Телефон", phone || "")
-        + dottedRow("Вариант", option || "")
-        + dottedRowBlock("Сообщение", message || "")         // блочно
-        + dottedRowBlock("Страница", page || "")             // блочно
-        + dottedRow("Дата/время (MSK)", new Date().toLocaleString("ru-RU", { timeZone:"Europe/Moscow" }))
-        + (page ? ctaBtn("Открыть страницу заявки", page) : "");
-      return emailShell({ title: "Новая заявка с сайта", bodyHtml: body });
-    }
-
-    // Клиенту
-    function clientHtml({ appId, name, option, message }) {
-      const greeting = `
-        <div style="margin:0 0 6px; font-size:14px; font-weight:700;">Здравствуйте, ${esc(name)}!</div>
-        <div style="margin:0 0 14px; font-size:14px;">
-          Спасибо за обращение в «${esc(state.BRAND.name)}». Мы свяжемся с вами в ближайшее время.
-        </div>`;
-      const body =
-          greeting
-        + dottedRow("ID заявки", appId || "—")
-        + dottedRow("Тема", option || "—")
-        + dottedRowBlock("Сообщение", (message || "").slice(0, 4000)) // блочно
-        + `<div style="margin:6px 0 0; font-size:14px;">С уважением, команда «КУБ».</div>`;
-      return emailShell({ title: "", bodyHtml: body });
-    }
-
-    // ========= UI =========
-    const $ = (id)=>document.getElementById(id);
-    ["tpl","appId","name","email","phone","option","message","page","brandName","brandSite","brandLogo"].forEach(id => {
-      $(id).addEventListener("input", render);
-    });
-    $("apply").addEventListener("click", render);
-    $("copy").addEventListener("click", async () => {
-      const html = build();
-      await navigator.clipboard.writeText(html);
-      $("copy").textContent = "Скопировано ✓";
-      setTimeout(()=> $("copy").textContent = "Копировать HTML", 1200);
-    });
-    $("download").addEventListener("click", () => {
-      const html = build();
-      const name = $("tpl").value === "admin" ? "admin.html" : "client.html";
-      const blob = new Blob([html], { type: "text/html;charset=utf-8" });
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = name;
-      a.click();
-      URL.revokeObjectURL(a.href);
-    });
-
-    function readState(){
-      state.data.appId  = $("appId").value || "";
-      state.data.name   = $("name").value;
-      state.data.email  = $("email").value;
-      state.data.phone  = $("phone").value;
-      state.data.option = $("option").value;
-      state.data.message= $("message").value;
-      state.data.page   = $("page").value;
-
-      state.BRAND.name = $("brandName").value || "КУБ";
-      state.BRAND.site = $("brandSite").value || "https://cube-tech.ru";
-      state.BRAND.logo = $("brandLogo").value || null;
-    }
-    function build(){
-      readState();
-      const tpl = $("tpl").value;
-      return tpl === "admin" ? adminHtml(state.data) : clientHtml(state.data);
-    }
-    function render(){
-      const html = build();
-      $("frame").srcdoc = html;
-    }
+  document.getElementById('segType').addEventListener('click', function(e){
+    var b = e.target.closest('button'); if(!b) return;
+    current = b.getAttribute('data-type');
+    [].forEach.call(this.querySelectorAll('button'), function(x){ x.classList.toggle('active', x===b); });
     render();
-  </script>
+  });
+
+  render();
+  // повторная подгонка высоты после подключения шрифта
+  setTimeout(function(){ fit(fLight); fit(fDark); }, 400);
+</script>
 </body>
 </html>

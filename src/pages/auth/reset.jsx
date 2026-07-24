@@ -138,10 +138,10 @@ export default function ResetPasswordPage({ _previewPhase = null }) {
 
       {/* Шапка — как «Напишите нам» / «КОНТАКТЫ» */}
       <div className="text-center text-sm font-light leading-7">Восстановление доступа</div>
-      <div className="mt-[26px] text-center">
+      <div className="mt-[26px] px-4 text-center">
         {/* key по тексту заголовка → при смене фазы (НОВЫЙ ПАРОЛЬ → ССЫЛКА УСТАРЕЛА)
             заголовок мягко переигрывает появление */}
-        <h2 key={heading} className="font-semibold uppercase leading-none h-hero" style={{ animation: RISE }}>
+        <h2 key={heading} className="font-semibold uppercase leading-none h-hero h-hero-auth" style={{ animation: RISE }}>
           {heading}
         </h2>
       </div>

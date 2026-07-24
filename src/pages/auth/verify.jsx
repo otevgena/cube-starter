@@ -91,8 +91,8 @@ export default function VerifyEmailPage({ _preview = null }) {
 
       {/* Шапка — как «Восстановление доступа» */}
       <div className="text-center text-sm font-light leading-7">Подтверждение почты</div>
-      <div className="mt-[26px] text-center">
-        <h2 key={heading} className="font-semibold uppercase leading-none h-hero" style={{ animation: RISE }}>
+      <div className="mt-[26px] px-4 text-center">
+        <h2 key={heading} className="font-semibold uppercase leading-none h-hero h-hero-auth" style={{ animation: RISE }}>
           {heading}
         </h2>
       </div>
