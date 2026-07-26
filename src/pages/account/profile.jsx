@@ -1553,7 +1553,12 @@ function TabsBar({ active, isAdmin, canPartner, canSupplier, onNavigate, lineWid
         ref={wrapRef}
         className="[scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         style={{
-          display: "flex", alignItems: "center", gap: isMobile ? 22 : 24, fontSize: 14, overflowX: "auto",
+          // Десктоп: замки Партнёр/Поставщик у заказчика видны, но доскроллить к ним
+          // и получить полосу прокрутки нельзя (6 коротких вкладок и так помещаются
+          // в 714px). Мобилка: карусель по-прежнему листается (overflow auto), но встать
+          // на заблокированную вкладку свайп не даёт (centeredCode/commit их пропускают).
+          display: "flex", alignItems: "center", gap: isMobile ? 22 : 24, fontSize: 14,
+          overflowX: isMobile ? "auto" : "hidden",
           ...(isMobile ? { WebkitOverflowScrolling: "touch", minHeight: 56, scrollSnapType: "x proximity" } : null),
         }}
       >
@@ -1853,8 +1858,15 @@ function AccountDetail({ token, user, onBack, onChanged, onDeleted }) {
         </div>
 
         <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-          <DarkTextBtn onClick={save} disabled={busy}>{busy ? "Сохраняем…" : "Сохранить изменения"}</DarkTextBtn>
-          {saved && <span style={{ fontSize: 13, color: "#3a8a3a" }}>Сохранено ✓</span>}
+          {busy ? (
+            /* Крутящиеся точки в габаритах кнопки — единый со всем кабинетом индикатор нажатия. */
+            <div style={{ height: 48, minWidth: 200, display: "flex", alignItems: "center", justifyContent: "center", background: "#1c1c1c", borderRadius: 10 }}>
+              <Spinner size={24} color="#fff" />
+            </div>
+          ) : (
+            <DarkTextBtn onClick={save}>Сохранить изменения</DarkTextBtn>
+          )}
+          {saved && !busy && <span style={{ fontSize: 13, fontWeight: 500, color: "#0a7d33" }}>Сохранено ✓</span>}
         </div>
 
         <div style={{ borderTop: "1px solid #eee", paddingTop: 16 }}>
@@ -1903,8 +1915,14 @@ function AccountDetail({ token, user, onBack, onChanged, onDeleted }) {
               Потребовать смену пароля при первом входе
             </label>
             <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-              <DarkTextBtn onClick={doResetPassword} disabled={pwBusy}>{pwBusy ? "Сбрасываем…" : "Сбросить пароль"}</DarkTextBtn>
-              {pwDone && <span style={{ fontSize: 13, color: "#3a8a3a" }}>Готово ✓</span>}
+              {pwBusy ? (
+                <div style={{ height: 48, minWidth: 170, display: "flex", alignItems: "center", justifyContent: "center", background: "#1c1c1c", borderRadius: 10 }}>
+                  <Spinner size={24} color="#fff" />
+                </div>
+              ) : (
+                <DarkTextBtn onClick={doResetPassword}>Сбросить пароль</DarkTextBtn>
+              )}
+              {pwDone && !pwBusy && <span style={{ fontSize: 13, fontWeight: 500, color: "#0a7d33" }}>Готово ✓</span>}
             </div>
             <div style={{ fontSize: 12, fontWeight: 300, color: "#999", lineHeight: 1.5 }}>
               Минимум 6 символов, заглавная буква и спецсимвол. После сброса пользователь выйдет из всех сессий.
@@ -6124,6 +6142,16 @@ export default function AccountProfilePage() {
 
   const [errors, setErrors] = React.useState({});
   const [saving, setSaving] = React.useState(false);
+  // Мобилка: тоста дока не видно (док свёрнут), поэтому после успешного сохранения
+  // сама кнопка на пару секунд зеленеет и пишет «Сохранено» — визуальное подтверждение.
+  const [savedOk, setSavedOk] = React.useState(false);
+  const savedTimerRef = React.useRef(null);
+  const flashSaved = React.useCallback(() => {
+    setSavedOk(true);
+    if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
+    savedTimerRef.current = setTimeout(() => setSavedOk(false), 2000);
+  }, []);
+  React.useEffect(() => () => { if (savedTimerRef.current) clearTimeout(savedTimerRef.current); }, []);
   // Снимок исходных значений профиля — по нему решаем, показывать ли «Сохранить»
   // (кнопка на мобилке возникает только при реальных изменениях).
   const [snapshot, setSnapshot] = React.useState(null);
@@ -6725,6 +6753,7 @@ export default function AccountProfilePage() {
         const resp = await apiUpdateProfile(token, { emailOptIn });
         if (!resp) throw new Error("save_failed");
         window.showDockToast?.("Сохранено");
+        flashSaved();
       } catch {
         window.showDockToast?.("Не удалось сохранить");
       } finally {
@@ -6786,6 +6815,7 @@ export default function AccountProfilePage() {
       setAvatar(null);
 
       window.showDockToast?.("Сохранено");
+      flashSaved();
     } catch (e) {
       window.showDockToast?.("Не удалось сохранить");
     } finally {
@@ -7278,14 +7308,26 @@ export default function AccountProfilePage() {
                         формы; статичная (не липкая), ВСЕГДА видна (не зависит от изменений); под
                         кнопкой — короткая подсказка. */}
                     <div className="mb-7 xl:hidden">
+                      <style>{`@keyframes cubeSavedPop{from{opacity:0;transform:scale(.97)}to{opacity:1;transform:scale(1)}}`}</style>
                       {saving ? (
                         <div className="w-full" style={{ height: 48, display: "flex", alignItems: "center", justifyContent: "center", background: "#f8f8f8", borderRadius: 8 }}><Spinner size={24} /></div>
+                      ) : savedOk ? (
+                        /* Успех: кнопка на пару секунд зеленеет и пишет «Сохранено ✓», затем сама
+                           возвращается в исходный вид (savedOk сбрасывается по таймеру). */
+                        <div
+                          className="w-full"
+                          aria-live="polite"
+                          style={{ height: 48, borderRadius: 8, background: "#0a7d33", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, fontFamily: UI, fontSize: 14, fontWeight: 500, animation: "cubeSavedPop .3s cubic-bezier(.2,.8,.2,1) both" }}
+                        >
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5" /></svg>
+                          Сохранено
+                        </div>
                       ) : (
                         <button
                           type="button"
                           onClick={handleSave}
                           className="w-full"
-                          style={{ height: 48, borderRadius: 8, background: "#1c1c1c", color: "#fff", border: "none", fontFamily: UI, fontSize: 14, fontWeight: 400, cursor: "pointer" }}
+                          style={{ height: 48, borderRadius: 8, background: "#1c1c1c", color: "#fff", border: "none", fontFamily: UI, fontSize: 14, fontWeight: 400, cursor: "pointer", transition: "background-color .2s ease" }}
                         >
                           Сохранить изменения
                         </button>
