@@ -17,7 +17,7 @@ import {
   getMessages, addMessage, threadStatus,
 } from "@/data/objects.js";
 import {
-  PERMISSIONS, PERM_GROUP_LABELS, permLabel, ROLE_LABELS, STAFF_ROLES,
+  PERMISSIONS, PERM_GROUP_LABELS, ROLE_LABELS, STAFF_ROLES,
   effectivePerms, diffOverrides,
 } from "@/lib/perms.js";
 
@@ -2753,6 +2753,22 @@ function PermChecklist({ permSet, roleSet, onToggle, disabled }) {
 
 const ROLE_OPTIONS = STAFF_ROLES.map((r) => ({ value: r, label: ROLE_LABELS[r] || r }));
 
+// Склонение «право/права/прав» для короткой сводки доступа в карточке сотрудника.
+function permWord(n) {
+  const a = Math.abs(n) % 100, b = a % 10;
+  if (a > 10 && a < 20) return "прав";
+  if (b > 1 && b < 5) return "права";
+  if (b === 1) return "право";
+  return "прав";
+}
+// Короткая сводка уровня доступа вместо простыни прав (нечитаемой на мобилке).
+// Детали — по кнопке «Права». admin → полный; иначе «Ограниченный · N прав».
+function accessSummary(e) {
+  if (e.role === "admin") return "Полный доступ";
+  if (!e.perms || e.perms.length === 0) return "Ограниченный доступ — прав не выдано";
+  return `Ограниченный доступ · ${e.perms.length} ${permWord(e.perms.length)}`;
+}
+
 // Inline-форма: назначить сотрудника из учётки (add) либо изменить роль/права (edit).
 // Хранит роль + оверрайды на учётке (/admin/users). Права — из каталога perms.js.
 function EmployeeForm({ emp, accounts, onCancel, onSaved }) {
@@ -2936,8 +2952,9 @@ export function EmployeesModule({ backTo, canManage = true }) {
                   <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: ".04em", textTransform: "uppercase", color: "#555", background: "#f0f0f0", borderRadius: 6, padding: "2px 8px" }}>{ROLE_LABELS[e.role] || e.role}</span>
                 </div>
                 <div style={{ marginTop: 3, fontSize: 13, fontWeight: 300, color: MUTED }}>{e.position || "—"}{e.email ? <span> · {e.email}</span> : null}</div>
-                <div style={{ marginTop: 8, fontSize: 11, letterSpacing: ".05em", textTransform: "uppercase", fontWeight: 400, color: e.perms.length ? "#888" : "#bbb", lineHeight: 1.5 }}>
-                  {e.role === "admin" ? "Полный доступ" : (e.perms.length === 0 ? "Прав не выдано" : e.perms.map((p) => permLabel(p)).join("  ·  "))}
+                <div style={{ marginTop: 7, display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12.5, fontWeight: 400, color: e.role === "admin" ? "#0a7d33" : e.perms.length ? "#777" : "#aaa" }}>
+                  <span aria-hidden="true" style={{ width: 6, height: 6, borderRadius: 999, flexShrink: 0, background: e.role === "admin" ? "#0a7d33" : e.perms.length ? "#c9c9c9" : "#ddd" }} />
+                  {accessSummary(e)}
                 </div>
               </div>
               {canManage && (phone ? (
