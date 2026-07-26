@@ -1407,11 +1407,18 @@ function TabsBar({ active, isAdmin, canPartner, canSupplier, onNavigate, lineWid
     const admin    = { code: "admin",    label: "Администратор", locked: false };
     const help     = { code: "help",     label: "Помощь",    locked: false };
     // Админ/сотрудник: привычный порядок + «Администратор».
-    if (isAdmin) return [profile, objects, partner, supplier, personal, admin];
+    let tabs;
+    if (isAdmin) tabs = [profile, objects, partner, supplier, personal, admin];
     // Заказчик: «Партнёр» и «Поставщик» (обычно недоступны) — в конец, чтобы не
     // мешали частым «Настройки»/«Помощь». Вместо «Администратора» — «Помощь».
-    return [profile, objects, personal, help, partner, supplier];
-  }, [isAdmin, canPartner, canSupplier]);
+    else tabs = [profile, objects, personal, help, partner, supplier];
+    // Мобилка = карусель со свободным горизонтальным скроллом. Недоступные вкладки
+    // (замок у заказчика) в неё НЕ кладём: встать на них нельзя, но можно было
+    // доскроллить — из-за этого казалось, что скролл «уезжает» на Партнёр/Поставщик.
+    // На десктопе они остаются видимыми (с замком, без прокрутки к ним).
+    if (isMobile) tabs = tabs.filter((t) => !t.locked);
+    return tabs;
+  }, [isAdmin, canPartner, canSupplier, isMobile]);
 
   // Код вкладки ближе всего к ЦЕНТРУ ряда. Заблокированные (Партнёр/Поставщик
   // у заказчика) пропускаем — на них свайпом/тапом не «встать».
@@ -6145,11 +6152,22 @@ export default function AccountProfilePage() {
   // Мобилка: тоста дока не видно (док свёрнут), поэтому после успешного сохранения
   // сама кнопка на пару секунд зеленеет и пишет «Сохранено» — визуальное подтверждение.
   const [savedOk, setSavedOk] = React.useState(false);
+  // Мобилка: тоста ОБ ОШИБКЕ дока тоже не видно, поэтому неуспех сохранения
+  // (сеть/валидация) показываем той же кнопкой — красной вспышкой с текстом.
+  // Иначе тап по «Сохранить» выглядел как «ничего не происходит».
+  const [saveErrMsg, setSaveErrMsg] = React.useState("");
   const savedTimerRef = React.useRef(null);
   const flashSaved = React.useCallback(() => {
+    setSaveErrMsg("");
     setSavedOk(true);
     if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
     savedTimerRef.current = setTimeout(() => setSavedOk(false), 2000);
+  }, []);
+  const flashError = React.useCallback((msg) => {
+    setSavedOk(false);
+    setSaveErrMsg(msg || "Не удалось сохранить");
+    if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
+    savedTimerRef.current = setTimeout(() => setSaveErrMsg(""), 2600);
   }, []);
   React.useEffect(() => () => { if (savedTimerRef.current) clearTimeout(savedTimerRef.current); }, []);
   // Снимок исходных значений профиля — по нему решаем, показывать ли «Сохранить»
@@ -6747,7 +6765,7 @@ export default function AccountProfilePage() {
     // На вкладке «Настройки» сохраняем только настройки уведомлений — без строгой
     // валидации профильных полей (их тут нет; они на вкладке «Профиль»).
     if (tab === "personal") {
-      if (!token) { window.showDockToast?.("Нужна авторизация"); return; }
+      if (!token) { window.showDockToast?.("Нужна авторизация"); flashError("Нужна авторизация"); return; }
       try {
         setSaving(true);
         const resp = await apiUpdateProfile(token, { emailOptIn });
@@ -6756,6 +6774,7 @@ export default function AccountProfilePage() {
         flashSaved();
       } catch {
         window.showDockToast?.("Не удалось сохранить");
+        flashError("Не удалось сохранить");
       } finally {
         setSaving(false);
       }
@@ -6768,9 +6787,9 @@ export default function AccountProfilePage() {
     if (!groupCode) next.groupCode = "Выберите вариант.";
     if (isLockedCode(groupCode) && !isAdmin) next.groupCode = "Недостаточно прав для выбора этой группы.";
     setErrors(next);
-    if (Object.keys(next).length) return;
+    if (Object.keys(next).length) { flashError("Заполните обязательные поля"); return; }
 
-    if (!token) { window.showDockToast?.("Нужна авторизация"); return; }
+    if (!token) { window.showDockToast?.("Нужна авторизация"); flashError("Нужна авторизация"); return; }
 
     try {
       setSaving(true);
@@ -6818,6 +6837,7 @@ export default function AccountProfilePage() {
       flashSaved();
     } catch (e) {
       window.showDockToast?.("Не удалось сохранить");
+      flashError("Не удалось сохранить");
     } finally {
       setSaving(false);
     }
@@ -7322,6 +7342,19 @@ export default function AccountProfilePage() {
                           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5" /></svg>
                           Сохранено
                         </div>
+                      ) : saveErrMsg ? (
+                        /* Неуспех (сеть/валидация): та же кнопка на пару секунд краснеет и
+                           пишет причину — тап всегда даёт видимый ответ, даже без тоста. */
+                        <button
+                          type="button"
+                          onClick={handleSave}
+                          className="w-full"
+                          aria-live="polite"
+                          style={{ height: 48, borderRadius: 8, background: "#c33a2b", color: "#fff", border: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, fontFamily: UI, fontSize: 14, fontWeight: 500, cursor: "pointer", animation: "cubeSavedPop .3s cubic-bezier(.2,.8,.2,1) both" }}
+                        >
+                          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" /></svg>
+                          {saveErrMsg}
+                        </button>
                       ) : (
                         <button
                           type="button"
