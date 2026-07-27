@@ -5,7 +5,7 @@
 // документальный коридор). Строгий Cube: монохром, 1px border, пунктир, без цвета/иконок/градиентов.
 // Только inline-стили + токены проекта; Tailwind — лишь для адаптивных сеток. Тонкие связи — текстом «→».
 import React, { useState } from "react";
-import { UI, BG, INK, MUTED, DottedDivider, DetailStatGrid, MatrixTable, MiniTabs } from "@/components/services/detailBlocks.jsx";
+import { UI, BG, INK, MUTED, DottedDivider, DetailStatGrid, MatrixTable, MiniTabs, Collapse } from "@/components/services/detailBlocks.jsx";
 
 const lblCss = { fontSize: 11, letterSpacing: ".06em", textTransform: "uppercase", color: MUTED, fontWeight: 400 };
 const valCss = { marginTop: 2, fontSize: 14, lineHeight: "20px", fontWeight: 300, color: "#222" };
@@ -155,14 +155,41 @@ export function LoadCompilerBoard({ inputs = [], logic = [], outputs = [], trace
   );
   return (
     <div>
-      <div className="grid grid-cols-1 md:grid-cols-3" style={{ gap: 12 }}>
-        <Zone title="Входные нагрузки →" items={inputs} selectable />
+      {/* десктоп: три зоны в ряд + общий «проектный след» снизу */}
+      <div className="hidden md:block">
+        <div className="grid grid-cols-1 md:grid-cols-3" style={{ gap: 12 }}>
+          <Zone title="Входные нагрузки →" items={inputs} selectable />
+          <Zone title="Логика распределения →" items={logic} />
+          <Zone title="Выход проекта" items={outputs} />
+        </div>
+        <div style={{ marginTop: 12, ...softCss }}>
+          <div style={{ ...lblCss, marginBottom: 8 }}>Проектный след</div>
+          <div style={{ fontSize: 15, fontWeight: 500, color: INK, lineHeight: "24px" }}>{traces[a]}</div>
+        </div>
+      </div>
+      {/* мобилка: вход = аккордеон (след раскрывается прямо под нагрузкой), затем логика и выход */}
+      <div className="md:hidden" style={{ display: "grid", rowGap: 12 }}>
+        <div style={cardCss}>
+          <div style={{ ...lblCss, marginBottom: 10 }}>Входные нагрузки →</div>
+          <div style={{ display: "grid", rowGap: 8 }}>
+            {inputs.map((it, i) => { const on = i === a; return (
+              <div key={i} style={{ border: `1px solid ${on ? INK : "#d7d7d7"}`, borderRadius: 8, overflow: "hidden" }}>
+                <button type="button" onClick={() => setA(on ? -1 : i)} style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", background: on ? INK : BG, color: on ? "#fff" : INK, cursor: "pointer", textAlign: "left", fontSize: 14, fontWeight: on ? 600 : 400 }}>
+                  <span style={{ flex: 1 }}>{it}</span>
+                  <span aria-hidden="true" style={{ fontSize: 15, opacity: 0.7 }}>{on ? "–" : "+"}</span>
+                </button>
+                <Collapse open={on}>
+                  <div style={{ padding: "12px 12px", background: "#f1f1f1", borderTop: "1px solid #e3e3e3" }}>
+                    <div style={{ ...lblCss, marginBottom: 6 }}>Проектный след</div>
+                    <div style={{ fontSize: 14.5, fontWeight: 500, color: INK, lineHeight: "22px" }}>{traces[i]}</div>
+                  </div>
+                </Collapse>
+              </div>
+            ); })}
+          </div>
+        </div>
         <Zone title="Логика распределения →" items={logic} />
         <Zone title="Выход проекта" items={outputs} />
-      </div>
-      <div style={{ marginTop: 12, ...softCss }}>
-        <div style={{ ...lblCss, marginBottom: 8 }}>Проектный след</div>
-        <div style={{ fontSize: 15, fontWeight: 500, color: INK, lineHeight: "24px" }}>{traces[a]}</div>
       </div>
     </div>
   );
@@ -201,23 +228,43 @@ export function LowcurrentAtlasBoard({ systems = [] }) {
   const [a, setA] = useState(0);
   const cur = systems[a] || {};
   const rows = [["Точки", "points"], ["Трассы", "routes"], ["Узлы", "nodes"], ["Листы", "sheets"], ["Спецификация", "spec"], ["Главный риск", "risk"]];
+  const passport = (s) => (
+    <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: 14 }}>
+      {rows.map(([label, key]) => <Field key={key} label={label} value={s[key]} />)}
+    </div>
+  );
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3" style={{ gap: 12 }}>
-      <div style={{ display: "grid", rowGap: 8, alignContent: "start" }}>
-        {systems.map((s, i) => (
-          <button key={i} type="button" onClick={() => setA(i)}
-            style={{ textAlign: "left", padding: "12px 14px", border: `1px solid ${i === a ? INK : "#d7d7d7"}`, borderRadius: 10, background: i === a ? INK : BG, color: i === a ? "#fff" : INK, fontSize: 14, fontWeight: 600, cursor: "pointer", transition: "background-color .14s ease, color .14s ease" }}>{s.name}</button>
-        ))}
+    <div>
+      {/* десктоп: слева системы, справа паспорт */}
+      <div className="hidden grid-cols-3 gap-3 md:grid">
+        <div style={{ display: "grid", rowGap: 8, alignContent: "start" }}>
+          {systems.map((s, i) => (
+            <button key={i} type="button" onClick={() => setA(i)}
+              style={{ textAlign: "left", padding: "12px 14px", border: `1px solid ${i === a ? INK : "#d7d7d7"}`, borderRadius: 10, background: i === a ? INK : BG, color: i === a ? "#fff" : INK, fontSize: 14, fontWeight: 600, cursor: "pointer", transition: "background-color .14s ease, color .14s ease" }}>{s.name}</button>
+          ))}
+        </div>
+        <div className="col-span-2" style={{ ...cardCss }}>
+          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8 }}>
+            <span style={{ fontSize: 17, fontWeight: 600, color: INK }}>{cur.name}</span>
+            <span style={lblCss}>Паспорт системы</span>
+          </div>
+          <div style={{ margin: "12px 0" }}><DottedDivider /></div>
+          {passport(cur)}
+        </div>
       </div>
-      <div className="md:col-span-2" style={{ ...cardCss }}>
-        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8 }}>
-          <span style={{ fontSize: 17, fontWeight: 600, color: INK }}>{cur.name}</span>
-          <span style={lblCss}>Паспорт системы</span>
-        </div>
-        <div style={{ margin: "12px 0" }}><DottedDivider /></div>
-        <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: 14 }}>
-          {rows.map(([label, key]) => <Field key={key} label={label} value={cur[key]} />)}
-        </div>
+      {/* мобилка: система → паспорт раскрывается прямо под ней */}
+      <div className="md:hidden" style={{ border: `1px solid ${INK}`, borderRadius: 12, overflow: "hidden", background: BG }}>
+        {systems.map((s, i) => { const on = i === a; return (
+          <div key={i} style={{ borderTop: i ? "1px solid #e3e3e3" : "none" }}>
+            <button type="button" onClick={() => setA(on ? -1 : i)} style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "14px 16px", background: on ? INK : BG, color: on ? "#fff" : INK, cursor: "pointer", textAlign: "left" }}>
+              <span style={{ fontSize: 15, fontWeight: 600, flex: 1 }}>{s.name}</span>
+              <span aria-hidden="true" style={{ fontSize: 11, letterSpacing: ".04em", textTransform: "uppercase", opacity: 0.7 }}>{on ? "паспорт" : "+"}</span>
+            </button>
+            <Collapse open={on}>
+              <div style={{ padding: "14px 16px", background: "#f1f1f1", borderTop: "1px solid #e3e3e3" }}>{passport(s)}</div>
+            </Collapse>
+          </div>
+        ); })}
       </div>
     </div>
   );
@@ -261,24 +308,59 @@ export function ProtectionEnvelopeBoard({ elements = [] }) {
       </button>
     );
   };
+  const F = [{ key: "design", label: "Проектируем" }, { key: "check", label: "Проверяем" }, { key: "sheet", label: "Лист / результат" }];
+  // мобильный порядок «оболочки» сверху-вниз: приёмники обнимают объект сверху, заземление уходит вниз
+  const shellOrder = [0, 1, 2, "object", 3, 4, 5, 6];
+  const Row = ({ idx }) => {
+    const on = idx === a; const el = elements[idx] || {};
+    return (
+      <div style={{ borderTop: "1px solid #e3e3e3" }}>
+        <button type="button" onClick={() => setA(on ? -1 : idx)} style={{ width: "100%", display: "grid", gridTemplateColumns: "34px 1fr 22px", gap: 10, alignItems: "center", padding: "13px 16px", background: on ? INK : BG, color: on ? "#fff" : INK, cursor: "pointer", textAlign: "left" }}>
+          <span style={{ fontSize: 12, fontWeight: 700, fontVariantNumeric: "tabular-nums", opacity: 0.8 }}>{pad(idx)}</span>
+          <span style={{ fontSize: 14.5, fontWeight: 600 }}>{el.title}</span>
+          <span aria-hidden="true" style={{ fontSize: 16, opacity: 0.7, textAlign: "right" }}>{on ? "–" : "+"}</span>
+        </button>
+        <Collapse open={on}>
+          <div style={{ display: "grid", rowGap: 12, padding: "14px 16px", background: "#f1f1f1", borderTop: "1px solid #e3e3e3" }}>
+            {F.map((f) => <Field key={f.key} label={f.label} value={el[f.key]} />)}
+          </div>
+        </Collapse>
+      </div>
+    );
+  };
   return (
     <div>
-      <div style={{ border: `1px solid ${INK}`, borderRadius: 12, padding: 16, background: BG, display: "grid", rowGap: 10 }}>
-        <B idx={0} />
-        <B idx={1} />
-        <div className="grid grid-cols-1 sm:grid-cols-3" style={{ gap: 10, alignItems: "stretch" }}>
-          <B idx={2} />
-          <div style={{ display: "grid", placeItems: "center", border: `1px dashed ${INK}`, borderRadius: 8, padding: "18px 12px", fontSize: 13, fontWeight: 600, color: INK }}>Объект</div>
-          <B idx={2} />
+      {/* десктоп: пространственная схема защиты вокруг объекта */}
+      <div className="hidden md:block">
+        <div style={{ border: `1px solid ${INK}`, borderRadius: 12, padding: 16, background: BG, display: "grid", rowGap: 10 }}>
+          <B idx={0} />
+          <B idx={1} />
+          <div className="grid grid-cols-1 sm:grid-cols-3" style={{ gap: 10, alignItems: "stretch" }}>
+            <B idx={2} />
+            <div style={{ display: "grid", placeItems: "center", border: `1px dashed ${INK}`, borderRadius: 8, padding: "18px 12px", fontSize: 13, fontWeight: 600, color: INK }}>Объект</div>
+            <B idx={2} />
+          </div>
+          <B idx={3} />
+          <div className="grid grid-cols-1 sm:grid-cols-3" style={{ gap: 10 }}>
+            <B idx={4} />
+            <B idx={5} />
+            <B idx={6} />
+          </div>
         </div>
-        <B idx={3} />
-        <div className="grid grid-cols-1 sm:grid-cols-3" style={{ gap: 10 }}>
-          <B idx={4} />
-          <B idx={5} />
-          <B idx={6} />
-        </div>
+        <DetailCard node={elements[a]} fields={F} />
       </div>
-      <DetailCard node={elements[a]} fields={[{ key: "design", label: "Проектируем" }, { key: "check", label: "Проверяем" }, { key: "sheet", label: "Лист / результат" }]} />
+      {/* мобилка: «оболочка защиты» — слои от внешних к заземлению, объект в центре,
+         деталь раскрывается прямо на своём слое */}
+      <div className="md:hidden" style={{ border: `1px solid ${INK}`, borderRadius: 12, overflow: "hidden", background: BG }}>
+        <div style={{ ...lblCss, padding: "11px 16px", textAlign: "center" }}>Контур защиты ↓</div>
+        {shellOrder.map((k) => k === "object" ? (
+          <div key="obj" style={{ borderTop: "1px solid #e3e3e3", padding: 16, display: "flex", justifyContent: "center" }}>
+            <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", minWidth: 160, padding: "12px 20px", border: `1px dashed ${INK}`, borderRadius: 10, fontSize: 14, fontWeight: 700, letterSpacing: ".08em", color: INK, background: BG }}>ОБЪЕКТ</span>
+          </div>
+        ) : (
+          <Row key={k} idx={k} />
+        ))}
+      </div>
     </div>
   );
 }
@@ -287,22 +369,47 @@ export function ProtectionEnvelopeBoard({ elements = [] }) {
 export function CostFunnelBoard({ levels = [] }) {
   const [a, setA] = useState(0);
   const n = levels.length;
+  const F = [{ key: "has", label: "Что входит" }, { key: "check", label: "Проверяем" }, { key: "err", label: "Ошибка" }];
   return (
     <div>
-      <div style={{ display: "grid", rowGap: 8, justifyItems: "center" }}>
+      {/* десктоп: воронка стоимости + общий детальный вывод */}
+      <div className="hidden md:block">
+        <div style={{ display: "grid", rowGap: 8, justifyItems: "center" }}>
+          {levels.map((l, i) => {
+            const w = Math.round(100 - (i * (100 - 56)) / (n - 1));
+            const on = i === a;
+            return (
+              <button key={i} type="button" onMouseEnter={() => setA(i)} onClick={() => setA(i)}
+                style={{ width: `${w}%`, minWidth: 210, maxWidth: "100%", display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", border: `1px solid ${INK}`, borderRadius: 8, background: on ? INK : BG, color: on ? "#fff" : INK, cursor: "pointer", transition: "background-color .14s ease, color .14s ease" }}>
+                <span style={{ fontSize: 13, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{pad(i)}</span>
+                <span style={{ fontSize: 14, fontWeight: 600 }}>{l.title}</span>
+              </button>
+            );
+          })}
+        </div>
+        <DetailCard node={levels[a]} fields={F} />
+      </div>
+      {/* мобилка: воронка с раскрытием на месте — выбранный уровень расширяется до края, деталь под ним */}
+      <div className="md:hidden" style={{ display: "grid", rowGap: 8, justifyItems: "center" }}>
         {levels.map((l, i) => {
-          const w = Math.round(100 - (i * (100 - 56)) / (n - 1));
+          const w = Math.round(100 - (i * (100 - 68)) / (n - 1));
           const on = i === a;
           return (
-            <button key={i} type="button" onMouseEnter={() => setA(i)} onClick={() => setA(i)}
-              style={{ width: `${w}%`, minWidth: 210, maxWidth: "100%", display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", border: `1px solid ${INK}`, borderRadius: 8, background: on ? INK : BG, color: on ? "#fff" : INK, cursor: "pointer", transition: "background-color .14s ease, color .14s ease" }}>
-              <span style={{ fontSize: 13, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{pad(i)}</span>
-              <span style={{ fontSize: 14, fontWeight: 600 }}>{l.title}</span>
-            </button>
+            <div key={i} style={{ width: on ? "100%" : `${w}%`, minWidth: 210, maxWidth: "100%", transition: "width .3s cubic-bezier(.2,.8,.2,1)", border: `1px solid ${on ? INK : "#d7d7d7"}`, borderRadius: 10, overflow: "hidden", background: BG }}>
+              <button type="button" onClick={() => setA(on ? -1 : i)} style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, padding: "13px 16px", background: on ? INK : BG, color: on ? "#fff" : INK, cursor: "pointer", textAlign: "left" }}>
+                <span style={{ fontSize: 13, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{pad(i)}</span>
+                <span style={{ fontSize: 14, fontWeight: 600, flex: 1 }}>{l.title}</span>
+                <span aria-hidden="true" style={{ fontSize: 16, opacity: 0.7 }}>{on ? "–" : "+"}</span>
+              </button>
+              <Collapse open={on}>
+                <div style={{ display: "grid", rowGap: 12, padding: "14px 16px", background: "#f1f1f1", borderTop: "1px solid #e3e3e3", textAlign: "left" }}>
+                  {F.map((f) => <Field key={f.key} label={f.label} value={l[f.key]} />)}
+                </div>
+              </Collapse>
+            </div>
           );
         })}
       </div>
-      <DetailCard node={levels[a]} fields={[{ key: "has", label: "Что входит" }, { key: "check", label: "Проверяем" }, { key: "err", label: "Ошибка" }]} />
     </div>
   );
 }

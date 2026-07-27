@@ -21,6 +21,21 @@ export function DottedDivider({ size = "100%", vertical = false }) {
   );
 }
 
+/* ===== Collapse — плавное вертикальное раскрытие (grid-rows 0fr→1fr).
+   Используется для мобильных аккордеонов signature-панелей: деталь появляется
+   прямо под нажатым пунктом, без скачков высоты и без замера в JS. ===== */
+export function Collapse({ open, children }) {
+  return (
+    <div className="grid transition-[grid-template-rows] duration-300 ease-out" style={{ gridTemplateRows: open ? "1fr" : "0fr" }}>
+      <div className="min-h-0 overflow-hidden">
+        <div className={`transition-[opacity,transform] duration-200 ease-out ${open ? "opacity-100 translate-y-0" : "-translate-y-1 opacity-0"}`}>
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* капсульная кнопка/ссылка: контур → чёрная заливка на hover */
 export function Capsule({ to, onClick, children, as = "link" }) {
   const base = {

@@ -5,7 +5,7 @@
 // монохром, 1px border, пунктир, hover чёрный/белый, без цвета/иконок/градиентов.
 // Только inline-стили + токены проекта; Tailwind — лишь для адаптивных сеток.
 import React, { useState } from "react";
-import { UI, BG, INK, MUTED, DottedDivider, DetailStatGrid, MatrixTable, MiniTabs, gridFillers } from "@/components/services/detailBlocks.jsx";
+import { UI, BG, INK, MUTED, DottedDivider, DetailStatGrid, MatrixTable, MiniTabs, gridFillers, Collapse } from "@/components/services/detailBlocks.jsx";
 
 const lblCss = { fontSize: 11, letterSpacing: ".06em", textTransform: "uppercase", color: MUTED, fontWeight: 400 };
 const valCss = { marginTop: 2, fontSize: 14, lineHeight: "20px", fontWeight: 300, color: "#222" };
@@ -128,14 +128,24 @@ export function FinishRouteBoard({ stages = [] }) {
           </button>
         ); })}
       </div>
-      <div className="md:hidden" style={{ display: "grid", rowGap: 8 }}>
+      {/* мобилка: маршрут-аккордеон — деталь раскрывается прямо под этапом */}
+      <div className="md:hidden" style={{ border: `1px solid ${INK}`, borderRadius: 10, overflow: "hidden", background: BG }}>
         {stages.map((s, i) => { const on = i === a; return (
-          <button key={i} type="button" onClick={() => setA(i)} style={{ display: "flex", gap: 12, alignItems: "center", padding: "12px 14px", border: `1px solid ${INK}`, borderRadius: 10, background: on ? INK : BG, color: on ? "#fff" : INK, cursor: "pointer", textAlign: "left" }}>
-            <span style={{ fontSize: 12, fontWeight: 700 }}>{pad(i)}</span><span style={{ fontSize: 14, fontWeight: 600 }}>{s.title}</span>
-          </button>
+          <div key={i} style={{ borderTop: i ? "1px solid #e3e3e3" : "none" }}>
+            <button type="button" onClick={() => setA(on ? -1 : i)} style={{ width: "100%", display: "flex", gap: 12, alignItems: "center", padding: "13px 14px", background: on ? INK : BG, color: on ? "#fff" : INK, cursor: "pointer", textAlign: "left" }}>
+              <span style={{ fontSize: 12, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{pad(i)}</span>
+              <span style={{ fontSize: 14, fontWeight: 600, flex: 1 }}>{s.title}</span>
+              <span aria-hidden="true" style={{ fontSize: 16, opacity: 0.7 }}>{on ? "–" : "+"}</span>
+            </button>
+            <Collapse open={on}>
+              <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: 14, padding: "14px 16px", background: "#f1f1f1", borderTop: "1px solid #e3e3e3" }}>
+                {F.map((f) => <Field key={f.key} label={f.label} value={s[f.key]} />)}
+              </div>
+            </Collapse>
+          </div>
         ); })}
       </div>
-      <DetailCard node={stages[a]} fields={F} cols="grid-cols-1 sm:grid-cols-2 lg:grid-cols-4" />
+      <div className="hidden md:block"><DetailCard node={stages[a]} fields={F} cols="grid-cols-1 sm:grid-cols-2 lg:grid-cols-4" /></div>
     </div>
   );
 }
@@ -146,15 +156,40 @@ export function ConcreteCycleBoard({ steps = [] }) {
   const F = [{ key: "do", label: "Выполняем" }, { key: "check", label: "Проверяем" }, { key: "risk", label: "Риск" }, { key: "ready", label: "Готово для перехода" }];
   return (
     <div>
-      <div className="grid grid-cols-2 sm:grid-cols-4" style={{ gap: 8 }}>
-        {steps.map((s, i) => { const on = i === a; return (
-          <button key={i} type="button" onMouseEnter={() => setA(i)} onClick={() => setA(i)} style={{ padding: "14px 12px", border: `1px solid ${on ? INK : "#d7d7d7"}`, borderRadius: 10, background: on ? INK : BG, color: on ? "#fff" : INK, cursor: "pointer", textAlign: "left", minHeight: 78 }}>
-            <div style={{ fontSize: 13, fontWeight: 700 }}>{pad(i)}</div>
-            <div style={{ fontSize: 13, fontWeight: 600, marginTop: 6, lineHeight: "16px" }}>{s.title}</div>
-          </button>
+      {/* десктоп: сетка стадий + общий детальный вывод */}
+      <div className="hidden md:block">
+        <div className="grid grid-cols-2 sm:grid-cols-4" style={{ gap: 8 }}>
+          {steps.map((s, i) => { const on = i === a; return (
+            <button key={i} type="button" onMouseEnter={() => setA(i)} onClick={() => setA(i)} style={{ padding: "14px 12px", border: `1px solid ${on ? INK : "#d7d7d7"}`, borderRadius: 10, background: on ? INK : BG, color: on ? "#fff" : INK, cursor: "pointer", textAlign: "left", minHeight: 78 }}>
+              <div style={{ fontSize: 13, fontWeight: 700 }}>{pad(i)}</div>
+              <div style={{ fontSize: 13, fontWeight: 600, marginTop: 6, lineHeight: "16px" }}>{s.title}</div>
+            </button>
+          ); })}
+        </div>
+        <DetailCard node={steps[a]} fields={F} cols="grid-cols-1 sm:grid-cols-2 lg:grid-cols-4" />
+      </div>
+      {/* мобилка: вертикальный цикл-таймлайн — узел раскрывается прямо на своём месте */}
+      <div className="md:hidden">
+        {steps.map((s, i) => { const on = i === a; const last = i === steps.length - 1; return (
+          <div key={i} style={{ display: "grid", gridTemplateColumns: "34px 1fr", columnGap: 12 }}>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+              <span style={{ width: 30, height: 30, borderRadius: 999, border: `1px solid ${on ? INK : "#c9c9c9"}`, background: on ? INK : BG, color: on ? "#fff" : INK, display: "grid", placeItems: "center", fontSize: 12, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{pad(i)}</span>
+              {!last && <span aria-hidden="true" style={{ flex: 1, width: 1, minHeight: 12, marginTop: 4, backgroundImage: "repeating-linear-gradient(to bottom,#000 0 1px,transparent 1px 7px)" }} />}
+            </div>
+            <div style={{ paddingBottom: last ? 0 : 12 }}>
+              <button type="button" onClick={() => setA(on ? -1 : i)} style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "5px 0", background: "transparent", border: "none", cursor: "pointer", textAlign: "left" }}>
+                <span style={{ fontSize: 15, fontWeight: 600, color: INK, flex: 1 }}>{s.title}</span>
+                <span aria-hidden="true" style={{ fontSize: 16, color: MUTED }}>{on ? "–" : "+"}</span>
+              </button>
+              <Collapse open={on}>
+                <div style={{ marginTop: 8, ...softCss, display: "grid", rowGap: 12 }}>
+                  {F.map((f) => <Field key={f.key} label={f.label} value={s[f.key]} />)}
+                </div>
+              </Collapse>
+            </div>
+          </div>
         ); })}
       </div>
-      <DetailCard node={steps[a]} fields={F} cols="grid-cols-1 sm:grid-cols-2 lg:grid-cols-4" />
     </div>
   );
 }
@@ -201,13 +236,39 @@ export function EnvelopeBoard({ roof = [], facade = [] }) {
       </div>
     </div>
   );
+  const MobileGroup = ({ title, items, offset }) => (
+    <div style={{ border: `1px solid ${INK}`, borderRadius: 10, overflow: "hidden", background: BG }}>
+      <div style={{ ...lblCss, padding: "10px 14px", background: "#efefef", borderBottom: "1px solid #e3e3e3" }}>{title}</div>
+      {items.map((it, i) => { const idx = offset + i; const on = idx === a; return (
+        <div key={i} style={{ borderTop: i ? "1px solid #e3e3e3" : "none" }}>
+          <button type="button" onClick={() => setA(on ? -1 : idx)} style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", background: on ? INK : BG, color: on ? "#fff" : INK, cursor: "pointer", textAlign: "left" }}>
+            <span style={{ fontSize: 14, fontWeight: 600, flex: 1 }}>{it.title}</span>
+            <span aria-hidden="true" style={{ fontSize: 16, opacity: 0.7 }}>{on ? "–" : "+"}</span>
+          </button>
+          <Collapse open={on}>
+            <div style={{ display: "grid", rowGap: 12, padding: "14px 16px", background: "#f1f1f1", borderTop: "1px solid #e3e3e3" }}>
+              {F.map((f) => <Field key={f.key} label={f.label} value={it[f.key]} />)}
+            </div>
+          </Collapse>
+        </div>
+      ); })}
+    </div>
+  );
   return (
     <div>
-      <div className="grid grid-cols-1 md:grid-cols-2" style={{ gap: 12 }}>
-        <Panel title="Кровельный пирог" items={roof} offset={0} />
-        <Panel title="Фасадный слой" items={facade} offset={roof.length} />
+      {/* десктоп: две колонки-панели + общий детальный вывод */}
+      <div className="hidden md:block">
+        <div className="grid grid-cols-1 md:grid-cols-2" style={{ gap: 12 }}>
+          <Panel title="Кровельный пирог" items={roof} offset={0} />
+          <Panel title="Фасадный слой" items={facade} offset={roof.length} />
+        </div>
+        <DetailCard node={all[a]} fields={F} />
       </div>
-      <DetailCard node={all[a]} fields={F} />
+      {/* мобилка: два сгруппированных аккордеона — деталь под выбранным слоем */}
+      <div className="md:hidden" style={{ display: "grid", rowGap: 12 }}>
+        <MobileGroup title="Кровельный пирог" items={roof} offset={0} />
+        <MobileGroup title="Фасадный слой" items={facade} offset={roof.length} />
+      </div>
     </div>
   );
 }
@@ -239,25 +300,45 @@ export function SpaceDividerBoard({ steps = [] }) {
 export function ReinforcementStrategyBoard({ problems = [] }) {
   const [a, setA] = useState(0);
   const cur = problems[a] || {};
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-2" style={{ gap: 12 }}>
-      <div style={cardCss}>
-        <div style={{ ...lblCss, marginBottom: 10 }}>Что происходит →</div>
-        <div style={{ display: "grid", rowGap: 8 }}>
-          {problems.map((p, i) => { const on = i === a; return (
-            <button key={i} type="button" onMouseEnter={() => setA(i)} onClick={() => setA(i)} style={{ textAlign: "left", padding: "12px 12px", border: `1px solid ${on ? INK : "#d7d7d7"}`, borderRadius: 8, background: on ? INK : BG, color: on ? "#fff" : INK, cursor: "pointer", fontSize: 14, fontWeight: on ? 600 : 400 }}>{p.problem}</button>
-          ); })}
-        </div>
+  const detailBody = (p) => (
+    <>
+      <div style={{ ...lblCss, marginBottom: 6 }}>Как усиливаем</div>
+      <div style={{ fontSize: 17, fontWeight: 600, color: INK }}>{p.method}</div>
+      <div style={{ margin: "12px 0" }}><DottedDivider /></div>
+      <div style={{ display: "grid", rowGap: 10 }}>
+        <Field label="Что проверяем" value={p.check} />
+        <Field label="Тип решения" value={p.solution} />
+        <Field label="Риск без фиксации" value={p.risk} />
       </div>
-      <div style={softCss}>
-        <div style={{ ...lblCss, marginBottom: 6 }}>Как усиливаем</div>
-        <div style={{ fontSize: 17, fontWeight: 600, color: INK }}>{cur.method}</div>
-        <div style={{ margin: "12px 0" }}><DottedDivider /></div>
-        <div style={{ display: "grid", rowGap: 10 }}>
-          <Field label="Что проверяем" value={cur.check} />
-          <Field label="Тип решения" value={cur.solution} />
-          <Field label="Риск без фиксации" value={cur.risk} />
+    </>
+  );
+  return (
+    <div>
+      {/* десктоп: слева карта дефектов, справа метод усиления */}
+      <div className="hidden grid-cols-2 gap-3 md:grid">
+        <div style={cardCss}>
+          <div style={{ ...lblCss, marginBottom: 10 }}>Что происходит →</div>
+          <div style={{ display: "grid", rowGap: 8 }}>
+            {problems.map((p, i) => { const on = i === a; return (
+              <button key={i} type="button" onMouseEnter={() => setA(i)} onClick={() => setA(i)} style={{ textAlign: "left", padding: "12px 12px", border: `1px solid ${on ? INK : "#d7d7d7"}`, borderRadius: 8, background: on ? INK : BG, color: on ? "#fff" : INK, cursor: "pointer", fontSize: 14, fontWeight: on ? 600 : 400 }}>{p.problem}</button>
+            ); })}
+          </div>
         </div>
+        <div style={softCss}>{detailBody(cur)}</div>
+      </div>
+      {/* мобилка: дефект → метод усиления раскрывается прямо под пунктом */}
+      <div className="md:hidden" style={{ display: "grid", rowGap: 8 }}>
+        {problems.map((p, i) => { const on = i === a; return (
+          <div key={i} style={{ border: `1px solid ${on ? INK : "#d7d7d7"}`, borderRadius: 10, overflow: "hidden", background: BG }}>
+            <button type="button" onClick={() => setA(on ? -1 : i)} style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "13px 14px", background: on ? INK : BG, color: on ? "#fff" : INK, cursor: "pointer", textAlign: "left" }}>
+              <span style={{ fontSize: 14, fontWeight: on ? 600 : 500, flex: 1 }}>{p.problem}</span>
+              <span aria-hidden="true" style={{ fontSize: 15, opacity: 0.75, transition: "transform .25s ease", transform: on ? "rotate(90deg)" : "none" }}>→</span>
+            </button>
+            <Collapse open={on}>
+              <div style={{ padding: "14px 16px", background: "#f1f1f1", borderTop: "1px solid #e3e3e3" }}>{detailBody(p)}</div>
+            </Collapse>
+          </div>
+        ); })}
       </div>
     </div>
   );
@@ -267,21 +348,42 @@ export function ReinforcementStrategyBoard({ problems = [] }) {
 export function SiteControlBoard({ panels = [] }) {
   const [a, setA] = useState(0);
   const cur = panels[a] || {};
+  const bullets = (p) => (
+    <ul style={{ margin: 0, paddingLeft: 18, listStyle: "disc" }}>
+      {(p.items || []).map((x, i) => <li key={i} style={{ fontSize: 14, lineHeight: "22px", fontWeight: 300, color: "#222", marginBottom: 6 }}>{x}</li>)}
+    </ul>
+  );
   return (
     <div>
-      <div className="grid grid-cols-2 sm:grid-cols-3" style={{ gap: 8 }}>
-        {panels.map((p, i) => { const on = i === a; return (
-          <button key={i} type="button" onMouseEnter={() => setA(i)} onClick={() => setA(i)} style={{ padding: "14px 12px", border: `1px solid ${on ? INK : "#d7d7d7"}`, borderRadius: 10, background: on ? INK : BG, color: on ? "#fff" : INK, cursor: "pointer", textAlign: "left" }}>
-            <div style={{ fontSize: 11, fontWeight: 700, opacity: 0.75 }}>{pad(i)}</div>
-            <div style={{ fontSize: 14, fontWeight: 600, marginTop: 4 }}>{p.title}</div>
-          </button>
-        ); })}
+      {/* десктоп: сетка панелей + раскрытие снизу */}
+      <div className="hidden md:block">
+        <div className="grid grid-cols-2 sm:grid-cols-3" style={{ gap: 8 }}>
+          {panels.map((p, i) => { const on = i === a; return (
+            <button key={i} type="button" onMouseEnter={() => setA(i)} onClick={() => setA(i)} style={{ padding: "14px 12px", border: `1px solid ${on ? INK : "#d7d7d7"}`, borderRadius: 10, background: on ? INK : BG, color: on ? "#fff" : INK, cursor: "pointer", textAlign: "left" }}>
+              <div style={{ fontSize: 11, fontWeight: 700, opacity: 0.75 }}>{pad(i)}</div>
+              <div style={{ fontSize: 14, fontWeight: 600, marginTop: 4 }}>{p.title}</div>
+            </button>
+          ); })}
+        </div>
+        <div style={{ marginTop: 12, ...cardCss }}>
+          <div style={{ fontSize: 16, fontWeight: 600, color: INK, marginBottom: 10 }}>{cur.title}</div>
+          {bullets(cur)}
+        </div>
       </div>
-      <div style={{ marginTop: 12, ...cardCss }}>
-        <div style={{ fontSize: 16, fontWeight: 600, color: INK, marginBottom: 10 }}>{cur.title}</div>
-        <ul style={{ margin: 0, paddingLeft: 18, listStyle: "disc" }}>
-          {(cur.items || []).map((x, i) => <li key={i} style={{ fontSize: 14, lineHeight: "22px", fontWeight: 300, color: "#222", marginBottom: 6 }}>{x}</li>)}
-        </ul>
+      {/* мобилка: штаб-аккордеон — список задач раскрывается прямо под панелью */}
+      <div className="md:hidden" style={{ border: `1px solid ${INK}`, borderRadius: 12, overflow: "hidden", background: BG }}>
+        {panels.map((p, i) => { const on = i === a; return (
+          <div key={i} style={{ borderTop: i ? "1px solid #e3e3e3" : "none" }}>
+            <button type="button" onClick={() => setA(on ? -1 : i)} style={{ width: "100%", display: "grid", gridTemplateColumns: "36px 1fr 22px", gap: 10, alignItems: "center", padding: "14px 16px", background: on ? INK : BG, color: on ? "#fff" : INK, cursor: "pointer", textAlign: "left" }}>
+              <span style={{ fontSize: 13, fontWeight: 700, fontVariantNumeric: "tabular-nums", opacity: 0.85 }}>{pad(i)}</span>
+              <span style={{ fontSize: 15, fontWeight: 600 }}>{p.title}</span>
+              <span aria-hidden="true" style={{ fontSize: 16, opacity: 0.7, textAlign: "right" }}>{on ? "–" : "+"}</span>
+            </button>
+            <Collapse open={on}>
+              <div style={{ padding: "14px 16px", background: "#f1f1f1", borderTop: "1px solid #e3e3e3" }}>{bullets(p)}</div>
+            </Collapse>
+          </div>
+        ); })}
       </div>
     </div>
   );
@@ -291,30 +393,50 @@ export function SiteControlBoard({ panels = [] }) {
 export function CommissioningBoard({ systems = [] }) {
   const [a, setA] = useState(0);
   const cur = systems[a] || {};
+  const routeStages = (s) => (
+    <div style={{ display: "grid", rowGap: 10 }}>
+      {(s.stages || []).map((st, i) => (
+        <div key={i} style={{ display: "grid", gridTemplateColumns: "40px 1fr", gap: 12, alignItems: "baseline" }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: INK, fontVariantNumeric: "tabular-nums" }}>{pad(i)}</span>
+          <div>
+            <span style={{ fontSize: 14, fontWeight: 600, color: INK }}>{st.title}</span>
+            {st.note && <span style={{ fontSize: 13, fontWeight: 300, color: "#555" }}> — {st.note}</span>}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3" style={{ gap: 12 }}>
-      <div style={{ display: "grid", rowGap: 8, alignContent: "start" }}>
-        {systems.map((s, i) => { const on = i === a; return (
-          <button key={i} type="button" onClick={() => setA(i)} style={{ textAlign: "left", padding: "12px 14px", border: `1px solid ${on ? INK : "#d7d7d7"}`, borderRadius: 10, background: on ? INK : BG, color: on ? "#fff" : INK, cursor: "pointer", fontSize: 14, fontWeight: 600 }}>{s.name}</button>
-        ); })}
+    <div>
+      {/* десктоп: слева системы, справа маршрут запуска */}
+      <div className="hidden grid-cols-3 gap-3 md:grid">
+        <div style={{ display: "grid", rowGap: 8, alignContent: "start" }}>
+          {systems.map((s, i) => { const on = i === a; return (
+            <button key={i} type="button" onClick={() => setA(i)} style={{ textAlign: "left", padding: "12px 14px", border: `1px solid ${on ? INK : "#d7d7d7"}`, borderRadius: 10, background: on ? INK : BG, color: on ? "#fff" : INK, cursor: "pointer", fontSize: 14, fontWeight: 600 }}>{s.name}</button>
+          ); })}
+        </div>
+        <div className="col-span-2" style={cardCss}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
+            <span style={{ fontSize: 17, fontWeight: 600, color: INK }}>{cur.name}</span>
+            <span style={lblCss}>Маршрут запуска</span>
+          </div>
+          <div style={{ margin: "12px 0" }}><DottedDivider /></div>
+          {routeStages(cur)}
+        </div>
       </div>
-      <div className="md:col-span-2" style={cardCss}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
-          <span style={{ fontSize: 17, fontWeight: 600, color: INK }}>{cur.name}</span>
-          <span style={lblCss}>Маршрут запуска</span>
-        </div>
-        <div style={{ margin: "12px 0" }}><DottedDivider /></div>
-        <div style={{ display: "grid", rowGap: 10 }}>
-          {(cur.stages || []).map((st, i) => (
-            <div key={i} style={{ display: "grid", gridTemplateColumns: "40px 1fr", gap: 12, alignItems: "baseline" }}>
-              <span style={{ fontSize: 13, fontWeight: 700, color: INK, fontVariantNumeric: "tabular-nums" }}>{pad(i)}</span>
-              <div>
-                <span style={{ fontSize: 14, fontWeight: 600, color: INK }}>{st.title}</span>
-                {st.note && <span style={{ fontSize: 13, fontWeight: 300, color: "#555" }}> — {st.note}</span>}
-              </div>
-            </div>
-          ))}
-        </div>
+      {/* мобилка: система → маршрут запуска раскрывается прямо под ней */}
+      <div className="md:hidden" style={{ display: "grid", rowGap: 8 }}>
+        {systems.map((s, i) => { const on = i === a; return (
+          <div key={i} style={{ border: `1px solid ${on ? INK : "#d7d7d7"}`, borderRadius: 10, overflow: "hidden", background: BG }}>
+            <button type="button" onClick={() => setA(on ? -1 : i)} style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "13px 14px", background: on ? INK : BG, color: on ? "#fff" : INK, cursor: "pointer", textAlign: "left" }}>
+              <span style={{ fontSize: 14, fontWeight: 600, flex: 1 }}>{s.name}</span>
+              <span aria-hidden="true" style={{ fontSize: 11, letterSpacing: ".04em", textTransform: "uppercase", opacity: 0.7 }}>{on ? "запуск" : "+"}</span>
+            </button>
+            <Collapse open={on}>
+              <div style={{ padding: "14px 16px", background: "#f1f1f1", borderTop: "1px solid #e3e3e3" }}>{routeStages(s)}</div>
+            </Collapse>
+          </div>
+        ); })}
       </div>
     </div>
   );
