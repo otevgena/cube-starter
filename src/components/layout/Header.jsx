@@ -834,18 +834,25 @@ function MobileMenu({ open, onClose, query, setQuery, user, authReady, authPendi
                     </span>
                     <ChevronDown size={18} className={`shrink-0 text-neutral-400 transition-transform ${open ? "rotate-180" : ""}`} />
                   </button>
-                  {open && (
-                    <ul className="bg-white py-1">
-                      {c.items.map((it) => (
-                        <li key={it.label}>
-                          <a href={it.href || c.href} onClick={onServiceClick(it.href || c.href, onClose)} className="flex items-center gap-3 py-2.5 pl-[52px] pr-5 text-[14px] text-ink lg:pl-[84px] lg:pr-[52px]">
-                            <span className="min-w-0 flex-1">{it.label}</span>
-                            <span className="shrink-0 text-neutral-400">{it.tag}</span>
-                          </a>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
+                  {/* Плавное раскрытие: grid-rows 0fr→1fr (без замера высоты),
+                      блок всегда в DOM, поэтому анимируется и раскрытие, и сворачивание. */}
+                  <div
+                    className="grid transition-[grid-template-rows] duration-300 ease-out"
+                    style={{ gridTemplateRows: open ? "1fr" : "0fr" }}
+                  >
+                    <div className="min-h-0 overflow-hidden">
+                      <ul className={`bg-white py-1 transition-opacity duration-200 ease-out ${open ? "opacity-100" : "opacity-0"}`}>
+                        {c.items.map((it) => (
+                          <li key={it.label}>
+                            <a href={it.href || c.href} tabIndex={open ? 0 : -1} onClick={onServiceClick(it.href || c.href, onClose)} className="flex items-center gap-3 py-2.5 pl-[52px] pr-5 text-[14px] text-ink lg:pl-[84px] lg:pr-[52px]">
+                              <span className="min-w-0 flex-1">{it.label}</span>
+                              <span className="shrink-0 text-neutral-400">{it.tag}</span>
+                            </a>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
                 </li>
               );
             })}
