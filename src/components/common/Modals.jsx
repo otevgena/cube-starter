@@ -86,7 +86,7 @@ export function ErrorSlot({ text }) {
   return (
     <div className="relative h-[22px]">
       {text ? (
-        <span className="absolute left-0 top-[11px] text-[11px] font-light leading-[11px] text-carrot">{text}</span>
+        <span className="absolute left-0 top-[11px] animate-errin text-[11px] font-light leading-[11px] text-carrot">{text}</span>
       ) : null}
     </div>
   );

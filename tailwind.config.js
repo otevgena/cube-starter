@@ -38,11 +38,16 @@ export default {
           "0%": { opacity: "0", transform: "translateY(-6px) scale(.985)" },
           "100%": { opacity: "1", transform: "translateY(0) scale(1)" },
         },
+        errin: {
+          "0%": { opacity: "0", transform: "translateY(-3px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
+        },
       },
       animation: {
         svcfade: "svcfade 0.18s ease-out",
         pagein: "pagein 0.3s ease-out both",
         msgin: "msgin 0.34s cubic-bezier(.2,.8,.2,1) both",
+        errin: "errin 0.2s cubic-bezier(.2,.8,.2,1) both",
       },
     },
   },

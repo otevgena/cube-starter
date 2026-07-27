@@ -113,8 +113,8 @@ function ReviewPopupInner({
           border-radius: 14px;
           box-shadow: 0 16px 48px rgba(0,0,0,.35);
           overflow: hidden;
-          transform: translateY(4px);
-          animation: r-pop .18s ease-out forwards;
+          transform: translateY(10px) scale(.985);
+          animation: r-pop .26s cubic-bezier(.2,.8,.2,1) forwards;
           display: flex; flex-direction: column;
         }
         .review-modal-img{

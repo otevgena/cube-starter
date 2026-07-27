@@ -39,7 +39,7 @@ function ErrorSlot({ text }) {
   return (
     <div className="relative h-[22px]">
       {text ? (
-        <span className="absolute left-0 top-[11px] text-[11px] font-light leading-[11px] text-[#fa5d29]">{text}</span>
+        <span className="absolute left-0 top-[11px] animate-errin text-[11px] font-light leading-[11px] text-[#fa5d29]">{text}</span>
       ) : null}
     </div>
   );
@@ -248,7 +248,7 @@ export default function Contact({ topClass = "pt-14" }) {
                 </svg>
               </div>
               {open && (
-                <div role="listbox" className="absolute z-10 max-h-[280px] w-[683px] max-w-full overflow-y-auto border border-[#d9d9d9] bg-white">
+                <div role="listbox" className="absolute z-10 max-h-[280px] w-[683px] max-w-full animate-svcfade overflow-y-auto border border-[#d9d9d9] bg-white">
                   {OPTIONS.map((o) => (
                     <div
                       key={o}

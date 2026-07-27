@@ -9,6 +9,7 @@ import { ChevronDown, Search, Menu, X, UserRound } from "lucide-react";
 import { search } from "@/data/search-index";
 import * as DB from "@/data/objects.js";
 import { refreshOnce } from "@/lib/auth.js";
+import Spinner from "@/components/common/Spinner.jsx";
 
 /* === API base === */
 const API_BASE =
@@ -315,12 +316,41 @@ function ActionButtons() {
   );
 }
 
+// Плавно подгоняет свою ширину под контент. Когда справа меняется набор
+// (заглушка → «Вход/Регистрация» → аватар), ширина анимируется, и соседнее
+// flex-1 поле поиска НЕ прыгает, а плавно меняет размер. overflow видимый —
+// чтобы не срезать выпадающее меню аватара; контент прижат вправо, поэтому
+// рост «раскрывается» влево (в сторону поиска), не наезжая на кнопки справа.
+function AnimatedWidth({ children, duration = 440, className = "" }) {
+  const innerRef = React.useRef(null);
+  const [w, setW] = React.useState(null);
+  React.useLayoutEffect(() => {
+    const el = innerRef.current;
+    if (!el) return;
+    const target = el.getBoundingClientRect().width;
+    setW((prev) => (prev != null && Math.abs(prev - target) < 0.5 ? prev : target));
+  });
+  return (
+    <div
+      className={className}
+      style={{
+        width: w == null ? "auto" : Math.round(w),
+        transition: `width ${duration}ms cubic-bezier(.2,.8,.2,1)`,
+        display: "flex",
+        justifyContent: "flex-end",
+      }}
+    >
+      <div ref={innerRef} style={{ width: "max-content" }}>{children}</div>
+    </div>
+  );
+}
+
 function AuthControls({ user, authReady, authPending, onLogout }) {
   if (user) return <AvatarMenu user={user} onLogout={onLogout} />;
   // Был вход (localStorage-подсказка), но кэш пуст (новый день/вкладка) — пока
   // bootstrap перепроверяет сессию, держим нейтральную заглушку вместо кнопок,
   // чтобы не мигать «Вход/Регистрация»→аватар. У настоящего гостя подсказки нет.
-  if (authPending) return <div aria-hidden="true" className="h-8 w-[132px] animate-pulse rounded-full bg-black/5" />;
+  if (authPending) return <span className="flex h-8 items-center justify-end pr-1" role="status" aria-label="Загрузка"><Spinner size={20} dot={2.5} color="#c2c2c2" /></span>;
   // Оптимистично показываем «Вход/Регистрация» СРАЗУ, не дожидаясь authReady.
   // Раньше здесь висела пустая заглушка h-8 w-[120px] до конца bootstrap
   // (refresh+me, до 3.5 c) — первый заход «думал», потом появлялись кнопки
@@ -381,7 +411,9 @@ function HeaderBar({ servicesOpen, setServicesOpen, user, authReady, authPending
 
       {/* Действия (desktop) */}
       <div className="ml-auto hidden items-center gap-3 md:flex">
-        <AuthControls user={user} authReady={authReady} authPending={authPending} onLogout={onLogout} />
+        <AnimatedWidth>
+          <AuthControls user={user} authReady={authReady} authPending={authPending} onLogout={onLogout} />
+        </AnimatedWidth>
         <ActionButtons />
       </div>
 
@@ -423,7 +455,9 @@ function TabletProBar({ onOpenMenu, onOpenSearch, user, authReady, authPending, 
 
       {/* Правые кнопки — как на ПК, прижаты вправо */}
       <div className="flex shrink-0 items-center gap-3">
-        <AuthControls user={user} authReady={authReady} authPending={authPending} onLogout={onLogout} />
+        <AnimatedWidth>
+          <AuthControls user={user} authReady={authReady} authPending={authPending} onLogout={onLogout} />
+        </AnimatedWidth>
         <ActionButtons />
       </div>
     </div>
@@ -434,13 +468,40 @@ function TabletProBar({ onOpenMenu, onOpenSearch, user, authReady, authPending, 
 function ServicesPanel({ activeCat, setActiveCat, barProps, onClose, query, setQuery }) {
   const cat = SERVICE_CATEGORIES[activeCat];
   const { user, authReady, authPending, onLogout } = barProps;
+  // enter/exit: монтируемся → следующий кадр включаем show (плавный въезд);
+  // закрытие проигрывает обратную анимацию, потом снимает панель.
+  const [show, setShow] = React.useState(false);
+  React.useEffect(() => {
+    const r = requestAnimationFrame(() => setShow(true));
+    return () => cancelAnimationFrame(r);
+  }, []);
+  const close = React.useCallback(() => {
+    setShow(false);
+    window.setTimeout(onClose, 240);
+  }, [onClose]);
+  React.useEffect(() => {
+    const onKey = (e) => { if (e.key === "Escape") close(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [close]);
   return createPortal(
     <div className="fixed inset-0 z-[100] font-tight">
       {/* затемнение */}
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div
+        className="absolute inset-0 bg-black/50"
+        style={{ opacity: show ? 1 : 0, transition: "opacity .26s ease" }}
+        onClick={close}
+      />
 
       {/* карточка: прижата к верху вьюпорта (relative в потоке fixed-родителя — надёжнее absolute) */}
-      <div className="relative pt-3">
+      <div
+        className="relative pt-3"
+        style={{
+          opacity: show ? 1 : 0,
+          transform: show ? "translateY(0)" : "translateY(-12px)",
+          transition: "opacity .28s ease, transform .34s cubic-bezier(.2,.8,.2,1)",
+        }}
+      >
         <div className="mx-auto max-w-[1700px] px-6 lg:px-10">
           <div className="-mx-5 rounded-lg bg-[#ededed] px-5 shadow-2xl">
             <div className="flex gap-5">
@@ -464,7 +525,7 @@ function ServicesPanel({ activeCat, setActiveCat, barProps, onClose, query, setQ
                 </div>
 
                 {query.trim() ? (
-                  <SearchResults query={query} onClose={onClose} />
+                  <SearchResults query={query} onClose={close} />
                 ) : (
                 <div className="mt-1 grid grid-cols-[260px_1fr] gap-x-8 pb-6">
                   {/* категории */}
@@ -473,7 +534,7 @@ function ServicesPanel({ activeCat, setActiveCat, barProps, onClose, query, setQ
                       <li key={c.key}>
                         <a
                           href={c.href}
-                          onClick={onServiceClick(c.href, onClose)}
+                          onClick={onServiceClick(c.href, close)}
                           onMouseEnter={() => setActiveCat(i)}
                           onFocus={() => setActiveCat(i)}
                           className={`flex items-center gap-3 rounded-lg px-3 py-1.5 text-sm leading-[28px] transition-colors ${
@@ -493,7 +554,7 @@ function ServicesPanel({ activeCat, setActiveCat, barProps, onClose, query, setQ
                       <li key={it.label}>
                         <a
                           href={it.href || cat.href}
-                          onClick={onServiceClick(it.href || cat.href, onClose)}
+                          onClick={onServiceClick(it.href || cat.href, close)}
                           className="flex items-center gap-4 rounded-lg px-3 py-1.5 text-sm leading-[28px] text-ink transition-colors hover:bg-white"
                         >
                           <span className="truncate">{it.label}</span>
@@ -544,9 +605,9 @@ function MobileBar({ onOpenMenu, onOpenSearch, onOpenAccount, user, authPending 
           <img src="/profile/profile.png" alt="" className="h-[30px] w-[30px] rounded-full object-cover" />
         </button>
       ) : authPending ? (
-        // Был вход, кэш пуст (новый день) — держим нейтральный кружок вместо
+        // Был вход, кэш пуст (новый день) — держим брендовые точки вместо
         // «гостевой» иконки, пока bootstrap проверяет сессию (убирает мигание).
-        <div aria-hidden="true" className="h-[30px] w-[30px] shrink-0 animate-pulse rounded-full bg-black/5" />
+        <span className="grid h-[30px] w-[30px] shrink-0 place-items-center" role="status" aria-label="Загрузка"><Spinner size={18} dot={2} color="#c2c2c2" /></span>
       ) : (
         <button type="button" onClick={onOpenAccount} aria-label="Аккаунт" className="-mr-0.5 shrink-0 text-ink" title="Аккаунт">
           <UserRound size={20} strokeWidth={2} />
