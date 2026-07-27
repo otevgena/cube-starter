@@ -30,6 +30,17 @@ const writeCachedUser = (u) => {
     if (u) sessionStorage.setItem("auth:lastUser", JSON.stringify(u));
     else sessionStorage.removeItem("auth:lastUser");
   } catch {}
+  // Устойчивая подсказка «этот человек был залогинен» — переживает закрытие
+  // браузера (localStorage), в отличие от кэша юзера в sessionStorage. Нужна,
+  // чтобы на след. день не мигать «Вход/Регистрация»→аватар, пока идёт refresh.
+  try {
+    if (u) localStorage.setItem("auth:hint", "1");
+    else localStorage.removeItem("auth:hint");
+  } catch {}
+};
+const readAuthHint = () => {
+  if (typeof window === "undefined") return false;
+  try { return localStorage.getItem("auth:hint") === "1"; } catch { return false; }
 };
 
 // Бэкенд /auth/me пока не возвращает avatar — восстанавливаем его из
@@ -304,8 +315,12 @@ function ActionButtons() {
   );
 }
 
-function AuthControls({ user, authReady, onLogout }) {
+function AuthControls({ user, authReady, authPending, onLogout }) {
   if (user) return <AvatarMenu user={user} onLogout={onLogout} />;
+  // Был вход (localStorage-подсказка), но кэш пуст (новый день/вкладка) — пока
+  // bootstrap перепроверяет сессию, держим нейтральную заглушку вместо кнопок,
+  // чтобы не мигать «Вход/Регистрация»→аватар. У настоящего гостя подсказки нет.
+  if (authPending) return <div aria-hidden="true" className="h-8 w-[132px] animate-pulse rounded-full bg-black/5" />;
   // Оптимистично показываем «Вход/Регистрация» СРАЗУ, не дожидаясь authReady.
   // Раньше здесь висела пустая заглушка h-8 w-[120px] до конца bootstrap
   // (refresh+me, до 3.5 c) — первый заход «думал», потом появлялись кнопки
@@ -327,7 +342,7 @@ function AuthControls({ user, authReady, onLogout }) {
 }
 
 /* ===== Строка шапки (используется и в шапке, и в карточке панели) ===== */
-function HeaderBar({ servicesOpen, setServicesOpen, user, authReady, onLogout, inPanel = false }) {
+function HeaderBar({ servicesOpen, setServicesOpen, user, authReady, authPending, onLogout, inPanel = false }) {
   return (
     <div className="flex h-header items-center gap-5">
       {/* Логотип */}
@@ -366,7 +381,7 @@ function HeaderBar({ servicesOpen, setServicesOpen, user, authReady, onLogout, i
 
       {/* Действия (desktop) */}
       <div className="ml-auto hidden items-center gap-3 md:flex">
-        <AuthControls user={user} authReady={authReady} onLogout={onLogout} />
+        <AuthControls user={user} authReady={authReady} authPending={authPending} onLogout={onLogout} />
         <ActionButtons />
       </div>
 
@@ -387,7 +402,7 @@ function HeaderBar({ servicesOpen, setServicesOpen, user, authReady, onLogout, i
 /* ===== Строка шапки для iPad Pro / узких ноутов (1024–1279) =====
    Стиль awwwards: бургер слева (полное меню) + логотип + поиск + правые кнопки как на ПК.
    Живёт только в диапазоне lg…xl — реальный десктоп (≥1280) её не видит. */
-function TabletProBar({ onOpenMenu, onOpenSearch, user, authReady, onLogout }) {
+function TabletProBar({ onOpenMenu, onOpenSearch, user, authReady, authPending, onLogout }) {
   return (
     <div className="flex h-header items-center gap-3.5">
       {/* Бургер слева — открывает полноэкранное меню (О нас/Проекты/Контакты/Отзывы + услуги) */}
@@ -408,7 +423,7 @@ function TabletProBar({ onOpenMenu, onOpenSearch, user, authReady, onLogout }) {
 
       {/* Правые кнопки — как на ПК, прижаты вправо */}
       <div className="flex shrink-0 items-center gap-3">
-        <AuthControls user={user} authReady={authReady} onLogout={onLogout} />
+        <AuthControls user={user} authReady={authReady} authPending={authPending} onLogout={onLogout} />
         <ActionButtons />
       </div>
     </div>
@@ -418,7 +433,7 @@ function TabletProBar({ onOpenMenu, onOpenSearch, user, authReady, onLogout }) {
 /* ===== Панель «Услуги» — портал в body; раскладка как у awwwards ===== */
 function ServicesPanel({ activeCat, setActiveCat, barProps, onClose, query, setQuery }) {
   const cat = SERVICE_CATEGORIES[activeCat];
-  const { user, authReady, onLogout } = barProps;
+  const { user, authReady, authPending, onLogout } = barProps;
   return createPortal(
     <div className="fixed inset-0 z-[100] font-tight">
       {/* затемнение */}
@@ -493,7 +508,7 @@ function ServicesPanel({ activeCat, setActiveCat, barProps, onClose, query, setQ
 
               {/* действия — правый жёлоб */}
               <div className="hidden h-header shrink-0 items-center gap-3 md:flex">
-                <AuthControls user={user} authReady={authReady} onLogout={onLogout} />
+                <AuthControls user={user} authReady={authReady} authPending={authPending} onLogout={onLogout} />
                 <ActionButtons />
               </div>
             </div>
@@ -506,7 +521,7 @@ function ServicesPanel({ activeCat, setActiveCat, barProps, onClose, query, setQ
 }
 
 /* ===== Мобильная строка шапки: бургер · c. · поиск · аккаунт (компоновка как у awwwards) ===== */
-function MobileBar({ onOpenMenu, onOpenSearch, onOpenAccount, user }) {
+function MobileBar({ onOpenMenu, onOpenSearch, onOpenAccount, user, authPending }) {
   return (
     <div className="flex h-header items-center gap-3.5">
       <button
@@ -528,6 +543,10 @@ function MobileBar({ onOpenMenu, onOpenSearch, onOpenAccount, user }) {
         <button type="button" onClick={onOpenAccount} className="shrink-0" aria-label="Аккаунт">
           <img src="/profile/profile.png" alt="" className="h-[30px] w-[30px] rounded-full object-cover" />
         </button>
+      ) : authPending ? (
+        // Был вход, кэш пуст (новый день) — держим нейтральный кружок вместо
+        // «гостевой» иконки, пока bootstrap проверяет сессию (убирает мигание).
+        <div aria-hidden="true" className="h-[30px] w-[30px] shrink-0 animate-pulse rounded-full bg-black/5" />
       ) : (
         <button type="button" onClick={onOpenAccount} aria-label="Аккаунт" className="-mr-0.5 shrink-0 text-ink" title="Аккаунт">
           <UserRound size={20} strokeWidth={2} />
@@ -639,7 +658,7 @@ function MobileAccountMenu({ onClose, user, onLogout }) {
 }
 
 /* ===== Полноэкранное мобильное меню (услуги-аккордеон + навигация + действия) ===== */
-function MobileMenu({ open, onClose, query, setQuery, user, authReady, onLogout, mode = "menu" }) {
+function MobileMenu({ open, onClose, query, setQuery, user, authReady, authPending, onLogout, mode = "menu" }) {
   const [openIdx, setOpenIdx] = React.useState(-1);
   const [present, setPresent] = React.useState(open);
   const [shown, setShown] = React.useState(false);
@@ -717,7 +736,7 @@ function MobileMenu({ open, onClose, query, setQuery, user, authReady, onLogout,
           </div>
           {/* iPad Pro (1024–1279) — те же правые кнопки, что и в закрытой шапке (без прыжка) */}
           <div className="hidden shrink-0 items-center gap-3 lg:flex" onClick={onClose}>
-            <AuthControls user={user} authReady={authReady} onLogout={onLogout} />
+            <AuthControls user={user} authReady={authReady} authPending={authPending} onLogout={onLogout} />
             <ActionButtons />
           </div>
         </div>
@@ -989,6 +1008,10 @@ export default function Header() {
   const initialUser = (typeof window !== "undefined") ? withAvatar(readCachedUser()) : null;
   const [user, setUser] = React.useState(initialUser);
   const [authReady, setAuthReady] = React.useState(false);
+  // Кэша нет, но подсказка говорит, что вход был → пока идёт bootstrap-проверка,
+  // показываем нейтральную загрузку вместо «гостя» (убирает мигание на след. день).
+  const authHintRef = React.useRef(!initialUser && readAuthHint());
+  const authPending = !user && !authReady && authHintRef.current;
   const accessRef = React.useRef(null);
   const bootRef = React.useRef(false);
 
@@ -1137,7 +1160,7 @@ export default function Header() {
     return () => { root.style.removeProperty("overflow"); };
   }, [servicesOpen]);
 
-  const barProps = { servicesOpen, setServicesOpen, user, authReady, onLogout: handleLogout };
+  const barProps = { servicesOpen, setServicesOpen, user, authReady, authPending, onLogout: handleLogout };
 
   return (
     <header className="sticky top-0 z-40 bg-page pt-0 font-tight lg:relative lg:bg-transparent lg:pt-3">
@@ -1154,12 +1177,13 @@ export default function Header() {
             onOpenSearch={() => setMobileView("search")}
             user={user}
             authReady={authReady}
+            authPending={authPending}
             onLogout={handleLogout}
           />
         </div>
         {/* Мобилка / планшет (<1024) — компактная строка. Не трогаем. */}
         <div className="lg:hidden">
-          <MobileBar onOpenMenu={() => setMobileView("menu")} onOpenSearch={() => setMobileView("search")} onOpenAccount={() => setAcctOpen(true)} user={user} />
+          <MobileBar onOpenMenu={() => setMobileView("menu")} onOpenSearch={() => setMobileView("search")} onOpenAccount={() => setAcctOpen(true)} user={user} authPending={authPending} />
         </div>
       </div>
 
@@ -1184,6 +1208,7 @@ export default function Header() {
         setQuery={setQuery}
         user={user}
         authReady={authReady}
+        authPending={authPending}
         onLogout={handleLogout}
       />
 
