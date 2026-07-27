@@ -2951,7 +2951,8 @@ export function EmployeesModule({ backTo, canManage = true }) {
                   <span style={{ fontSize: 17, fontWeight: 500, color: TEXT, lineHeight: 1.3 }}>{e.fio}</span>
                   <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: ".04em", textTransform: "uppercase", color: "#555", background: "#f0f0f0", borderRadius: 6, padding: "2px 8px" }}>{ROLE_LABELS[e.role] || e.role}</span>
                 </div>
-                <div style={{ marginTop: 3, fontSize: 13, fontWeight: 300, color: MUTED }}>{e.position || "—"}{e.email ? <span> · {e.email}</span> : null}</div>
+                <div style={{ marginTop: 4, fontSize: 14, fontWeight: 400, color: e.position ? "#2a2a2a" : "#b0b0b0", lineHeight: 1.3 }}>{e.position || "Должность не указана"}</div>
+                {e.email && <div style={{ marginTop: 2, fontSize: 12.5, fontWeight: 300, color: MUTED }}>{e.email}</div>}
                 <div style={{ marginTop: 7, display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12.5, fontWeight: 400, color: e.role === "admin" ? "#0a7d33" : e.perms.length ? "#777" : "#aaa" }}>
                   <span aria-hidden="true" style={{ width: 6, height: 6, borderRadius: 999, flexShrink: 0, background: e.role === "admin" ? "#0a7d33" : e.perms.length ? "#c9c9c9" : "#ddd" }} />
                   {accessSummary(e)}
