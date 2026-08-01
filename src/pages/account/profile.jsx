@@ -5871,6 +5871,21 @@ function AccessSheetBuilder({ account }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, createdId, selId, objects, tick]);
 
+  // Подтягиваем договор из выбранного/созданного объекта (у объекта он уже мог быть
+  // задан). Ключ — id объекта: при смене объекта показываем ЕГО договор, не чужой.
+  React.useEffect(() => {
+    setContractNumber(activeObj?.contractNumber || "");
+    setContractDate(activeObj?.contractDate || "");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeObj?.id]);
+
+  // Сохраняем договор обратно в объект (по blur), чтобы он был виден в редакторе
+  // объекта и в его сводке, а не только на листе доступа.
+  const persistContract = React.useCallback((patch) => {
+    if (!activeObj?.id) return;
+    try { DB.updateObject(activeObj.id, patch); setTick((t) => t + 1); } catch {}
+  }, [activeObj?.id]);
+
   const objAddr = activeObj ? (activeObj.address || activeObj.city || "") : "";
   const sheetData = activeObj ? {
     customerName: account.name,
@@ -5934,8 +5949,8 @@ function AccessSheetBuilder({ account }) {
       {activeObj ? (
         <div style={{ marginTop: 24, maxWidth: 460 }}>
           <div style={{ display: "grid", gridTemplateColumns: phone ? "1fr" : "1fr 1fr", gap: 18 }}>
-            <div><FLabel>Договор №</FLabel><UnderInput value={contractNumber} onChange={setContractNumber} placeholder="—" /></div>
-            <div><FLabel>Дата договора</FLabel><UnderInput value={contractDate} onChange={(v) => setContractDate(maskContractDate(v))} placeholder="дд.мм.гггг" maxLength={10} inputMode="numeric" /></div>
+            <div><FLabel>Договор №</FLabel><UnderInput value={contractNumber} onChange={setContractNumber} placeholder="—" onBlur={(v) => persistContract({ contractNumber: v })} /></div>
+            <div><FLabel>Дата договора</FLabel><UnderInput value={contractDate} onChange={(v) => setContractDate(maskContractDate(v))} placeholder="дд.мм.гггг" maxLength={10} inputMode="numeric" onBlur={(v) => persistContract({ contractDate: v })} /></div>
           </div>
           <div style={{ marginTop: 14, fontSize: 13, fontWeight: 300, color: "#999", lineHeight: 1.5 }}>
             Объект <b style={{ fontWeight: 500, color: "#666" }}>{activeObj.id}</b>{objAddr ? ` · ${objAddr}` : ""} · ссылка QR: {objectUrlFor(activeObj.id)}
