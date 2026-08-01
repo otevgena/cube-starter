@@ -401,15 +401,27 @@ async function apiAdminSetEmailVerified(token, userId, verified = true) {
   return apiAdminPatchUser(token, userId, { emailVerified: !!verified });
 }
 
-/* --- админ: создание новой учётной записи --- */
+/* --- админ: создание новой учётной записи (с 401-retry, как у sibling-функций) ---
+   Раньше здесь не было ни чтения свежего токена из sessionStorage, ни повтора при 401:
+   если админский access-токен успевал протухнуть (а на экране это видно по 401 на
+   /admin/users и /auth/me), POST /admin/users падал с 401 и «Не удалось создать
+   учётную запись» — без попытки обновить токен. Теперь как везде: берём свежий токен,
+   при 401 обновляем через refresh и повторяем один раз. */
 async function apiAdminCreateUser(token, { email, login, password, name, group, role, org, inn, kpp, legalAddress } = {}) {
+  const doCall = async (tk) => fetch(api("/admin/users"), {
+    method: "POST",
+    credentials: "include",
+    headers: { Authorization: `Bearer ${tk}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ email, login, password, name, group, role, org, inn, kpp, legalAddress }),
+  });
   try {
-    const r = await fetch(api("/admin/users"), {
-      method: "POST",
-      credentials: "include",
-      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ email, login, password, name, group, role, org, inn, kpp, legalAddress }),
-    });
+    let tk = "";
+    try { tk = sessionStorage.getItem("auth:accessToken") || token || ""; } catch { tk = token || ""; }
+    let r = await doCall(tk);
+    if (r.status === 401) {
+      const fresh = await apiRefresh(8000);
+      if (fresh) { tk = fresh; try { sessionStorage.setItem("auth:accessToken", fresh); } catch {} r = await doCall(tk); }
+    }
     const data = await r.json().catch(() => null);
     if (!r.ok) return { ok: false, error: (data && data.error) || `http_${r.status}` };
     return { ok: true, user: (data && data.user) || null };
@@ -6518,7 +6530,14 @@ export default function AccountProfilePage() {
       }
       if (resp.email) setUserEmail(resp.email);
       setNewEmail(""); setEmailPwd(""); setEmailErrors({});
-      window.showDockToast?.("Почта изменена");
+      // Новая почта на бэкенде уже помечена как неподтверждённая (email_verified=false).
+      // Сразу отражаем это в UI (не ждём следующего /me — раньше блок «подтвердите почту»
+      // появлялся не сразу) и тут же шлём письмо со ссылкой на новый адрес.
+      setEmailVerified(false);
+      setVerifySent(false);
+      setVerifyError("");
+      window.showDockToast?.("Почта изменена — отправляем письмо для подтверждения");
+      handleRequestVerify(resp.accessToken);
     } catch {
       window.showDockToast?.("Не удалось сменить почту");
     } finally {
@@ -6743,13 +6762,17 @@ export default function AccountProfilePage() {
     }
   }
 
-  /* ── Подтверждение почты: запросить письмо со ссылкой ── */
-  async function handleRequestVerify() {
-    if (!token) { window.showDockToast?.("Нужна авторизация"); return; }
+  /* ── Подтверждение почты: запросить письмо со ссылкой ──
+     tokenOverride — свежий access-токен (например, сразу после смены почты, когда
+     state `token` ещё не успел прокинуться). onClick передаёт сюда event-объект,
+     поэтому берём override только если это строка. */
+  async function handleRequestVerify(tokenOverride) {
+    const tk = (typeof tokenOverride === "string" && tokenOverride) ? tokenOverride : token;
+    if (!tk) { window.showDockToast?.("Нужна авторизация"); return; }
     try {
       setVerifyBusy(true);
       setVerifyError("");
-      const resp = await apiRequestVerify(token);
+      const resp = await apiRequestVerify(tk);
       if (!resp.ok) { setVerifyError("Не удалось отправить письмо. Попробуйте позже."); return; }
       if (resp.alreadyVerified) { setEmailVerified(true); return; }
       setVerifySent(true);
