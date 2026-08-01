@@ -57,9 +57,9 @@ function useForceUpdate() { const [, s] = React.useState(0); return React.useCal
 const UNDER = "#e6e6e6", UNDER_FOCUS = "#111";
 const fLabelStyle = { fontSize: 12, letterSpacing: ".06em", textTransform: "uppercase", color: TEXT, fontWeight: 300, marginBottom: 6 };
 export function FLabel({ children }) { return <div style={fLabelStyle}>{children}</div>; }
-export function UnderInput({ value, onChange, placeholder, type = "text", maxLength, upper }) {
+export function UnderInput({ value, onChange, placeholder, type = "text", maxLength, upper, inputMode }) {
   return (
-    <input type={type} value={value} maxLength={maxLength} onChange={(e) => onChange && onChange(e.target.value)} placeholder={placeholder} className="obj-ph"
+    <input type={type} inputMode={inputMode} value={value} maxLength={maxLength} onChange={(e) => onChange && onChange(e.target.value)} placeholder={placeholder} className="obj-ph"
       style={{ width: "100%", height: 46, border: "none", outline: "none", borderRadius: 0, background: "#fff", color: TEXT, padding: "0 14px", fontFamily: UI, fontSize: 14, fontWeight: 300, boxShadow: `inset 0 -1px 0 0 ${UNDER}`, transition: "box-shadow .18s ease", ...(upper ? { textTransform: "uppercase", letterSpacing: ".08em", fontWeight: 600 } : null) }}
       onFocus={(e) => { e.currentTarget.style.boxShadow = `inset 0 -1px 0 0 ${UNDER_FOCUS}`; }}
       onBlur={(e) => { e.currentTarget.style.boxShadow = `inset 0 -1px 0 0 ${UNDER}`; }} />

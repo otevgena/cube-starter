@@ -5854,6 +5854,13 @@ function AccessSheetBuilder({ account }) {
   const [contractNumber, setContractNumber] = React.useState("");
   const [contractDate, setContractDate] = React.useState("");
   const [sheetOpen, setSheetOpen] = React.useState(false);
+  // Маска даты договора: только цифры, точки ставятся сами → дд.мм.гггг.
+  const maskContractDate = (s) => {
+    const d = String(s || "").replace(/\D/g, "").slice(0, 8); // ддммгггг
+    if (d.length <= 2) return d;
+    if (d.length <= 4) return `${d.slice(0, 2)}.${d.slice(2)}`;
+    return `${d.slice(0, 2)}.${d.slice(2, 4)}.${d.slice(4)}`;
+  };
 
   // Актуальный объект (полные данные из хранилища).
   const activeObj = React.useMemo(() => {
@@ -5928,7 +5935,7 @@ function AccessSheetBuilder({ account }) {
         <div style={{ marginTop: 24, maxWidth: 460 }}>
           <div style={{ display: "grid", gridTemplateColumns: phone ? "1fr" : "1fr 1fr", gap: 18 }}>
             <div><FLabel>Договор №</FLabel><UnderInput value={contractNumber} onChange={setContractNumber} placeholder="—" /></div>
-            <div><FLabel>Дата договора</FLabel><UnderInput value={contractDate} onChange={setContractDate} placeholder="дд.мм.гггг" /></div>
+            <div><FLabel>Дата договора</FLabel><UnderInput value={contractDate} onChange={(v) => setContractDate(maskContractDate(v))} placeholder="дд.мм.гггг" maxLength={10} inputMode="numeric" /></div>
           </div>
           <div style={{ marginTop: 14, fontSize: 13, fontWeight: 300, color: "#999", lineHeight: 1.5 }}>
             Объект <b style={{ fontWeight: 500, color: "#666" }}>{activeObj.id}</b>{objAddr ? ` · ${objAddr}` : ""} · ссылка QR: {objectUrlFor(activeObj.id)}

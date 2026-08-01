@@ -288,7 +288,9 @@ function SheetDock({ data, onClose, phone }) {
   const ph = phone ? 44 : 48;        // высота пилюли
   const frame = {
     position: "fixed", left: "50%", bottom: phone ? 12 : 21, transform: "translateX(-50%)", zIndex: 210,
-    display: "flex", alignItems: "center", gap: phone ? 8 : 10, padding: 6, borderRadius: 12,
+    // gap как у стандартного дока (c. + плашка): 6px, не 10 — иначе между тёмной
+    // плиткой и плашкой видна широкая полоса полупрозрачного фона.
+    display: "flex", alignItems: "center", gap: 6, padding: 6, borderRadius: 12,
     maxWidth: "calc(100vw - 20px)",
     background: "rgba(69,69,69,.58)", backdropFilter: "saturate(115%) blur(6px)", WebkitBackdropFilter: "saturate(115%) blur(6px)",
     boxShadow: "0 12px 40px rgba(0,0,0,.45)", fontFamily: DOCK_FONT,
