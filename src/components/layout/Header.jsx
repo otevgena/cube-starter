@@ -981,13 +981,13 @@ function AvatarMenu({ user, onLogout }) {
   };
 
   return (
-    <div ref={wrapRef} className="relative" onMouseEnter={openNow} onMouseLeave={scheduleClose}>
+    <div ref={wrapRef} className="relative shrink-0" onMouseEnter={openNow} onMouseLeave={scheduleClose}>
       <img
         src={user?.avatar || "/profile/profile.png"}
         alt={user?.name || user?.email || "Profile"}
         width={32}
         height={32}
-        className="block h-8 w-8 cursor-pointer rounded-full object-cover"
+        className="block h-8 w-8 shrink-0 aspect-square cursor-pointer rounded-full object-cover"
       />
       {open && (
         <div
