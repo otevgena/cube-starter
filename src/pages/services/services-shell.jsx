@@ -94,29 +94,13 @@ function ServiceTable({ lines }) {
         <DottedLine />
         {lines.map((it) => (
           <React.Fragment key={it.key}>
-            <SpaLink
-              to={it.href}
-              className="group grid items-center transition-colors duration-200 hover:bg-black/[0.025]"
-              style={{ gridTemplateColumns: "2fr 1fr 144px", columnGap: 18, height: ROW_H }}
-            >
-              <div className="min-w-0" style={{ marginLeft: TEXT_SHIFT }} title={it.title}>
-                <span className="inline-block max-w-full truncate align-middle text-[18px] font-normal text-[#111] transition-transform duration-200 ease-out group-hover:translate-x-1.5">
-                  {it.title}
-                </span>
-              </div>
-              <div className="min-w-0 truncate text-[18px] font-normal text-[#111]" style={{ marginLeft: TEXT_SHIFT }} title={it.dir}>
-                {it.dir}
-              </div>
+            <div className="grid items-center" style={{ gridTemplateColumns: "2fr 1fr 144px", columnGap: 18, height: ROW_H }}>
+              <div className="min-w-0" style={cell} title={it.title}>{it.title}</div>
+              <div className="min-w-0" style={cell} title={it.dir}>{it.dir}</div>
               <div className="flex items-center justify-end">
-                <span className="inline-flex h-[42px] items-center justify-center gap-2 rounded-[12px] border border-[#111] px-[18px] text-[14px] font-normal text-[#111] transition-colors duration-150 ease-out group-hover:bg-[#111] group-hover:text-white">
-                  Подробнее
-                  <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" className="-mr-0.5 shrink-0 transition-transform duration-200 ease-out group-hover:translate-x-0.5">
-                    <path d="M4 12h13" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-                    <path d="M11 6l6 6-6 6" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                </span>
+                <CellButtonLink to={it.href} />
               </div>
-            </SpaLink>
+            </div>
             <DottedLine />
           </React.Fragment>
         ))}
