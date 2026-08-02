@@ -206,16 +206,16 @@ export function CoordinationXrayBoard({ layers = [] }) {
         return (
           <div key={i} style={{ borderTop: i ? "1px solid #e3e3e3" : "none" }}>
             <button type="button" onClick={() => setA(on ? -1 : i)}
-              style={{ width: "100%", display: "grid", gridTemplateColumns: "48px 1fr 22px", gap: 12, alignItems: "center", padding: "14px 16px", background: on ? INK : BG, color: on ? "#fff" : INK, cursor: "pointer", textAlign: "left" }}>
+              style={{ width: "100%", display: "grid", gridTemplateColumns: "48px 1fr 22px", gap: 12, alignItems: "center", padding: "14px 16px", background: on ? INK : BG, color: on ? "#fff" : INK, cursor: "pointer", textAlign: "left", transition: "background-color .14s ease, color .14s ease" }}>
               <span style={{ fontSize: 14, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{pad(i)}</span>
               <span style={{ fontSize: 15, fontWeight: 600 }}>{l.title}</span>
               <span style={{ fontSize: 16, opacity: 0.7, textAlign: "right" }}>{on ? "–" : "+"}</span>
             </button>
-            {on && (
+            <Collapse open={on}>
               <div className="grid grid-cols-1 sm:grid-cols-3" style={{ gap: 14, padding: "14px 16px" }}>
                 {F.map((f) => <Field key={f.key} label={f.label} value={l[f.key]} />)}
               </div>
-            )}
+            </Collapse>
           </div>
         );
       })}

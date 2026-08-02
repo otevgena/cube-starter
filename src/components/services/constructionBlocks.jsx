@@ -122,7 +122,7 @@ export function FinishRouteBoard({ stages = [] }) {
     <div>
       <div className="hidden md:flex" style={{ border: `1px solid ${INK}`, borderRadius: 10, overflow: "hidden" }}>
         {stages.map((s, i) => { const on = i === a; return (
-          <button key={i} type="button" onMouseEnter={() => setA(i)} onClick={() => setA(i)} style={{ flex: 1, padding: "14px 12px", borderLeft: i ? "1px solid #d7d7d7" : "none", background: on ? INK : BG, color: on ? "#fff" : INK, cursor: "pointer", textAlign: "left" }}>
+          <button key={i} type="button" onMouseEnter={() => setA(i)} onClick={() => setA(i)} style={{ flex: 1, padding: "14px 12px", borderLeft: i ? "1px solid #d7d7d7" : "none", background: on ? INK : BG, color: on ? "#fff" : INK, cursor: "pointer", textAlign: "left", transition: "background-color .14s ease, color .14s ease, border-color .14s ease" }}>
             <div style={{ fontSize: 11, fontWeight: 700, opacity: 0.8 }}>{pad(i)}</div>
             <div style={{ fontSize: 13, fontWeight: 600, marginTop: 3, lineHeight: "16px" }}>{s.title}</div>
           </button>
@@ -160,7 +160,7 @@ export function ConcreteCycleBoard({ steps = [] }) {
       <div className="hidden md:block">
         <div className="grid grid-cols-2 sm:grid-cols-4" style={{ gap: 8 }}>
           {steps.map((s, i) => { const on = i === a; return (
-            <button key={i} type="button" onMouseEnter={() => setA(i)} onClick={() => setA(i)} style={{ padding: "14px 12px", border: `1px solid ${on ? INK : "#d7d7d7"}`, borderRadius: 10, background: on ? INK : BG, color: on ? "#fff" : INK, cursor: "pointer", textAlign: "left", minHeight: 78 }}>
+            <button key={i} type="button" onMouseEnter={() => setA(i)} onClick={() => setA(i)} style={{ padding: "14px 12px", border: `1px solid ${on ? INK : "#d7d7d7"}`, borderRadius: 10, background: on ? INK : BG, color: on ? "#fff" : INK, cursor: "pointer", textAlign: "left", minHeight: 78, transition: "background-color .14s ease, color .14s ease, border-color .14s ease" }}>
               <div style={{ fontSize: 13, fontWeight: 700 }}>{pad(i)}</div>
               <div style={{ fontSize: 13, fontWeight: 600, marginTop: 6, lineHeight: "16px" }}>{s.title}</div>
             </button>
@@ -204,16 +204,16 @@ export function GroundSectionBoard({ layers = [] }) {
       <div style={{ border: `1px solid ${INK}`, borderRadius: 12, overflow: "hidden", background: BG }}>
         {layers.map((l, i) => { const on = i === a; return (
           <div key={i} style={{ borderTop: i ? "1px solid #e3e3e3" : "none" }}>
-            <button type="button" onClick={() => setA(on ? -1 : i)} style={{ width: "100%", display: "grid", gridTemplateColumns: "48px 1fr 22px", gap: 12, alignItems: "center", padding: "14px 16px", background: on ? INK : BG, color: on ? "#fff" : INK, cursor: "pointer", textAlign: "left" }}>
+            <button type="button" onClick={() => setA(on ? -1 : i)} style={{ width: "100%", display: "grid", gridTemplateColumns: "48px 1fr 22px", gap: 12, alignItems: "center", padding: "14px 16px", background: on ? INK : BG, color: on ? "#fff" : INK, cursor: "pointer", textAlign: "left", transition: "background-color .14s ease, color .14s ease" }}>
               <span style={{ fontSize: 14, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{pad(i)}</span>
               <span style={{ fontSize: 15, fontWeight: 600 }}>{l.title}</span>
               <span style={{ fontSize: 16, opacity: 0.7, textAlign: "right" }}>{on ? "–" : "+"}</span>
             </button>
-            {on && (
+            <Collapse open={on}>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4" style={{ gap: 14, padding: "14px 16px" }}>
                 {F.map((f) => <Field key={f.key} label={f.label} value={l[f.key]} />)}
               </div>
-            )}
+            </Collapse>
           </div>
         ); })}
       </div>
@@ -231,7 +231,7 @@ export function EnvelopeBoard({ roof = [], facade = [] }) {
       <div style={{ ...lblCss, marginBottom: 10 }}>{title}</div>
       <div style={{ display: "grid", rowGap: 8 }}>
         {items.map((it, i) => { const idx = offset + i; const on = idx === a; return (
-          <button key={i} type="button" onMouseEnter={() => setA(idx)} onClick={() => setA(idx)} style={{ textAlign: "left", padding: "10px 12px", border: `1px solid ${on ? INK : "#d7d7d7"}`, borderRadius: 8, background: on ? INK : BG, color: on ? "#fff" : INK, cursor: "pointer", fontSize: 14, fontWeight: on ? 600 : 400 }}>{it.title}</button>
+          <button key={i} type="button" onMouseEnter={() => setA(idx)} onClick={() => setA(idx)} style={{ textAlign: "left", padding: "10px 12px", border: `1px solid ${on ? INK : "#d7d7d7"}`, borderRadius: 8, background: on ? INK : BG, color: on ? "#fff" : INK, cursor: "pointer", fontSize: 14, fontWeight: on ? 600 : 400, transition: "background-color .14s ease, color .14s ease, border-color .14s ease" }}>{it.title}</button>
         ); })}
       </div>
     </div>
@@ -320,7 +320,7 @@ export function ReinforcementStrategyBoard({ problems = [] }) {
           <div style={{ ...lblCss, marginBottom: 10 }}>Что происходит →</div>
           <div style={{ display: "grid", rowGap: 8 }}>
             {problems.map((p, i) => { const on = i === a; return (
-              <button key={i} type="button" onMouseEnter={() => setA(i)} onClick={() => setA(i)} style={{ textAlign: "left", padding: "12px 12px", border: `1px solid ${on ? INK : "#d7d7d7"}`, borderRadius: 8, background: on ? INK : BG, color: on ? "#fff" : INK, cursor: "pointer", fontSize: 14, fontWeight: on ? 600 : 400 }}>{p.problem}</button>
+              <button key={i} type="button" onMouseEnter={() => setA(i)} onClick={() => setA(i)} style={{ textAlign: "left", padding: "12px 12px", border: `1px solid ${on ? INK : "#d7d7d7"}`, borderRadius: 8, background: on ? INK : BG, color: on ? "#fff" : INK, cursor: "pointer", fontSize: 14, fontWeight: on ? 600 : 400, transition: "background-color .14s ease, color .14s ease, border-color .14s ease" }}>{p.problem}</button>
             ); })}
           </div>
         </div>
@@ -359,7 +359,7 @@ export function SiteControlBoard({ panels = [] }) {
       <div className="hidden md:block">
         <div className="grid grid-cols-2 sm:grid-cols-3" style={{ gap: 8 }}>
           {panels.map((p, i) => { const on = i === a; return (
-            <button key={i} type="button" onMouseEnter={() => setA(i)} onClick={() => setA(i)} style={{ padding: "14px 12px", border: `1px solid ${on ? INK : "#d7d7d7"}`, borderRadius: 10, background: on ? INK : BG, color: on ? "#fff" : INK, cursor: "pointer", textAlign: "left" }}>
+            <button key={i} type="button" onMouseEnter={() => setA(i)} onClick={() => setA(i)} style={{ padding: "14px 12px", border: `1px solid ${on ? INK : "#d7d7d7"}`, borderRadius: 10, background: on ? INK : BG, color: on ? "#fff" : INK, cursor: "pointer", textAlign: "left", transition: "background-color .14s ease, color .14s ease, border-color .14s ease" }}>
               <div style={{ fontSize: 11, fontWeight: 700, opacity: 0.75 }}>{pad(i)}</div>
               <div style={{ fontSize: 14, fontWeight: 600, marginTop: 4 }}>{p.title}</div>
             </button>
@@ -412,7 +412,7 @@ export function CommissioningBoard({ systems = [] }) {
       <div className="hidden grid-cols-3 gap-3 md:grid">
         <div style={{ display: "grid", rowGap: 8, alignContent: "start" }}>
           {systems.map((s, i) => { const on = i === a; return (
-            <button key={i} type="button" onClick={() => setA(i)} style={{ textAlign: "left", padding: "12px 14px", border: `1px solid ${on ? INK : "#d7d7d7"}`, borderRadius: 10, background: on ? INK : BG, color: on ? "#fff" : INK, cursor: "pointer", fontSize: 14, fontWeight: 600 }}>{s.name}</button>
+            <button key={i} type="button" onClick={() => setA(i)} style={{ textAlign: "left", padding: "12px 14px", border: `1px solid ${on ? INK : "#d7d7d7"}`, borderRadius: 10, background: on ? INK : BG, color: on ? "#fff" : INK, cursor: "pointer", fontSize: 14, fontWeight: 600, transition: "background-color .14s ease, color .14s ease, border-color .14s ease" }}>{s.name}</button>
           ); })}
         </div>
         <div className="col-span-2" style={cardCss}>
