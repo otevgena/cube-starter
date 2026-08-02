@@ -1182,6 +1182,11 @@ export default function Header() {
     writeCachedUser(null);
     accessRef.current = null;
     try { sessionStorage.removeItem("auth:accessToken"); } catch {}
+    // ВАЖНО: чистим и localStorage — иначе auth.js.bootstrap() при следующем
+    // заходе восстановит протухший accessToken (токен «переживал» выход, риск
+    // на общем устройстве). auth:hint уже снят writeCachedUser(null).
+    try { localStorage.removeItem("accessToken"); } catch {}
+    try { localStorage.removeItem("remember"); } catch {}
     setAuthReady(true);
     // уведомляем подписчиков (док, гард в App) → они уведут с приватных страниц
     window.dispatchEvent(new CustomEvent("auth:changed", { detail: { user: null, accessToken: null } }));

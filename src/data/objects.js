@@ -395,7 +395,9 @@ export function addMessage(objId, { from = "customer", author = "", text = "", a
   o.threadUpdatedAt = msg.at;
   const mailedTo = from === "customer" ? (emailOfResponsible(o) || "info@cube-tech.ru") : "";
 
-  if (!apiEnabled()) { saveStoreLS(store); emitChanged(); return { msg, mailedTo }; }
+  // LS-режим: возвращаем УЖЕ разрешённый promise, чтобы форма отправки могла
+  // единообразно делать res.promise.catch(...) без проверки режима.
+  if (!apiEnabled()) { saveStoreLS(store); emitChanged(); return { msg, mailedTo, promise: Promise.resolve({ ok: true }) }; }
 
   emitChanged(); // оптимистично показываем сообщение
   const promise = api(`/objects/${encodeURIComponent(objId)}/messages`, {

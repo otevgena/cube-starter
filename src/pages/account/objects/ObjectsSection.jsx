@@ -1352,7 +1352,15 @@ export function CreateObjectForm({ onCancel, onCreated, fixedCustomer = null, em
 
   const titlePreview = [name.trim(), city.trim()].filter(Boolean).join(" — ");
 
+  // Защита от двойного клика: submit синхронно создаёт объект и уводит на него.
+  // Без guard два быстрых нажатия успевали создать ДВА объекта до перерисовки.
+  const submittingRef = React.useRef(false);
+  const [creating, setCreating] = React.useState(false);
+
   const submit = () => {
+    if (submittingRef.current) return;
+    submittingRef.current = true;
+    setCreating(true);
     const emp = getEmployees().find((e) => e.id === respId);
     const o = DB.createObject({
       title: titlePreview || name.trim() || "Новый объект",
@@ -1425,7 +1433,7 @@ export function CreateObjectForm({ onCancel, onCreated, fixedCustomer = null, em
         </div>
 
         <div style={{ marginTop: 6, display: "flex", gap: 12 }}>
-          <PrimaryBtn onClick={submit}>{submitLabel || "Создать объект"}</PrimaryBtn>
+          <PrimaryBtn onClick={submit} disabled={creating}>{submitLabel || "Создать объект"}</PrimaryBtn>
           {onCancel ? <FillBtn flat big onClick={onCancel}>Отмена</FillBtn> : null}
         </div>
       </div>
@@ -1547,7 +1555,7 @@ function AdminObjectEditor({ id, autoOpenMessages }) {
       <div style={{ marginTop: 12 }}>
         <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: ".04em", color: MUTED, textTransform: "uppercase" }}>№ {obj.id}</div>
         <div className="obj-collapse-1" style={{ marginTop: 8, display: "grid", gridTemplateColumns: "minmax(0,1fr) 220px", alignItems: "end", gap: 18, maxWidth: 720 }}>
-          <input defaultValue={obj.title} onBlur={(e) => { e.currentTarget.style.boxShadow = `inset 0 -1px 0 0 ${UNDER}`; if (e.target.value !== (obj.title || "")) save({ title: e.target.value }); }} onFocus={(e) => { e.currentTarget.style.boxShadow = `inset 0 -1px 0 0 ${UNDER_FOCUS}`; }} placeholder="Название объекта"
+          <input key={`title-${obj.title || ""}`} defaultValue={obj.title} onBlur={(e) => { e.currentTarget.style.boxShadow = `inset 0 -1px 0 0 ${UNDER}`; if (e.target.value !== (obj.title || "")) save({ title: e.target.value }); }} onFocus={(e) => { e.currentTarget.style.boxShadow = `inset 0 -1px 0 0 ${UNDER_FOCUS}`; }} placeholder="Название объекта"
             style={{ width: "100%", height: 46, border: "none", outline: "none", borderRadius: 0, background: "#fff", color: TEXT, padding: "0 2px", fontFamily: UI, fontSize: 16, fontWeight: 600, boxShadow: `inset 0 -1px 0 0 ${UNDER}`, transition: "box-shadow .18s ease" }} />
           <UnderSelect value={obj.status} options={STATUS_OPTS} onChange={(v) => save({ status: v })} />
         </div>
@@ -1558,9 +1566,9 @@ function AdminObjectEditor({ id, autoOpenMessages }) {
         <div style={secLabel}>Основное</div>
         <div style={{ marginTop: 14, display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 22 }}>
           <div><FLabel>Заказчик — из учётных записей</FLabel><UnderAccountPicker accounts={accounts} value={custValue} loading={accLoading} onPick={pickCustomer} /></div>
-          <div><FLabel>Город</FLabel><UnderCommitInput defaultValue={obj.city} onCommit={(v) => save({ city: v })} /></div>
+          <div><FLabel>Город</FLabel><UnderCommitInput key={`city-${obj.city || ""}`} defaultValue={obj.city} onCommit={(v) => save({ city: v })} /></div>
           <div><FLabel>Адрес</FLabel><UnderCommitInput key={`addr-${obj.address || ""}`} defaultValue={obj.address} onCommit={(v) => save({ address: v })} /></div>
-          <div><FLabel>Договор</FLabel><UnderCommitInput defaultValue={obj.contractNumber} onCommit={(v) => save({ contractNumber: v })} /></div>
+          <div><FLabel>Договор</FLabel><UnderCommitInput key={`contract-${obj.contractNumber || ""}`} defaultValue={obj.contractNumber} onCommit={(v) => save({ contractNumber: v })} /></div>
           <div>
             <FLabel>Ответственный</FLabel>
             <UnderSelect value={respId} options={empOpts()} placeholder="— не назначен —" onChange={(v) => { const e = getEmployees().find((x) => x.id === v); save({ responsibleName: e ? e.fio : "", responsibleRole: e ? e.position : "", responsibleEmail: e ? (e.email || "") : "", coExecutors: (obj.coExecutors || []).filter((c) => c.id !== v) }); }} />
@@ -2068,11 +2076,20 @@ function MessagesPanel({ objId, side, authorName, disabled, autoOpen }) {
     if (!canSend) return;
     const attachments = readyAtts.map((x) => ({ key: x.key, name: x.name, size: x.size, mime: x.mime }));
     const res = addMessage(objId, { from: side, author: authorName || (isCustomer ? "Заказчик" : "Ответственный"), text: text.trim(), attachments });
+    // addMessage вернул null (объект не найден/пусто) — не чистим поле и НЕ
+    // показываем ложный «отправлено», честно сообщаем об ошибке.
+    if (!res) { window.showDockToast?.("Не удалось отправить сообщение — попробуйте ещё раз", 3600, "error"); return; }
     resetComposer();
     setSentNote(isCustomer
-      ? `Запрос отправлен — ожидайте ответа.${res && res.mailedTo ? ` Уведомление ушло ответственному: ${res.mailedTo}` : ""}`
+      ? `Запрос отправлен — ожидайте ответа.${res.mailedTo ? ` Уведомление ушло ответственному: ${res.mailedTo}` : ""}`
       : "Ответ отправлен заказчику — уведомление ушло на почту.");
-    if (res && res.promise) res.promise.catch(() => window.showDockToast?.("Не удалось отправить сообщение — попробуйте ещё раз", 3600, "error"));
+    // При провале отправки сообщение остаётся в треде с пометкой «Не отправлено»
+    // (текст не теряется). Убираем ложный баннер успеха, чтобы не противоречить
+    // пометке, и показываем тост.
+    if (res.promise) res.promise.catch(() => {
+      setSentNote("");
+      window.showDockToast?.("Не удалось отправить сообщение — попробуйте ещё раз", 3600, "error");
+    });
     force();
   };
   const openBtnLabel = isCustomer ? "Отправить сообщение" : "Ответить заказчику";

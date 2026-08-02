@@ -24,14 +24,29 @@ async function apiRefresh() {
   catch { return null; }
 }
 
+/* Единый авторизованный fetch: берём СВЕЖИЙ токен из sessionStorage (а не
+   протухший in-memory `token`), при 401 обновляем через refresh и повторяем
+   ОДИН раз. Все хелперы ЛК обязаны ходить только через него — иначе после
+   простоя вкладки любое действие молча падает с 401 («смерть сессии»). */
+async function authFetch(url, opts = {}, token) {
+  const doCall = (tk) => fetch(api(url), {
+    credentials: "include",
+    ...opts,
+    headers: { ...(opts.headers || {}), Authorization: `Bearer ${tk}` },
+  });
+  let tk = "";
+  try { tk = sessionStorage.getItem("auth:accessToken") || token || ""; } catch { tk = token || ""; }
+  let r = await doCall(tk);
+  if (r.status === 401) {
+    const fresh = await apiRefresh(8000);
+    if (fresh) { tk = fresh; try { sessionStorage.setItem("auth:accessToken", fresh); } catch {} r = await doCall(tk); }
+  }
+  return r;
+}
+
 async function apiMe(token) {
   try {
-    const r = await fetch(api("/auth/me"), {
-      method: "GET",
-      headers: { Authorization: `Bearer ${token}` },
-      credentials: "include",
-      cache: "no-store",
-    });
+    const r = await authFetch("/auth/me", { method: "GET", cache: "no-store" }, token);
     if (!r.ok) return null;
     const j = await r.json().catch(() => null);
     return j?.user || null;
@@ -42,40 +57,28 @@ async function apiMe(token) {
 
 /* --- профиль пользователя (PUT/PATCH) --- */
 async function apiUpdateProfile(token, data) {
-  const payload = JSON.stringify(data);
-  const common = {
-    credentials: "include",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-    body: payload,
-  };
-  const tryOne = async (url, method) => {
-    try {
-      const r = await fetch(api(url), { ...common, method });
-      if (!r.ok) return null;
-      const j = await r.json().catch(() => null);
-      return j || { ok: true };
-    } catch {
-      return null;
-    }
-  };
-  return await tryOne("/profile", "PATCH");
+  try {
+    const r = await authFetch("/profile", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    }, token);
+    if (!r.ok) return null;
+    const j = await r.json().catch(() => null);
+    return j || { ok: true };
+  } catch {
+    return null;
+  }
 }
 
 /* --- смена пароля --- */
 async function apiChangePassword(token, currentPassword, newPassword) {
   try {
-    const r = await fetch(api("/auth/change-password"), {
+    const r = await authFetch("/auth/change-password", {
       method: "POST",
-      credentials: "include",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ currentPassword, newPassword }),
-    });
+    }, token);
     const j = await r.json().catch(() => null);
     if (!r.ok) return { ok: false, error: (j && j.error) || `HTTP ${r.status}` };
     return { ok: true, accessToken: j && j.accessToken };
@@ -89,15 +92,11 @@ async function apiSetInitialPassword(token, newPassword, notificationEmail) {
   try {
     const payload = { newPassword };
     if (notificationEmail) payload.notificationEmail = notificationEmail;
-    const r = await fetch(api("/auth/set-initial-password"), {
+    const r = await authFetch("/auth/set-initial-password", {
       method: "POST",
-      credentials: "include",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
-    });
+    }, token);
     const j = await r.json().catch(() => null);
     if (!r.ok) return { ok: false, error: (j && j.error) || `HTTP ${r.status}` };
     return { ok: true, accessToken: j && j.accessToken, emailSet: !!(j && j.emailSet) };
@@ -109,15 +108,11 @@ async function apiSetInitialPassword(token, newPassword, notificationEmail) {
 /* --- смена почты --- */
 async function apiChangeEmail(token, newEmail, password) {
   try {
-    const r = await fetch(api("/auth/change-email"), {
+    const r = await authFetch("/auth/change-email", {
       method: "POST",
-      credentials: "include",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ newEmail, password }),
-    });
+    }, token);
     const j = await r.json().catch(() => null);
     if (!r.ok) return { ok: false, error: (j && j.error) || `HTTP ${r.status}` };
     return { ok: true, accessToken: j && j.accessToken, email: j && j.email };
@@ -129,12 +124,11 @@ async function apiChangeEmail(token, newEmail, password) {
 /* --- выйти на всех устройствах --- */
 async function apiLogoutAll(token) {
   try {
-    const r = await fetch(api("/auth/logout-all"), {
+    const r = await authFetch("/auth/logout-all", {
       method: "POST",
-      credentials: "include",
-      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json" },
       body: "{}",
-    });
+    }, token);
     const j = await r.json().catch(() => null);
     if (!r.ok) return { ok: false, error: (j && j.error) || `HTTP ${r.status}` };
     return { ok: true, accessToken: j && j.accessToken };
@@ -146,11 +140,7 @@ async function apiLogoutAll(token) {
 /* --- активные сессии --- */
 async function apiGetSessions(token) {
   try {
-    const r = await fetch(api("/auth/sessions"), {
-      method: "GET",
-      credentials: "include",
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    const r = await authFetch("/auth/sessions", { method: "GET" }, token);
     const j = await r.json().catch(() => null);
     if (!r.ok) return { ok: false, error: (j && j.error) || `HTTP ${r.status}` };
     return { ok: true, sessions: (j && j.sessions) || [] };
@@ -160,12 +150,11 @@ async function apiGetSessions(token) {
 }
 async function apiRevokeSession(token, sid) {
   try {
-    const r = await fetch(api("/auth/revoke-session"), {
+    const r = await authFetch("/auth/revoke-session", {
       method: "POST",
-      credentials: "include",
-      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ sid }),
-    });
+    }, token);
     const j = await r.json().catch(() => null);
     if (!r.ok) return { ok: false, error: (j && j.error) || `HTTP ${r.status}` };
     return { ok: true };
@@ -177,12 +166,11 @@ async function apiRevokeSession(token, sid) {
 /* --- 2FA (TOTP) --- */
 async function apiTwofaSetup(token) {
   try {
-    const r = await fetch(api("/auth/2fa-setup"), {
+    const r = await authFetch("/auth/2fa-setup", {
       method: "POST",
-      credentials: "include",
-      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json" },
       body: "{}",
-    });
+    }, token);
     const j = await r.json().catch(() => null);
     if (!r.ok) return { ok: false, error: (j && j.error) || `HTTP ${r.status}` };
     return { ok: true, secret: j && j.secret, otpauthUri: j && j.otpauthUri };
@@ -192,12 +180,11 @@ async function apiTwofaSetup(token) {
 }
 async function apiTwofaEnable(token, code) {
   try {
-    const r = await fetch(api("/auth/2fa-enable"), {
+    const r = await authFetch("/auth/2fa-enable", {
       method: "POST",
-      credentials: "include",
-      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ code }),
-    });
+    }, token);
     const j = await r.json().catch(() => null);
     if (!r.ok) return { ok: false, error: (j && j.error) || `HTTP ${r.status}` };
     return { ok: true, backupCodes: (j && j.backupCodes) || [] };
@@ -207,12 +194,11 @@ async function apiTwofaEnable(token, code) {
 }
 async function apiTwofaDisable(token, password) {
   try {
-    const r = await fetch(api("/auth/2fa-disable"), {
+    const r = await authFetch("/auth/2fa-disable", {
       method: "POST",
-      credentials: "include",
-      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ password }),
-    });
+    }, token);
     const j = await r.json().catch(() => null);
     if (!r.ok) return { ok: false, error: (j && j.error) || `HTTP ${r.status}` };
     return { ok: true };
@@ -224,11 +210,7 @@ async function apiTwofaDisable(token, password) {
 /* запрос письма с подтверждением почты */
 async function apiRequestVerify(token) {
   try {
-    const r = await fetch(api("/auth/request-verify"), {
-      method: "POST",
-      credentials: "include",
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    const r = await authFetch("/auth/request-verify", { method: "POST" }, token);
     const j = await r.json().catch(() => null);
     if (!r.ok) return { ok: false, error: (j && j.error) || `HTTP ${r.status}` };
     return { ok: true, alreadyVerified: !!(j && j.alreadyVerified) };
@@ -271,12 +253,11 @@ function formatSessionTime(ms) {
 /* --- удаление аккаунта --- */
 async function apiDeleteAccount(token, password) {
   try {
-    const r = await fetch(api("/auth/delete-account"), {
+    const r = await authFetch("/auth/delete-account", {
       method: "POST",
-      credentials: "include",
-      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ password }),
-    });
+    }, token);
     const j = await r.json().catch(() => null);
     if (!r.ok) return { ok: false, error: (j && j.error) || `HTTP ${r.status}` };
     return { ok: true };
@@ -342,26 +323,17 @@ async function apiAdminListUsers(token, { limit = 50, offset = 0, q = "", group 
 async function apiAdminUpdateUser(token, userId, patch) {
   const id = userId ?? patch?.id;
   if (!id) return null;
-
-  const common = {
-    credentials: "include",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-  };
-
-  const tryJSON = async (url, method, bodyObj) => {
-    try {
-      const r = await fetch(api(url), { ...common, method, body: JSON.stringify(bodyObj) });
-      if (!r.ok) return null;
-      return (await r.json().catch(() => null)) || { ok: true };
-    } catch {
-      return null;
-    }
-  };
-
-  return await tryJSON(`/admin/users/${encodeURIComponent(id)}`, "PATCH", patch);
+  try {
+    const r = await authFetch(`/admin/users/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(patch),
+    }, token);
+    if (!r.ok) return null;
+    return (await r.json().catch(() => null)) || { ok: true };
+  } catch {
+    return null;
+  }
 }
 
 /* --- админ: PATCH одной учётки с 401-retry, возвращает {ok, error, user} --- */
@@ -5883,7 +5855,8 @@ function AccessSheetBuilder({ account }) {
   // объекта и в его сводке, а не только на листе доступа.
   const persistContract = React.useCallback((patch) => {
     if (!activeObj?.id) return;
-    try { DB.updateObject(activeObj.id, patch); setTick((t) => t + 1); } catch {}
+    try { DB.updateObject(activeObj.id, patch); setTick((t) => t + 1); }
+    catch { window.showDockToast?.("Не удалось сохранить договор — попробуйте ещё раз", 3600, "error"); }
   }, [activeObj?.id]);
 
   const objAddr = activeObj ? (activeObj.address || activeObj.city || "") : "";
@@ -5897,7 +5870,7 @@ function AccessSheetBuilder({ account }) {
     objectAddress: objAddr,
     objectUrl: objectUrlFor(activeObj.id),
     contractNumber: contractNumber || activeObj.contractNumber || "",
-    contractDate,
+    contractDate: contractDate || activeObj.contractDate || "",
   } : null;
 
   const seg = (active) => ({ flex: 1, height: 40, borderRadius: 8, border: "none", cursor: "pointer", fontFamily: UI, fontSize: 14, fontWeight: active ? 500 : 300, background: active ? "#111" : "transparent", color: active ? "#fff" : "#555", transition: "background-color .15s ease, color .15s ease" });

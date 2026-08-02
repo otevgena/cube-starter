@@ -100,17 +100,26 @@ async function apiAdminUpdateUser(token, userId, patch) {
   const id = userId ?? patch?.id;
   if (!id) return null;
 
-  const common = {
+  // Свежий токен из sessionStorage (не протухший in-memory), при 401 —
+  // единый refresh и повтор один раз. Иначе после простоя PATCH молча
+  // возвращал null и правка роли/группы «не сохранялась» без объяснения.
+  let tk = "";
+  try { tk = sessionStorage.getItem("auth:accessToken") || token || ""; } catch { tk = token || ""; }
+
+  const doFetch = (url, method, bodyObj) => fetch(api(url), {
+    method,
     credentials: "include",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-  };
+    headers: { Authorization: `Bearer ${tk}`, "Content-Type": "application/json" },
+    body: JSON.stringify(bodyObj),
+  });
 
   const tryJSON = async (url, method, bodyObj) => {
     try {
-      const r = await fetch(api(url), { ...common, method, body: JSON.stringify(bodyObj) });
+      let r = await doFetch(url, method, bodyObj);
+      if (r.status === 401) {
+        const fresh = await apiRefresh();
+        if (fresh) { tk = fresh; try { sessionStorage.setItem("auth:accessToken", fresh); } catch {} r = await doFetch(url, method, bodyObj); }
+      }
       if (!r.ok) return null;
       return (await r.json().catch(() => null)) || { ok: true };
     } catch {
@@ -280,6 +289,7 @@ function TabsBar({ isAdmin }) {
 /* ===== Таблица пользователей (с «черновиками») ===== */
 function UsersTable({ token }) {
   const [q, setQ] = React.useState("");
+  const [qDebounced, setQDebounced] = React.useState("");
   const [groupFilter, setGroupFilter] = React.useState("");
   const [list, setList] = React.useState([]);
   const [total, setTotal] = React.useState(0);
@@ -289,17 +299,24 @@ function UsersTable({ token }) {
 
   const dottedWidth = MID_COL + GAP_COL + RIGHT_COL - LINE_RIGHT_INSET;
 
+  // Дебаунс поиска: без него каждое нажатие клавиши дёргало /admin/users
+  // (шторм запросов). Ждём 350 мс тишины перед перезагрузкой списка.
+  React.useEffect(() => {
+    const id = setTimeout(() => setQDebounced(q), 350);
+    return () => clearTimeout(id);
+  }, [q]);
+
   const load = React.useCallback(async () => {
     if (!token) return;
     setLoading(true);
-    const j = await apiAdminListUsers(token, { limit: 100, offset: 0, q, group: groupFilter || undefined });
+    const j = await apiAdminListUsers(token, { limit: 100, offset: 0, q: qDebounced, group: groupFilter || undefined });
     if (j?.authExpired) { setExpired(true); setLoading(false); return; }
     setExpired(false);
     const users = Array.isArray(j?.users) ? j.users : Array.isArray(j) ? j : [];
     setList(users);
     setTotal(Number(j?.total || users.length || 0));
     setLoading(false);
-  }, [token, q, groupFilter]);
+  }, [token, qDebounced, groupFilter]);
 
   React.useEffect(() => { load(); }, [load]);
 
