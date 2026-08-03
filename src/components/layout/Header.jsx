@@ -987,7 +987,22 @@ function AvatarMenu({ user, onLogout }) {
         alt={user?.name || user?.email || "Profile"}
         width={32}
         height={32}
-        className="block h-8 w-8 shrink-0 aspect-square cursor-pointer rounded-full object-cover"
+        className="block shrink-0 cursor-pointer rounded-full object-cover"
+        // Круг фиксируем инлайном: пока на первой загрузке AnimatedWidth
+        // анимирует ширину (спиннер → аватар) и грузится файл, Tailwind-классы
+        // h-8/w-8 успевали «поехать» и аватар мелькал овалом. Явные px + 50%
+        // + фон-заглушка держат идеальный круг в любой кадр.
+        style={{
+          width: 32,
+          height: 32,
+          minWidth: 32,
+          minHeight: 32,
+          flex: "0 0 32px",
+          borderRadius: "50%",
+          objectFit: "cover",
+          aspectRatio: "1 / 1",
+          backgroundColor: "#ededed",
+        }}
       />
       {open && (
         <div
