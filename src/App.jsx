@@ -559,7 +559,7 @@ export default function App(){
     <div className="min-h-dvh">
       <Header />
       <main tabIndex="-1" style={{ outline: 'none' }}>
-        <div key={path.startsWith('account') ? 'account' : path} className="animate-pagein">
+        <div key={path.startsWith('account') ? 'account' : path.startsWith('services/') ? 'services' : path} className="animate-pagein">
           {renderRoute()}
         </div>
       </main>
