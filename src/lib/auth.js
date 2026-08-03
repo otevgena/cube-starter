@@ -186,7 +186,7 @@ async function refreshOnce({ force = false } = {}) {
 }
 
 // ===== универсальный API-обёртка с автодоговорами =====
-export async function api(path, { method = 'GET', body, authRequired = true } = {}) {
+export async function api(path, { method = 'GET', body, authRequired = true, signal } = {}) {
   const headers = {};
   // ставим JSON только когда реально есть body
   if (body !== undefined) headers['Content-Type'] = 'application/json';
@@ -197,6 +197,7 @@ export async function api(path, { method = 'GET', body, authRequired = true } = 
     credentials: 'include',
     headers,
     body: body !== undefined ? JSON.stringify(body) : undefined,
+    signal,
   });
 
   // если получили 401 — одна попытка refresh и повтор
@@ -209,6 +210,7 @@ export async function api(path, { method = 'GET', body, authRequired = true } = 
         credentials: 'include',
         headers,
         body: body !== undefined ? JSON.stringify(body) : undefined,
+        signal,
       });
     }
   }

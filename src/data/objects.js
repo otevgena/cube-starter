@@ -741,8 +741,13 @@ export async function hydrateObjects({ force = false } = {}) {
   if (_hydrating) return _hydrating;
   if (_hydrated && !force) return;
   _hydrating = (async () => {
+    // Жёсткий таймаут: без него один зависший запрос (холодный старт функции,
+    // мёртвая сеть) навсегда «залипал» бы в _hydrating и убивал ВЕСЬ live-опрос
+    // до перезагрузки страницы — новые сообщения переставали приходить в эфире.
+    const ctrl = (typeof AbortController !== "undefined") ? new AbortController() : null;
+    const timer = ctrl ? setTimeout(() => { try { ctrl.abort(); } catch {} }, 12000) : null;
     try {
-      const data = await api("/objects", { method: "GET" });
+      const data = await api("/objects", { method: "GET", signal: ctrl ? ctrl.signal : undefined });
       const serverObjs = Array.isArray(data && data.objects) ? data.objects : [];
       const serverIds = new Set(serverObjs.map((o) => o.id));
       // Объект больше не «pending», только когда сервер РЕАЛЬНО вернул его в GET
@@ -753,9 +758,12 @@ export async function hydrateObjects({ force = false } = {}) {
       const pendingLocal = _mem.objects.filter((o) => _pendingCreates.has(o.id) && !serverIds.has(o.id));
       _mem.objects = [...pendingLocal, ...serverObjs];
       emitChanged();
-    } catch {
-      // не залогинен / бэкенд недоступен — оставляем текущий кэш
+    } catch (e) {
+      // не залогинен / бэкенд недоступен / таймаут — оставляем текущий кэш, но
+      // не молчим: без лога «эфир умер» диагностировать было невозможно.
+      try { if (localStorage.getItem("auth:debug")) console.warn("[objects] hydrate failed", e); } catch {}
     } finally {
+      if (timer) clearTimeout(timer);
       _hydrated = true;   // больше не триггерим из loadStore; повтор — только force
       _hydrating = null;
     }

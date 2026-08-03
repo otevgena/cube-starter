@@ -1988,6 +1988,9 @@ function MessagesPanel({ objId, side, authorName, disabled, autoOpen }) {
   React.useEffect(() => {
     const on = () => force();
     window.addEventListener("objects:changed", on);
+    // Открыли тред — сразу тянем свежее с бэка, не дожидаясь следующего тика
+    // опроса (иначе новое сообщение собеседника «висело» до 10с или до F5).
+    try { DB.usesApi && DB.usesApi() && DB.hydrateObjects && DB.hydrateObjects({ force: true }); } catch {}
     return () => window.removeEventListener("objects:changed", on);
   }, []);
   // Точка «новое» у входящего сообщения: показываем, пока сообщение новее отметки
@@ -3197,15 +3200,22 @@ export default function ObjectsSection({ userEmail, userId, isAdmin }) {
       if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
       DB.hydrateObjects && DB.hydrateObjects({ force: true });
     };
-    const start = () => { if (!timer) timer = setInterval(tick, 15000); };
+    const start = () => { if (!timer) timer = setInterval(tick, 10000); };
     const stop = () => { if (timer) { clearInterval(timer); timer = null; } };
     const onVis = () => {
       if (typeof document === "undefined" || document.visibilityState === "visible") { tick(); start(); }
       else stop();
     };
+    // Возврат фокуса на окно — сразу подтягиваем свежее (не ждём тик до 10с).
+    const onFocus = () => tick();
     start();
     if (typeof document !== "undefined") document.addEventListener("visibilitychange", onVis);
-    return () => { stop(); if (typeof document !== "undefined") document.removeEventListener("visibilitychange", onVis); };
+    if (typeof window !== "undefined") window.addEventListener("focus", onFocus);
+    return () => {
+      stop();
+      if (typeof document !== "undefined") document.removeEventListener("visibilitychange", onVis);
+      if (typeof window !== "undefined") window.removeEventListener("focus", onFocus);
+    };
   }, []);
   const p = typeof window !== "undefined" ? window.location.pathname : "";
   const search = typeof window !== "undefined" ? window.location.search : "";
