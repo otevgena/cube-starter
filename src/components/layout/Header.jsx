@@ -1106,6 +1106,19 @@ export default function Header() {
     // («Вход/Регистрация» либо аватар) максимум через 3.5 c — не оставляем пустую заглушку
     const safety = setTimeout(() => setAuthReady(true), 3500);
 
+    // Bootstrap раньше молча делал setUser/writeCachedUser без события —
+    // сторонние слушатели (StickyDock, App) о входе на холодной загрузке не
+    // узнавали и до ручного F5 показывали заглушку («Профиль» в доке). Теперь
+    // фиксация юзера всегда шлёт auth:changed, как обычный вход.
+    const commitUser = (uu) => {
+      setUser(uu);
+      writeCachedUser(uu);
+      setAuthReady(true);
+      try {
+        window.dispatchEvent(new CustomEvent("auth:changed", { detail: { user: uu, accessToken: accessRef.current } }));
+      } catch {}
+    };
+
     const bootstrap = async () => {
       try {
         const t0 = sessionStorage.getItem("auth:accessToken");
@@ -1122,10 +1135,7 @@ export default function Header() {
         if (accessRef.current) {
           const u = await apiMe(accessRef.current);
           if (u) {
-            const uu = withAvatar(u);
-            setUser(uu);
-            writeCachedUser(uu);
-            setAuthReady(true);
+            commitUser(withAvatar(u));
             return;
           }
           const t2 = await apiRefresh(8000);
@@ -1134,10 +1144,7 @@ export default function Header() {
             try { sessionStorage.setItem("auth:accessToken", t2); } catch {}
             const u2 = await apiMe(t2);
             if (u2) {
-              const uu2 = withAvatar(u2);
-              setUser(uu2);
-              writeCachedUser(uu2);
-              setAuthReady(true);
+              commitUser(withAvatar(u2));
               return;
             }
           }
@@ -1159,7 +1166,7 @@ export default function Header() {
         accessRef.current = t;
         try { sessionStorage.setItem("auth:accessToken", t); } catch {}
         const u = await apiMe(t);
-        if (u) { const uu = withAvatar(u); setUser(uu); writeCachedUser(uu); }
+        if (u) commitUser(withAvatar(u));
       }
     };
     window.addEventListener("focus", onFocus);
