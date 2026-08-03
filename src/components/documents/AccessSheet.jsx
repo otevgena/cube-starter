@@ -31,10 +31,18 @@ const DOCK_FONT = "'Inter Tight',Inter,system-ui,-apple-system,'Segoe UI',Roboto
 // Фирменная марка «C.» — контур из favicon.svg + точка (self-contained, работает и в печати).
 const LOGO_PATH = "M61,8 L58,10 L56,10 L55,11 L54,11 L53,12 L52,12 L51,13 L50,13 L49,14 L48,14 L47,15 L44,16 L42,18 L41,18 L38,21 L37,21 L33,25 L32,25 L26,31 L26,32 L22,36 L22,37 L19,40 L19,41 L17,43 L17,44 L16,45 L16,46 L15,47 L15,48 L14,49 L14,50 L13,51 L13,52 L10,57 L10,59 L9,60 L9,62 L8,63 L8,65 L7,66 L7,68 L6,69 L6,73 L5,74 L5,78 L4,79 L4,86 L3,87 L3,113 L4,114 L4,120 L5,121 L5,125 L6,126 L6,130 L7,131 L7,133 L8,134 L8,136 L9,137 L9,139 L10,140 L10,142 L11,143 L11,144 L12,145 L12,146 L13,147 L13,148 L14,149 L14,150 L15,151 L15,152 L16,153 L17,156 L19,158 L19,159 L22,162 L22,163 L26,167 L26,168 L32,174 L33,174 L37,178 L38,178 L41,181 L42,181 L44,183 L45,183 L46,184 L47,184 L48,185 L49,185 L50,186 L51,186 L56,189 L58,189 L61,191 L63,191 L64,192 L66,192 L67,193 L71,193 L72,194 L76,194 L77,195 L83,195 L84,196 L112,196 L113,195 L118,195 L119,194 L123,194 L124,193 L128,193 L129,192 L131,192 L132,191 L134,191 L137,189 L139,189 L140,188 L141,188 L142,187 L143,187 L144,186 L145,186 L146,185 L149,184 L151,182 L152,182 L154,180 L155,180 L159,176 L160,176 L166,170 L166,169 L170,165 L170,164 L174,159 L174,158 L175,157 L175,156 L176,155 L176,154 L179,149 L179,147 L180,146 L180,144 L181,143 L181,141 L182,140 L182,138 L183,137 L183,132 L184,131 L184,123 L185,122 L185,120 L184,119 L129,119 L129,122 L128,123 L128,126 L127,127 L127,129 L126,130 L126,132 L125,133 L124,136 L122,138 L122,139 L115,146 L114,146 L112,148 L111,148 L110,149 L108,149 L107,150 L104,150 L103,151 L94,151 L93,150 L90,150 L89,149 L87,149 L86,148 L83,147 L81,145 L80,145 L74,139 L74,138 L72,136 L71,133 L69,131 L69,129 L68,128 L68,126 L67,125 L67,123 L66,122 L66,119 L65,118 L65,113 L64,112 L64,86 L65,85 L65,80 L66,79 L66,76 L67,75 L67,73 L68,72 L68,70 L69,69 L69,68 L70,67 L71,64 L73,62 L73,61 L81,53 L82,53 L83,52 L84,52 L89,49 L93,49 L94,48 L103,48 L104,49 L107,49 L108,50 L110,50 L111,51 L114,52 L116,54 L117,54 L121,58 L121,59 L124,62 L124,63 L126,66 L126,68 L127,69 L127,71 L128,72 L128,75 L129,76 L129,79 L184,79 L185,78 L185,75 L184,74 L184,67 L183,66 L183,61 L182,60 L182,58 L181,57 L181,55 L180,54 L180,52 L179,51 L179,49 L178,48 L178,47 L177,46 L177,45 L176,44 L175,41 L173,39 L173,38 L171,36 L171,35 L167,31 L167,30 L160,23 L159,23 L155,19 L154,19 L152,17 L149,16 L147,14 L146,14 L145,13 L144,13 L139,10 L137,10 L134,8 L132,8 L131,7 L129,7 L128,6 L124,6 L123,5 L119,5 L118,4 L113,4 L112,3 L83,3 L82,4 L77,4 L76,5 L72,5 L71,6 L67,6 L66,7 L64,7 L63,8 Z";
 function logoMark(h = 30) {
-  return `<svg viewBox="0 0 244 200" width="${Math.round(h * 1.22)}" height="${h}" style="display:block;flex:0 0 auto;">
-    <path d="${LOGO_PATH}" fill="${INK}" fill-rule="evenodd"/>
-    <circle cx="212" cy="176" r="21" fill="${INK}"/>
-  </svg>`;
+  const w = Math.round(h * 1.22);
+  // Логотип отдаём как data-URI <img>, а не инлайновый <svg>: html2canvas 1.4.1
+  // спотыкается на инлайновом SVG (снимок канваса падает → «Сохранить» не
+  // работало, хотя печать через нативный рендер была ок). <img src=data:svg>
+  // надёжно рендерится и в печати, и в html2canvas. xmlns обязателен для
+  // отдельного SVG-файла, иначе картинка не отрисуется.
+  const svg =
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 244 200" width="${w}" height="${h}">` +
+    `<path d="${LOGO_PATH}" fill="${INK}" fill-rule="evenodd"/>` +
+    `<circle cx="212" cy="176" r="21" fill="${INK}"/></svg>`;
+  const uri = `data:image/svg+xml;base64,${btoa(svg)}`;
+  return `<img src="${uri}" width="${w}" height="${h}" alt="КУБ" style="display:block;flex:0 0 auto;" />`;
 }
 
 const esc = (s) =>
@@ -208,11 +216,10 @@ async function buildAccessSheetPdf(data = {}) {
   holder.innerHTML = buildAccessSheetHTML(data, qr);
   document.body.appendChild(holder);
   const node = holder.querySelector(".cube-sheet");
-  // дождаться загрузки картинки QR, иначе снимок будет без неё
-  const imgEl = node && node.querySelector("img");
-  if (imgEl && !imgEl.complete) {
-    await new Promise((res) => { imgEl.onload = res; imgEl.onerror = res; });
-  }
+  // дождаться загрузки ВСЕХ картинок (логотип + QR), иначе снимок будет без них
+  const imgs = node ? Array.from(node.querySelectorAll("img")) : [];
+  await Promise.all(imgs.map((im) => (im.complete ? Promise.resolve()
+    : new Promise((res) => { im.onload = res; im.onerror = res; }))));
   try {
     const canvas = await html2canvas(node, { scale: 2, backgroundColor: "#ffffff", useCORS: true, logging: false });
     const img = canvas.toDataURL("image/jpeg", 0.95);
@@ -315,7 +322,11 @@ function SheetDock({ data, onClose, phone }) {
   const save = async () => {
     if (saving) return;
     setSaving(true);
-    try { await downloadAccessSheetPdf(data); } catch { try { window.showDockToast && window.showDockToast("Не удалось сохранить"); } catch {} }
+    try { await downloadAccessSheetPdf(data); }
+    catch (e) {
+      try { console.error("[AccessSheet] save failed:", e); } catch {}
+      try { window.showDockToast && window.showDockToast(`Не удалось сохранить${e && e.message ? ": " + e.message : ""}`); } catch {}
+    }
     setSaving(false);
   };
   const share = async () => {
