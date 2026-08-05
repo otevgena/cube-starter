@@ -954,7 +954,7 @@ export function normCoExecutors(arr) {
 const DRAFT_FIELDS = [
   "title", "status", "progress", "currentStageId", "plannedFinishDate",
   "customerName", "inn", "kpp", "city", "address", "contractNumber",
-  "responsibleName", "responsibleRole", "responsibleEmail", "responsibleNotify", "coExecutors",
+  "responsibleName", "responsibleRole", "responsibleEmail", "responsibleId", "responsibleNotify", "coExecutors",
   "now", "stages", "documents", "customerRequiredActions", "events",
 ];
 function pickDraft(o) {
@@ -996,7 +996,7 @@ export function ensurePublishedBaseline(id) {
   });
 }
 
-export function createObject({ title = "Новый объект", templateCode = "free", customerName = "", customerEmail = "", customerId = "", city = "", responsibleName = "", responsibleRole = "", responsibleEmail = "", responsibleNotify = true, coExecutors = [], stages: stageNames = null, author = "Администратор" } = {}) {
+export function createObject({ title = "Новый объект", templateCode = "free", customerName = "", customerEmail = "", customerId = "", city = "", responsibleName = "", responsibleRole = "", responsibleEmail = "", responsibleId = "", responsibleNotify = true, coExecutors = [], stages: stageNames = null, author = "Администратор" } = {}) {
   return withStore((store) => {
     // Учитываем правки админа (getTemplates), с откатом на базовый список.
     const tpl = templateByCode(templateCode) || OBJECT_TEMPLATES.find((t) => t.code === templateCode) || OBJECT_TEMPLATES[OBJECT_TEMPLATES.length - 1];
@@ -1020,6 +1020,7 @@ export function createObject({ title = "Новый объект", templateCode =
       id, title, customerName, customerEmail: email, inn: "", kpp: "", city, address: "", contractNumber: "",
       status: "draft", progress: 0, currentStageId: stages[0]?.id || "",
       responsibleName, responsibleRole, responsiblePhone: "", responsibleEmail: String(responsibleEmail || "").trim().toLowerCase(),
+      responsibleId: String(responsibleId || "").trim(),
       responsibleNotify: responsibleNotify !== false, coExecutors: normCoExecutors(coExecutors),
       plannedFinishDate: "", lastUpdatedAt: today(), internalNote: "",
       now: { doingNow: "", nextStep: "", nextDeadline: "", customerNeeds: "", attention: "on_track" },

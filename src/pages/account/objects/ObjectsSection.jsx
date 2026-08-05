@@ -644,7 +644,7 @@ function Modal({ title, onClose, children, width = 520 }) {
 const STATUS_OPTS = OBJECT_STATUSES.map((s) => ({ value: s.code, label: s.label, dotColor: s.tone }));
 const STAGE_OPTS = STAGE_STATUSES.map((s) => ({ value: s.code, label: s.label, dotColor: s.tone }));
 function empOpts() { return [{ value: "", label: "— не назначен —" }, ...getEmployees().map((e) => ({ value: e.id, label: `${e.fio} · ${e.position}` }))]; }
-function respIdOf(obj) { return getEmployees().find((e) => e.fio === obj.responsibleName)?.id || ""; }
+function respIdOf(obj) { return obj.responsibleId || getEmployees().find((e) => e.fio === obj.responsibleName)?.id || ""; }
 
 /* ============================================================= */
 /* ====================== АДМИН: СПИСОК ======================== */
@@ -1372,6 +1372,7 @@ export function CreateObjectForm({ onCancel, onCreated, fixedCustomer = null, em
       responsibleName: emp ? emp.fio : "",
       responsibleRole: emp ? emp.position : "",
       responsibleEmail: emp ? (emp.email || "") : "",
+      responsibleId: emp ? emp.id : "",
       responsibleNotify: respNotify,
       coExecutors: coExec,
       stages,
@@ -1571,7 +1572,7 @@ function AdminObjectEditor({ id, autoOpenMessages }) {
           <div><FLabel>Договор</FLabel><UnderCommitInput key={`contract-${obj.contractNumber || ""}`} defaultValue={obj.contractNumber} onCommit={(v) => save({ contractNumber: v })} /></div>
           <div>
             <FLabel>Ответственный</FLabel>
-            <UnderSelect value={respId} options={empOpts()} placeholder="— не назначен —" onChange={(v) => { const e = getEmployees().find((x) => x.id === v); save({ responsibleName: e ? e.fio : "", responsibleRole: e ? e.position : "", responsibleEmail: e ? (e.email || "") : "", coExecutors: (obj.coExecutors || []).filter((c) => c.id !== v) }); }} />
+            <UnderSelect value={respId} options={empOpts()} placeholder="— не назначен —" onChange={(v) => { const e = getEmployees().find((x) => x.id === v); save({ responsibleName: e ? e.fio : "", responsibleRole: e ? e.position : "", responsibleEmail: e ? (e.email || "") : "", responsibleId: e ? e.id : "", coExecutors: (obj.coExecutors || []).filter((c) => c.id !== v) }); }} />
           </div>
           <div>
             <FLabel>Соисполнители</FLabel>
