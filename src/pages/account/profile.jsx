@@ -5338,6 +5338,24 @@ function AdminFiles({ canDownload = true }) {
     setBusy(true); setProg({ done: 0, total: list.length });
     let ok = 0, fail = 0;
     try {
+      // 1) СЕРВЕРНАЯ сборка — надёжна на всех устройствах, включая iOS Safari
+      //    (клиентский blob-download там не запускается вне жеста пользователя).
+      //    Отдаёт настоящую https-ссылку с attachment → браузер просто качает файл.
+      try {
+        const objectId = list[0]?.objId || openId;
+        const keys = list.map((r) => ({ key: r.key, name: r.name }));
+        const url = await DB.archiveUrl(objectId, zipName, keys);
+        if (url) {
+          // attachment гарантирует скачивание без ухода со страницы (и на iOS тоже)
+          window.location.href = url;
+          return;
+        }
+      } catch (e) {
+        // не вышло серверно — тихо падаем на клиентскую сборку ниже (как на десктопе раньше)
+        try { if (localStorage.getItem("auth:debug")) console.warn("[archive] server zip failed, fallback", e); } catch {}
+      }
+
+      // 2) FALLBACK: клиентская сборка через JSZip (прежнее поведение десктопа).
       const JSZip = (await import("jszip")).default;
       const zip = new JSZip();
       const used = new Set();

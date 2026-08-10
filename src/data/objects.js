@@ -826,6 +826,17 @@ export async function downloadUrl(key, name, { inline = false } = {}) {
   const { url } = await api(`/files/download-url?${q}`, { method: "GET" });
   return url;
 }
+// Серверная сборка архива по объекту: бэкенд пакует файлы из S3 и возвращает
+// готовую presigned-ссылку (Content-Disposition: attachment). Нужно, чтобы
+// скачивание архива работало на iOS Safari (клиентский blob там не запускается).
+// keys — [{key, name}]; доступ проверяется на бэкенде теми же правилами, что и download-url.
+export async function archiveUrl(objectId, zipName, keys) {
+  const { url } = await api("/files/archive", {
+    method: "POST",
+    body: { objectId, zipName, keys },
+  });
+  return url;
+}
 // Удалить файл из S3 (best-effort, при удалении документа).
 export function deleteFile(key) {
   if (!key || !apiEnabled()) return;
