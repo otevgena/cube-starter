@@ -1115,7 +1115,13 @@ export default function Header() {
       writeCachedUser(uu);
       setAuthReady(true);
       try {
+        // Однозначный сигнал «тихий вход разрешился» — на него опирается гард
+        // приватных страниц в App.jsx, чтобы не выкидывать живую сессию на «Вход»
+        // при прямом заходе по ссылке (deep-link), пока refresh-cookie ещё в работе.
+        window.__cubeAuthUser = uu || null;
+        window.__cubeAuthReady = true;
         window.dispatchEvent(new CustomEvent("auth:changed", { detail: { user: uu, accessToken: accessRef.current } }));
+        window.dispatchEvent(new CustomEvent("auth:ready", { detail: { user: uu || null } }));
       } catch {}
     };
 
@@ -1154,6 +1160,15 @@ export default function Header() {
         writeCachedUser(null);
       } catch {} finally {
         setAuthReady(true);
+        // Тихий вход честно завершился без пользователя (refresh-cookie мертва/нет).
+        // Сообщаем гарду — чтобы он мог показать «Вход» сразу, а не по таймауту.
+        try {
+          if (!window.__cubeAuthReady) {
+            window.__cubeAuthUser = null;
+            window.__cubeAuthReady = true;
+            window.dispatchEvent(new CustomEvent("auth:ready", { detail: { user: null } }));
+          }
+        } catch {}
       }
     };
 
@@ -1188,6 +1203,12 @@ export default function Header() {
         accessRef.current = null;
       }
       setAuthReady(true);
+      // Держим глобальный снимок авторизации свежим для гарда приватных страниц
+      // (вход/выход после первичного бутстрапа).
+      try {
+        window.__cubeAuthUser = newUser || null;
+        window.__cubeAuthReady = true;
+      } catch {}
     };
     window.addEventListener("auth:changed", onAuth);
     window.setHeaderUser = (u, token) =>

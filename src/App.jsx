@@ -146,11 +146,16 @@ export default function App(){
   }, [])
 
   // === Гард: страницы аккаунта только для авторизованных ===
+  // ВАЖНО про порядок. На ПРЯМОМ заходе по ссылке (deep-link, F5, новая вкладка)
+  // кэша юзера в sessionStorage ещё нет — сессию поднимает ТИХИЙ вход по refresh-
+  // cookie (Header.bootstrap → /auth/refresh → /auth/me). Поэтому нельзя решать
+  // «выкинуть на Вход» синхронно на mount'е: сперва даём бутстрапу отработать.
+  // Иначе живую сессию выбрасывало на «Вход» при каждом прямом переходе на
+  // /account/* (особенно на iOS Safari, который агрессивно чистит sessionStorage).
   useEffect(() => {
     if (!path.startsWith('account')) return
-    let authed = false
-    try { authed = !!sessionStorage.getItem('auth:lastUser') } catch {}
-    if (!authed) {
+
+    const denyToLogin = () => {
       // запоминаем, куда вёл диплинк (например, из письма /account/objects/{id}?msg=1),
       // чтобы вернуть сюда сразу после входа
       try {
@@ -161,6 +166,49 @@ export default function App(){
       window.dispatchEvent(new PopStateEvent('popstate'))
       setTimeout(() => { try { window.openModal?.('login') } catch {} }, 50)
     }
+
+    // 1) кэш юзера в этой вкладке → пускаем сразу (клиентская навигация, F5 в живой вкладке)
+    try { if (sessionStorage.getItem('auth:lastUser')) return } catch {}
+
+    // 2) бутстрап уже досказал результат тихого входа
+    if (window.__cubeAuthReady) {
+      if (window.__cubeAuthUser) return
+      denyToLogin()
+      return
+    }
+
+    // 3) нет ни кэша, ни устойчивой подсказки о прошлой сессии → на этом устройстве
+    //    точно не входили: нет смысла ждать, сразу «Вход».
+    let hint = false
+    try { hint = localStorage.getItem('auth:hint') === '1' } catch {}
+    if (!hint) { denyToLogin(); return }
+
+    // 4) подсказка есть, но бутстрап ещё идёт → ЖДЁМ его результат, НЕ выкидываем.
+    //    Страница профиля тем временем показывает свой спиннер загрузки.
+    let done = false
+    const finish = (u) => {
+      if (done) return
+      done = true
+      cleanup()
+      if (u) return       // сессия поднялась — остаёмся на странице
+      denyToLogin()       // тихий вход честно не удался — тогда на «Вход»
+    }
+    const onReady = (e) => finish(e?.detail?.user || null)
+    const onChanged = (e) => { const u = e?.detail?.user; if (u) finish(u) }
+    window.addEventListener('auth:ready', onReady)
+    window.addEventListener('auth:changed', onChanged)
+    // страховка на случай, если сигнал так и не пришёл (сеть/аборт): решаем по факту
+    const safety = setTimeout(() => {
+      let cached = false
+      try { cached = !!sessionStorage.getItem('auth:lastUser') } catch {}
+      finish(cached || window.__cubeAuthUser || null)
+    }, 9000)
+    function cleanup() {
+      window.removeEventListener('auth:ready', onReady)
+      window.removeEventListener('auth:changed', onChanged)
+      clearTimeout(safety)
+    }
+    return cleanup
   }, [path])
 
   // === Выход: уводим с приватных страниц аккаунта на главную ===
