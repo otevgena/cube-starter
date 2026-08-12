@@ -52,12 +52,24 @@
     <style>
       #boot{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
         background:#f8f8f8;font-family:'Inter Tight',system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif}
-      #boot .r{width:38px;height:38px;border-radius:50%;
-        border:2px solid rgba(0,0,0,.12);border-top-color:#1c1c1c;
-        animation:bootspin .7s linear infinite}
+      /* Тот же брендовый спиннер из 8 точек, что и React-компонент Spinner.jsx —
+         чтобы стартовая заставка и загрузчики внутри приложения были ЕДИНЫМИ,
+         без смены «кольцо → точки» при монтировании React. */
+      #boot .r{position:relative;width:40px;height:40px;animation:bootspin 2s linear infinite}
+      #boot .r i{position:absolute;top:50%;left:50%;width:2.5px;height:2.5px;
+        margin:-1.25px 0 0 -1.25px;border-radius:50%;background:#7a7a7a}
+      #boot .r i:nth-child(1){transform:rotate(0deg)   translate(16px)}
+      #boot .r i:nth-child(2){transform:rotate(45deg)  translate(16px)}
+      #boot .r i:nth-child(3){transform:rotate(90deg)  translate(16px)}
+      #boot .r i:nth-child(4){transform:rotate(135deg) translate(16px)}
+      #boot .r i:nth-child(5){transform:rotate(180deg) translate(16px)}
+      #boot .r i:nth-child(6){transform:rotate(225deg) translate(16px)}
+      #boot .r i:nth-child(7){transform:rotate(270deg) translate(16px)}
+      #boot .r i:nth-child(8){transform:rotate(315deg) translate(16px)}
       @keyframes bootspin{to{transform:rotate(360deg)}}
+      @media (prefers-reduced-motion:reduce){#boot .r{animation:none}}
     </style>
-    <div id="root"><div id="boot"><div class="r"></div></div></div>
+    <div id="root"><div id="boot"><div class="r"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
