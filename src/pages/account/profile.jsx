@@ -5338,23 +5338,33 @@ function AdminFiles({ canDownload = true }) {
     setBusy(true); setProg({ done: 0, total: list.length });
     let ok = 0, fail = 0;
     try {
-      // 1) СЕРВЕРНАЯ сборка — надёжна на всех устройствах, включая iOS Safari
-      //    (клиентский blob-download там не запускается вне жеста пользователя).
-      //    Отдаёт настоящую https-ссылку с attachment → браузер просто качает файл.
+      // 1) СЕРВЕРНАЯ сборка архива → presigned-ссылка с attachment.
+      //    iOS Safari: нативная качалка требует «жест пользователя», а серверная
+      //    сборка (~0.5–1с, это await) его теряет → Safari роняет файл в вечный
+      //    «.download» (в Яндекс-браузере/на десктопе всё ок — там своя качалка).
+      //    Лечение: на iOS открываем вкладку СИНХРОННО (пока жест жив) и наводим
+      //    её на готовую ссылку. На десктопе/остальных — обычный клик по <a>.
+      const isIOS = /iP(hone|od|ad)/.test(navigator.userAgent) ||
+        (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+      let iosWin = null;
+      if (isIOS) { try { iosWin = window.open("", "_blank"); } catch {} }
       try {
         const objectId = list[0]?.objId || openId;
         const keys = list.map((r) => ({ key: r.key, name: r.name }));
         const url = await DB.archiveUrl(objectId, zipName, keys);
         if (url) {
-          // Тот же приём, что и в downloadOne (проверенно работает на iOS Safari):
-          // клик по <a> с presigned-ссылкой. Прежний window.location.href на iOS
-          // оставлял незавершённый «.download» (навигация вместо загрузки).
-          const a = document.createElement("a");
-          a.href = url; a.download = zipName; a.rel = "noopener";
-          document.body.appendChild(a); a.click(); a.remove();
+          if (iosWin) {
+            iosWin.location.href = url; // качаем в предоткрытой вкладке — жест сохранён
+          } else {
+            const a = document.createElement("a");
+            a.href = url; a.download = zipName; a.rel = "noopener";
+            document.body.appendChild(a); a.click(); a.remove();
+          }
           return;
         }
+        if (iosWin) { try { iosWin.close(); } catch {} }
       } catch (e) {
+        if (iosWin) { try { iosWin.close(); } catch {} }
         // не вышло серверно — тихо падаем на клиентскую сборку ниже (как на десктопе раньше)
         try { if (localStorage.getItem("auth:debug")) console.warn("[archive] server zip failed, fallback", e); } catch {}
       }
