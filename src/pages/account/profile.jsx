@@ -5346,8 +5346,12 @@ function AdminFiles({ canDownload = true }) {
         const keys = list.map((r) => ({ key: r.key, name: r.name }));
         const url = await DB.archiveUrl(objectId, zipName, keys);
         if (url) {
-          // attachment гарантирует скачивание без ухода со страницы (и на iOS тоже)
-          window.location.href = url;
+          // Тот же приём, что и в downloadOne (проверенно работает на iOS Safari):
+          // клик по <a> с presigned-ссылкой. Прежний window.location.href на iOS
+          // оставлял незавершённый «.download» (навигация вместо загрузки).
+          const a = document.createElement("a");
+          a.href = url; a.download = zipName; a.rel = "noopener";
+          document.body.appendChild(a); a.click(); a.remove();
           return;
         }
       } catch (e) {
