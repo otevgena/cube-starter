@@ -5262,7 +5262,6 @@ function AdminFiles({ canDownload = true }) {
   const [busy, setBusy] = React.useState(false);          // сборка архива идёт
   const [prog, setProg] = React.useState({ done: 0, total: 0 });
   const [dlKey, setDlKey] = React.useState("");           // ключ файла, который сейчас качаем по одному
-  const [iosReady, setIosReady] = React.useState(null);   // {url,name} — готовый архив ждёт тап (iOS Safari)
 
   React.useEffect(() => {
     try { DB.hydrateObjects && DB.hydrateObjects(); } catch {}
@@ -5339,28 +5338,17 @@ function AdminFiles({ canDownload = true }) {
     setBusy(true); setProg({ done: 0, total: list.length });
     let ok = 0, fail = 0;
     try {
-      // 1) СЕРВЕРНАЯ сборка архива → presigned-ссылка с attachment.
-      //    iOS Safari роняет файл в вечный «.download», если между жестом
-      //    пользователя и запуском загрузки есть большая пауза (а сборка архива —
-      //    это await ~0.5–1с). Одиночный файл качается, потому что там пауза
-      //    почти нулевая. Лечение, работающее ВЕЗДЕ: разбить на два тапа —
-      //    первый строит архив (пауза не важна), второй качает уже ГОТОВУЮ
-      //    ссылку с нулевой задержкой (как одиночный файл, который работает).
-      //    На десктопе/не-iOS оставляем один клик — там пауза не мешает.
-      const isIOS = /iP(hone|od|ad)/.test(navigator.userAgent) ||
-        (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+      // 1) СЕРВЕРНАЯ сборка — надёжна на всех устройствах, включая iOS Safari
+      //    (клиентский blob-download там не запускается вне жеста пользователя).
+      //    Бэкенд отдаёт настоящую https-ссылку с attachment → браузер просто
+      //    качает файл. window.location.href на attachment-ссылке качает и на
+      //    iPhone, и на десктопе, не уводя со страницы.
       try {
         const objectId = list[0]?.objId || openId;
         const keys = list.map((r) => ({ key: r.key, name: r.name }));
         const url = await DB.archiveUrl(objectId, zipName, keys);
         if (url) {
-          if (isIOS) {
-            setIosReady({ url, name: zipName }); // покажем кнопку «Скачать» — второй тап
-          } else {
-            const a = document.createElement("a");
-            a.href = url; a.download = zipName; a.rel = "noopener";
-            document.body.appendChild(a); a.click(); a.remove();
-          }
+          window.location.href = url;
           return;
         }
       } catch (e) {
@@ -5399,27 +5387,6 @@ function AdminFiles({ canDownload = true }) {
     finally { setBusy(false); setProg({ done: 0, total: 0 }); }
   };
 
-  // Оверлей «Архив готов» (iOS): второй тап качает уже готовую ссылку без паузы.
-  const iosOverlay = iosReady ? (
-    <div onClick={() => setIosReady(null)}
-      style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,.55)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
-      <div onClick={(e) => e.stopPropagation()}
-        style={{ background: "#fff", borderRadius: 14, padding: "28px 24px", maxWidth: 340, width: "100%", textAlign: "center", boxShadow: "0 20px 60px rgba(0,0,0,.3)" }}>
-        <div style={{ fontSize: 17, fontWeight: 600, color: TEXT }}>Архив готов</div>
-        <div style={{ marginTop: 8, fontSize: 13, fontWeight: 300, color: "#777", lineHeight: 1.5 }}>
-          Нажмите кнопку, чтобы сохранить файл в «Загрузки».
-        </div>
-        <a href={iosReady.url} download={iosReady.name} rel="noopener"
-          onClick={() => { setTimeout(() => setIosReady(null), 400); }}
-          style={{ display: "block", marginTop: 18, padding: "13px 16px", borderRadius: 11, background: TEXT, color: "#fff", fontSize: 15, fontWeight: 600, textDecoration: "none" }}>
-          Скачать архив
-        </a>
-        <button type="button" onClick={() => setIosReady(null)}
-          style={{ marginTop: 12, border: "none", background: "none", fontFamily: UI, fontSize: 13, fontWeight: 300, color: "#999", cursor: "pointer" }}>Отмена</button>
-      </div>
-    </div>
-  ) : null;
-
   const openObj = React.useMemo(() => cards.find((c) => c.id === openId) || null, [cards, openId]);
 
   const sortedItems = React.useMemo(() => {
@@ -5448,7 +5415,6 @@ function AdminFiles({ canDownload = true }) {
     );
     return (
       <div key={`files-${openId}`} className="animate-svcfade" style={{ fontFamily: UI, marginTop: 8 }}>
-        {iosOverlay}
         <button type="button" onClick={() => setOpenId(null)} style={{ border: "none", background: "none", padding: 0, cursor: "pointer", fontFamily: UI, fontSize: 14, fontWeight: 300, color: "#777" }}>← К объектам</button>
         <div style={{ marginTop: 14, display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 14, flexWrap: "wrap" }}>
           <div style={{ minWidth: 0 }}>
@@ -5558,7 +5524,6 @@ function AdminFiles({ canDownload = true }) {
   // ── Список объектов ──
   return (
     <div key="files-list" className="animate-svcfade" style={{ fontFamily: UI, marginTop: 8 }}>
-      {iosOverlay}
       <button type="button" onClick={() => adminNav("/account/admin")} style={{ border: "none", background: "none", padding: 0, cursor: "pointer", fontFamily: UI, fontSize: 14, fontWeight: 300, color: "#777" }}>← К модулям</button>
       <div style={{ marginTop: 14, fontSize: 22, fontWeight: 600, color: TEXT }}>Файлы</div>
       <div style={{ marginTop: 6, fontSize: 14, fontWeight: 300, color: "#777" }}>
