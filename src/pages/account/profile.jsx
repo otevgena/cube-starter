@@ -1,6 +1,7 @@
 import React from "react";
 import QRCode from "qrcode";
 import ObjectsSection, { EmployeesModule, TemplatesModule, CreateObjectForm, UnderSelect, UnderInput, FLabel, PrimaryBtn, FilterBar } from "@/pages/account/objects/ObjectsSection.jsx";
+import DocumentsSection from "@/pages/account/documents/DocumentsSection.jsx";
 import { AccessSheetModal } from "@/components/documents/AccessSheet.jsx";
 import { BTN as MBTN, inputCls, ErrorSlot as MErrorSlot, FancyCheckbox, Label as MLabel, FormShell } from "@/components/common/Modals.jsx";
 import Spinner, { CenterSpinner } from "@/components/common/Spinner.jsx";
@@ -1356,7 +1357,7 @@ function IconLink({ onClick, disabled, icon, children, prompt, danger = false })
 }
 
 /* ===== Верхняя полоска вкладок ===== */
-function TabsBar({ active, isAdmin, canPartner, canSupplier, onNavigate, lineWidth, isDesktop = false }) {
+function TabsBar({ active, isAdmin, canPartner, canSupplier, canDocs, onNavigate, lineWidth, isDesktop = false }) {
   const wrapRef = React.useRef(null);
   const tabRefs = React.useRef(new Map());
   const [underline, setUnderline] = React.useState({ left: 0, width: 56 });
@@ -1389,20 +1390,22 @@ function TabsBar({ active, isAdmin, canPartner, canSupplier, onNavigate, lineWid
     const supplier = { code: "supplier", label: "Поставщик", locked: !canSupplier };
     const personal = { code: "personal", label: "Настройки", locked: false };
     const admin    = { code: "admin",    label: "Администратор", locked: false };
+    const documents = { code: "documents", label: "Документы", locked: !canDocs };
     const help     = { code: "help",     label: "Помощь",    locked: false };
-    // Админ/сотрудник: привычный порядок + «Администратор».
+    // Админ/сотрудник: привычный порядок + «Администратор» + «Документы».
     let tabs;
-    if (isAdmin) tabs = [profile, objects, partner, supplier, personal, admin];
+    if (isAdmin) tabs = [profile, objects, partner, supplier, personal, admin, documents];
     // Заказчик: «Партнёр» и «Поставщик» (обычно недоступны) — в конец, чтобы не
     // мешали частым «Настройки»/«Помощь». Вместо «Администратора» — «Помощь».
-    else tabs = [profile, objects, personal, help, partner, supplier];
+    // «Документы» — только держателям права docs.invoice (напр. бухгалтеру).
+    else tabs = [profile, objects, personal, help, partner, supplier, ...(canDocs ? [documents] : [])];
     // Мобилка = карусель со свободным горизонтальным скроллом. Недоступные вкладки
     // (замок у заказчика) в неё НЕ кладём: встать на них нельзя, но можно было
     // доскроллить — из-за этого казалось, что скролл «уезжает» на Партнёр/Поставщик.
     // На десктопе они остаются видимыми (с замком, без прокрутки к ним).
     if (isMobile) tabs = tabs.filter((t) => !t.locked);
     return tabs;
-  }, [isAdmin, canPartner, canSupplier, isMobile]);
+  }, [isAdmin, canPartner, canSupplier, canDocs, isMobile]);
 
   // Код вкладки ближе всего к ЦЕНТРУ ряда. Заблокированные (Партнёр/Поставщик
   // у заказчика) пропускаем — на них свайпом/тапом не «встать».
@@ -1498,6 +1501,7 @@ function TabsBar({ active, isAdmin, canPartner, canSupplier, onNavigate, lineWid
       case "supplier": return "/account/supplier";
       case "personal": return "/account/personal";
       case "admin":    return "/account/admin";
+      case "documents": return "/account/documents";
       case "help":     return "/account/help";
       default:          return "/account/profile";
     }
@@ -6276,6 +6280,7 @@ export default function AccountProfilePage() {
     if (/\/account\/supplier(\/|$)/.test(pathname)) return "supplier";
     if (/\/account\/personal(\/|$)/.test(pathname)) return "personal";
     if (/\/account\/admin(\/|$)/.test(pathname))    return "admin";
+    if (/\/account\/documents(\/|$)/.test(pathname)) return "documents";
     if (/\/account\/help(\/|$)/.test(pathname))     return "help";
     return "profile";
   }, [pathname]);
@@ -6902,6 +6907,7 @@ export default function AccountProfilePage() {
     supplier: "Поставщик",
     personal: "Настройки", // ← Переименовано
     admin:    "Администратор",
+    documents: "Документы",
     help:     "Помощь",
   }[tab] || "Профиль";
 
@@ -6913,6 +6919,7 @@ export default function AccountProfilePage() {
     partner:  { title: "Раздел: Партнёр",  desc: "Информация и материалы для партнёров КУБ." },
     supplier: { title: "Раздел: Поставщик", desc: "Информация и материалы для поставщиков КУБ." },
     admin:    { title: "Роли и группы", desc: "Управляйте ролями (доступ) и группами (кто вы?) прямо тут." },
+    documents: { title: "Документы", desc: "Счета и документы — выставление, печать и PDF." },
     help:     { title: "Справка", desc: "Как всё устроено в вашем кабинете." },
   }[tab] || { title: "Ваш профиль", desc: "Личные данные, контакты и реквизиты." };
 
@@ -6921,6 +6928,8 @@ export default function AccountProfilePage() {
   // путь до загрузки прав из /auth/me. Зависят от setMyPermsTick (перерисовка).
   const canPartner  = isAdmin || permCan("partners.view");
   const canSupplier = isAdmin || permCan("suppliers.view");
+  // «Документы» (счета): админ или держатель права docs.invoice (напр. бухгалтер).
+  const canDocs     = isAdmin || permCan("docs.invoice");
 
   // Первичная загрузка профиля — брендовый спиннер вместо мигающих пустых полей.
   if (booting) {
@@ -7015,6 +7024,7 @@ export default function AccountProfilePage() {
               isAdmin={isAdmin}
               canPartner={canPartner}
               canSupplier={canSupplier}
+              canDocs={canDocs}
               onNavigate={() => {}}
               lineWidth={tabsLineWidth}
               isDesktop={isDesktop}
@@ -7052,6 +7062,10 @@ export default function AccountProfilePage() {
                 ) : (
                   <AdminLauncher />
                 )}
+              </div>
+            ) : tab === "documents" && canDocs ? (
+              <div className="animate-svcfade" style={isDesktop ? { width: MID_COL + GAP_COL + RIGHT_COL } : { marginTop: 8 }}>
+                <DocumentsSection />
               </div>
             ) : tab === "help" && !isAdmin ? (
               <div className="animate-svcfade" style={isDesktop ? { width: MID_COL + GAP_COL + RIGHT_COL } : { marginTop: 8 }}>
@@ -7578,7 +7592,7 @@ export default function AccountProfilePage() {
           <div />
 
           {/* ПРАВАЯ кнопка — только на вкладках профиля/личной информации */}
-          {tab === "personal" || tab === "objects" || tab === "admin" || tab === "help" || (isAdmin && (tab === "partner" || tab === "supplier")) ? (
+          {tab === "personal" || tab === "objects" || tab === "admin" || tab === "documents" || tab === "help" || (isAdmin && (tab === "partner" || tab === "supplier")) ? (
             <div />
           ) : (
             <aside className="hidden xl:block xl:sticky xl:top-6" style={{ marginTop: isDesktop ? Math.max(0, asideShift) : 0 }}>

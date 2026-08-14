@@ -17,6 +17,7 @@ export const PERMISSIONS = {
   docs: [
     ["docs.upload", "Загружать документы"],
     ["docs.delete", "Удалять документы"],
+    ["docs.invoice", "Документы / выставление счетов"],
   ],
   messages: [
     ["messages.reply", "Отвечать заказчику"],
