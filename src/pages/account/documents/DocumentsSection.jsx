@@ -270,7 +270,10 @@ function emptyInvoice(orgs, docs) {
   };
 }
 function snapSeller(org) {
-  return { name: org.name || "", address: org.address || "", inn: org.inn || "", kpp: org.kpp || "", director: org.director || "", accountant: org.accountant || "", signatureDataUri: org.signatureDataUri || "", stampDataUri: org.stampDataUri || "", showSignature: org.showSignature !== false, showStamp: org.showStamp !== false };
+  // Снимок только ТЕКСТА реквизитов. Печать/подпись (тяжёлые data-URI) НЕ копируем
+  // в счёт — они подтягиваются из карточки организации на печать/просмотр (ниже),
+  // иначе каждый счёт весил бы ~0.5 МБ.
+  return { name: org.name || "", address: org.address || "", inn: org.inn || "", kpp: org.kpp || "", director: org.director || "", accountant: org.accountant || "", showSignature: org.showSignature !== false, showStamp: org.showStamp !== false };
 }
 function snapBank(b) { return { account: b.account || "", bik: b.bik || "", bankName: b.bankName || "", corrAccount: b.corrAccount || "" }; }
 
@@ -337,7 +340,9 @@ function InvoiceForm({ id, onDone }) {
   const onSave = () => { persist(); if (window.showDockToast) window.showDockToast("Счёт сохранён", 2200); };
   const onIssue = () => { const s = persist("issued"); setDoc(s); };
 
-  const previewDoc = { ...doc, totals };
+  // Печать/подпись подтягиваем из карточки организации (в самом счёте их не храним).
+  const sellerOrg = orgs.find((o) => o.id === doc.sellerId);
+  const previewDoc = { ...doc, totals, seller: { ...doc.seller, signatureDataUri: sellerOrg?.signatureDataUri || "", stampDataUri: sellerOrg?.stampDataUri || "" } };
 
   return (
     <div>
