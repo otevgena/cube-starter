@@ -13,6 +13,7 @@ import { InvoiceSheetModal } from "@/components/documents/InvoiceSheet.jsx";
 import { downloadInvoiceExcel } from "@/components/documents/InvoiceExcel.js";
 import { downloadPaymentTxt, buildPurpose } from "@/components/documents/PaymentOrder.js";
 import ImportItemsModal from "@/pages/account/documents/ImportItems.jsx";
+import * as XLSX from "xlsx";
 
 /* ============================ стиль ============================ */
 const UI = "'Inter Tight',Inter,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif";
@@ -894,18 +895,17 @@ function DocsLauncher({ go }) {
 /* ============================ Помощник по документам (YandexGPT Lite) ============================ */
 function DocsAssistant({ onInvoice }) {
   const [msgs, setMsgs] = React.useState([
-    { role: "ai", text: "Здравствуйте! Я помогу с документами. Пришлите список позиций и напишите «сделай счёт» — соберу счёт. Можно попросить поправить цену, добавить строку или изменить НДС." },
+    { role: "ai", text: "Здравствуйте! Я помогу с документами. Пришлите список позиций текстом или прикрепите Excel (скрепка слева) и напишите «сделай счёт» — соберу счёт. Можно попросить поправить цену, добавить строку или изменить НДС." },
   ]);
   const [text, setText] = React.useState("");
   const [busy, setBusy] = React.useState(false);
   const draftRef = React.useRef(null); // последний собранный счёт (для правок «поменяй цену…»)
   const scrollRef = React.useRef(null);
+  const fileRef = React.useRef(null);
   React.useEffect(() => { const el = scrollRef.current; if (el) el.scrollTop = el.scrollHeight; }, [msgs, busy]);
 
-  const send = async () => {
-    const t = text.trim(); if (!t || busy) return;
-    setText("");
-    const history = [...msgs, { role: "user", text: t }];
+  // Общая отправка истории на бэкенд (текст или текст из файла).
+  const ask = async (history) => {
     setMsgs(history);
     setBusy(true);
     try {
@@ -916,6 +916,32 @@ function DocsAssistant({ onInvoice }) {
       const code = (e && (e.status || e.code)) || "";
       setMsgs((m) => [...m, { role: "ai", stub: true, text: code === 403 ? "Нет доступа к помощнику." : "Не удалось связаться с помощником. Попробуйте ещё раз чуть позже." }]);
     } finally { setBusy(false); }
+  };
+
+  const send = async () => {
+    const t = text.trim(); if (!t || busy) return;
+    setText("");
+    await ask([...msgs, { role: "user", text: t }]);
+  };
+
+  // Прикрепить Excel/CSV: парсим у себя в браузере → отдаём модели текстом.
+  const onFile = async (e) => {
+    const f = e.target.files && e.target.files[0]; if (e.target) e.target.value = ""; if (!f || busy) return;
+    const ext = (f.name.split(".").pop() || "").toLowerCase();
+    if (!["xlsx", "xls", "csv"].includes(ext)) {
+      setMsgs((m) => [...m, { role: "ai", stub: true, text: "Пока читаю только Excel и CSV. Скан или фото счёта — впишите позиции текстом или пришлите Excel (OCR добавим позже)." }]);
+      return;
+    }
+    let table = "";
+    try {
+      if (ext === "csv") table = await f.text();
+      else { const buf = await f.arrayBuffer(); const wb = XLSX.read(buf, { type: "array" }); const ws = wb.Sheets[wb.SheetNames[0]]; table = XLSX.utils.sheet_to_csv(ws); }
+    } catch { setMsgs((m) => [...m, { role: "ai", stub: true, text: "Не смог прочитать файл. Проверьте, что это Excel или CSV." }]); return; }
+    table = table.split("\n").slice(0, 80).join("\n").slice(0, 6000).trim();
+    if (!table) { setMsgs((m) => [...m, { role: "ai", stub: true, text: "Файл пустой — не нашёл в нём данных." }]); return; }
+    const aiText = `Собери счёт по позициям из файла «${f.name}». Данные в CSV (первая строка может быть заголовком):\n${table}`;
+    const display = `📎 ${f.name} — отправил файл, собери счёт`;
+    await ask([...msgs, { role: "user", text: aiText, display }]);
   };
 
   return (
@@ -937,7 +963,7 @@ function DocsAssistant({ onInvoice }) {
               background: m.role === "user" ? "#111" : "#fff",
               color: m.role === "user" ? "#fff" : (m.stub ? "#8a8a8a" : TEXT),
               border: m.role === "user" ? "none" : "1px solid #ececec", whiteSpace: "pre-wrap",
-              borderBottomRightRadius: m.role === "user" ? 4 : 14, borderBottomLeftRadius: m.role === "user" ? 14 : 4 }}>{m.text}</div>
+              borderBottomRightRadius: m.role === "user" ? 4 : 14, borderBottomLeftRadius: m.role === "user" ? 14 : 4 }}>{m.display || m.text}</div>
             {m.invoice && m.invoice.items && m.invoice.items.length > 0 && (
               <div style={{ marginTop: 8 }}>
                 <Btn kind="primary" onClick={() => onInvoice(m.invoice)} style={{ height: 38 }}>
@@ -954,9 +980,14 @@ function DocsAssistant({ onInvoice }) {
         )}
       </div>
       <div style={{ display: "flex", alignItems: "flex-end", gap: 10, padding: "12px 14px", borderTop: "1px solid #f0f0f0" }}>
+        <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" style={{ display: "none" }} onChange={onFile} />
+        <button type="button" title="Прикрепить Excel / CSV с позициями" onClick={() => fileRef.current && fileRef.current.click()} disabled={busy}
+          style={{ height: 44, width: 44, flexShrink: 0, display: "grid", placeItems: "center", border: "1px solid #e6e6e6", borderRadius: 12, background: "#fff", cursor: busy ? "default" : "pointer", color: "#555", opacity: busy ? 0.6 : 1 }}>
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M21.44 11.05l-9.19 9.19a5 5 0 0 1-7.07-7.07l9.19-9.19a3 3 0 0 1 4.24 4.24l-9.2 9.19a1 1 0 0 1-1.41-1.41l8.49-8.49" /></svg>
+        </button>
         <textarea value={text} onChange={(e) => setText(e.target.value)} rows={1} disabled={busy}
           onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
-          placeholder="Например: сделай счёт для ООО «Ромашка» на эти позиции…"
+          placeholder="Напишите позиции или прикрепите Excel — «сделай счёт»…"
           style={{ flex: 1, resize: "none", maxHeight: 120, minHeight: 44, border: "1px solid #e6e6e6", borderRadius: 12, padding: "11px 14px", fontFamily: UI, fontSize: 14, fontWeight: 300, color: TEXT, outline: "none", lineHeight: 1.5, opacity: busy ? 0.6 : 1 }} />
         <Btn kind="primary" onClick={send} disabled={!text.trim() || busy} style={{ height: 44, width: 44, padding: 0, borderRadius: 12 }}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" /></svg>
