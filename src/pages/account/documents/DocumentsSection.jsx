@@ -893,9 +893,32 @@ function DocsLauncher({ go }) {
 }
 
 /* ============================ Помощник по документам (YandexGPT Lite) ============================ */
+// Сжать картинку в JPEG-base64 (для OCR): ужимаем до 1600px, чтобы уложиться в лимит.
+async function imageToJpegB64(file, maxDim = 1600, quality = 0.72) {
+  const bmp = await createImageBitmap(file);
+  const scale = Math.min(1, maxDim / Math.max(bmp.width, bmp.height));
+  const w = Math.max(1, Math.round(bmp.width * scale)), h = Math.max(1, Math.round(bmp.height * scale));
+  const c = document.createElement("canvas"); c.width = w; c.height = h;
+  c.getContext("2d").drawImage(bmp, 0, 0, w, h);
+  if (bmp.close) bmp.close();
+  return c.toDataURL("image/jpeg", quality).split(",")[1];
+}
+// Постепенное «печатание» текста ответа (по несколько символов за тик).
+function TypeText({ text, animate }) {
+  const full = String(text || "");
+  const [n, setN] = React.useState(animate ? 0 : full.length);
+  React.useEffect(() => {
+    if (!animate) { setN(full.length); return; }
+    setN(0);
+    let i = 0; const step = Math.max(2, Math.round(full.length / 55));
+    const id = setInterval(() => { i += step; setN(i >= full.length ? full.length : i); if (i >= full.length) clearInterval(id); }, 22);
+    return () => clearInterval(id);
+  }, [full, animate]);
+  return <>{full.slice(0, n)}{n < full.length ? <span style={{ opacity: 0.35 }}>▋</span> : null}</>;
+}
 function DocsAssistant({ onInvoice }) {
   const [msgs, setMsgs] = React.useState([
-    { role: "ai", text: "Здравствуйте! Я помогу с документами. Пришлите список позиций текстом или прикрепите Excel (скрепка слева) и напишите «сделай счёт» — соберу счёт. Можно попросить поправить цену, добавить строку или изменить НДС." },
+    { role: "ai", text: "Здравствуйте! Я помогу с документами. Пришлите позиции текстом, прикрепите Excel или скан/фото счёта (скрепка слева) и напишите «сделай счёт» — соберу счёт. Можно попросить поправить цену, добавить строку или изменить НДС." },
   ]);
   const [text, setText] = React.useState("");
   const [busy, setBusy] = React.useState(false);
@@ -904,14 +927,14 @@ function DocsAssistant({ onInvoice }) {
   const fileRef = React.useRef(null);
   React.useEffect(() => { const el = scrollRef.current; if (el) el.scrollTop = el.scrollHeight; }, [msgs, busy]);
 
-  // Общая отправка истории на бэкенд (текст или текст из файла).
-  const ask = async (history) => {
+  // Общая отправка истории на бэкенд (текст / файл / скан-картинка).
+  const ask = async (history, image) => {
     setMsgs(history);
     setBusy(true);
     try {
-      const res = await askAssistant(history.map((m) => ({ role: m.role, text: m.text })), draftRef.current);
+      const res = await askAssistant(history.map((m) => ({ role: m.role, text: m.text })), draftRef.current, image);
       if (res.invoice) draftRef.current = res.invoice;
-      setMsgs((m) => [...m, { role: "ai", text: res.reply || (res.invoice ? "Счёт собран." : "Готово."), invoice: res.invoice || null }]);
+      setMsgs((m) => [...m, { role: "ai", anim: true, text: res.reply || (res.invoice ? "Счёт собран." : "Готово."), invoice: res.invoice || null }]);
     } catch (e) {
       const code = (e && (e.status || e.code)) || "";
       setMsgs((m) => [...m, { role: "ai", stub: true, text: code === 403 ? "Нет доступа к помощнику." : "Не удалось связаться с помощником. Попробуйте ещё раз чуть позже." }]);
@@ -924,12 +947,21 @@ function DocsAssistant({ onInvoice }) {
     await ask([...msgs, { role: "user", text: t }]);
   };
 
-  // Прикрепить Excel/CSV: парсим у себя в браузере → отдаём модели текстом.
+  // Прикрепить файл: Excel/CSV → парсим текстом; картинка → OCR скана счёта.
   const onFile = async (e) => {
     const f = e.target.files && e.target.files[0]; if (e.target) e.target.value = ""; if (!f || busy) return;
     const ext = (f.name.split(".").pop() || "").toLowerCase();
+    const isImg = (f.type || "").startsWith("image/") || ["png", "jpg", "jpeg", "webp", "heic"].includes(ext);
+    if (isImg) {
+      let b64;
+      try { b64 = await imageToJpegB64(f); }
+      catch { setMsgs((m) => [...m, { role: "ai", stub: true, text: "Не смог открыть изображение. Пришлите фото/скан в JPG или PNG." }]); return; }
+      const display = `📷 ${f.name} — скан счёта, распознаю и соберу`;
+      await ask([...msgs, { role: "user", text: "Распознай счёт со скана и собери счёт по нему.", display }], { mime: "image/jpeg", data: b64 });
+      return;
+    }
     if (!["xlsx", "xls", "csv"].includes(ext)) {
-      setMsgs((m) => [...m, { role: "ai", stub: true, text: "Пока читаю только Excel и CSV. Скан или фото счёта — впишите позиции текстом или пришлите Excel (OCR добавим позже)." }]);
+      setMsgs((m) => [...m, { role: "ai", stub: true, text: "Пришлите Excel/CSV с позициями, фото/скан счёта (JPG, PNG) или впишите позиции текстом. PDF пока не читаю." }]);
       return;
     }
     let table = "";
@@ -946,6 +978,13 @@ function DocsAssistant({ onInvoice }) {
 
   return (
     <div style={{ marginTop: 22, border: "1px solid #ececec", borderRadius: 16, background: "#fff", boxShadow: "0 8px 30px rgba(0,0,0,.05)", overflow: "hidden" }}>
+      <style>{`
+        @keyframes cubeBlink { 0%,80%,100%{opacity:.2;transform:translateY(0)} 40%{opacity:1;transform:translateY(-2px)} }
+        .cube-typing{display:inline-flex;align-items:center;gap:4px}
+        .cube-typing span{width:7px;height:7px;border-radius:50%;background:#b0b0b0;display:inline-block;animation:cubeBlink 1.2s infinite ease-in-out}
+        .cube-typing span:nth-child(2){animation-delay:.18s}
+        .cube-typing span:nth-child(3){animation-delay:.36s}
+      `}</style>
       <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "14px 18px", borderBottom: "1px solid #f0f0f0" }}>
         <span style={{ width: 30, height: 30, borderRadius: 9, background: "#111", display: "grid", placeItems: "center", color: "#fff", flexShrink: 0 }}>
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a4 4 0 0 1-4 4H8l-4 3V7a4 4 0 0 1 4-4h9a4 4 0 0 1 4 4z" /></svg>
@@ -963,7 +1002,7 @@ function DocsAssistant({ onInvoice }) {
               background: m.role === "user" ? "#111" : "#fff",
               color: m.role === "user" ? "#fff" : (m.stub ? "#8a8a8a" : TEXT),
               border: m.role === "user" ? "none" : "1px solid #ececec", whiteSpace: "pre-wrap",
-              borderBottomRightRadius: m.role === "user" ? 4 : 14, borderBottomLeftRadius: m.role === "user" ? 14 : 4 }}>{m.display || m.text}</div>
+              borderBottomRightRadius: m.role === "user" ? 4 : 14, borderBottomLeftRadius: m.role === "user" ? 14 : 4 }}>{m.role === "ai" && !m.stub ? <TypeText text={m.text} animate={!!m.anim} /> : (m.display || m.text)}</div>
             {m.invoice && m.invoice.items && m.invoice.items.length > 0 && (
               <div style={{ marginTop: 8 }}>
                 <Btn kind="primary" onClick={() => onInvoice(m.invoice)} style={{ height: 38 }}>
@@ -975,14 +1014,18 @@ function DocsAssistant({ onInvoice }) {
         ))}
         {busy && (
           <div style={{ alignSelf: "flex-start", maxWidth: "80%" }}>
-            <div style={{ padding: "10px 14px", borderRadius: 14, fontSize: 14, color: MUTED, background: "#fff", border: "1px solid #ececec", borderBottomLeftRadius: 4 }}>Печатает…</div>
+            <div style={{ padding: "14px 16px", borderRadius: 14, background: "#fff", border: "1px solid #ececec", borderBottomLeftRadius: 4, display: "inline-flex", alignItems: "center" }}>
+              <span className="cube-typing"><span /><span /><span /></span>
+            </div>
           </div>
         )}
       </div>
       <div style={{ display: "flex", alignItems: "flex-end", gap: 10, padding: "12px 14px", borderTop: "1px solid #f0f0f0" }}>
-        <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" style={{ display: "none" }} onChange={onFile} />
-        <button type="button" title="Прикрепить Excel / CSV с позициями" onClick={() => fileRef.current && fileRef.current.click()} disabled={busy}
-          style={{ height: 44, width: 44, flexShrink: 0, display: "grid", placeItems: "center", border: "1px solid #e6e6e6", borderRadius: 12, background: "#fff", cursor: busy ? "default" : "pointer", color: "#555", opacity: busy ? 0.6 : 1 }}>
+        <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv,image/*" style={{ display: "none" }} onChange={onFile} />
+        <button type="button" title="Прикрепить Excel/CSV или скан счёта" onClick={() => fileRef.current && fileRef.current.click()} disabled={busy}
+          onMouseEnter={(e) => { if (busy) return; e.currentTarget.style.background = "#f4f4f4"; e.currentTarget.style.borderColor = "#cfcfcf"; e.currentTarget.style.color = "#111"; e.currentTarget.style.transform = "translateY(-1px)"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = "#fff"; e.currentTarget.style.borderColor = "#e6e6e6"; e.currentTarget.style.color = "#555"; e.currentTarget.style.transform = "none"; }}
+          style={{ height: 44, width: 44, flexShrink: 0, display: "grid", placeItems: "center", border: "1px solid #e6e6e6", borderRadius: 12, background: "#fff", cursor: busy ? "default" : "pointer", color: "#555", opacity: busy ? 0.6 : 1, transition: "background-color .15s ease, border-color .15s ease, color .15s ease, transform .15s ease" }}>
           <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M21.44 11.05l-9.19 9.19a5 5 0 0 1-7.07-7.07l9.19-9.19a3 3 0 0 1 4.24 4.24l-9.2 9.19a1 1 0 0 1-1.41-1.41l8.49-8.49" /></svg>
         </button>
         <textarea value={text} onChange={(e) => setText(e.target.value)} rows={1} disabled={busy}

@@ -212,8 +212,10 @@ export async function suggestParty(query) {
 /* ============================ ИИ-помощник (YandexGPT через бэкенд-прокси) ============================ */
 // messages: [{role:'user'|'ai', text}], invoice: текущий черновик (или null).
 // Возвращает { reply: string, invoice: {buyerName,buyerInn,basis,vatMode,vatRate,items[]} | null }.
-export async function askAssistant(messages, invoice) {
-  const data = await api("/assistant", { method: "POST", body: { messages: messages || [], invoice: invoice || null } });
+export async function askAssistant(messages, invoice, image) {
+  const body = { messages: messages || [], invoice: invoice || null };
+  if (image && image.data) body.image = { mime: image.mime || "image/jpeg", data: image.data };
+  const data = await api("/assistant", { method: "POST", body });
   return { reply: (data && data.reply) || "", invoice: (data && data.invoice) || null };
 }
 
