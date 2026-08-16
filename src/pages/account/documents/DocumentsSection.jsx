@@ -922,6 +922,7 @@ function DocsAssistant({ onInvoice }) {
   ]);
   const [text, setText] = React.useState("");
   const [busy, setBusy] = React.useState(false);
+  const [pending, setPending] = React.useState(null); // прикреплённый, но не отправленный файл/скан
   const draftRef = React.useRef(null); // последний собранный счёт (для правок «поменяй цену…»)
   const scrollRef = React.useRef(null);
   const fileRef = React.useRef(null);
@@ -942,22 +943,33 @@ function DocsAssistant({ onInvoice }) {
   };
 
   const send = async () => {
-    const t = text.trim(); if (!t || busy) return;
-    setText("");
+    if (busy) return;
+    const t = text.trim();
+    if (!t && !pending) return;
+    const p = pending;
+    setText(""); setPending(null);
+    if (p && p.kind === "image") {
+      const display = (t ? t + "\n" : "") + `📷 ${p.name}`;
+      await ask([...msgs, { role: "user", text: t || "Распознай счёт со скана и собери счёт по нему.", display }], { mime: p.mime, data: p.data });
+      return;
+    }
+    if (p && p.kind === "file") {
+      const display = (t ? t + "\n" : "") + `📎 ${p.name}`;
+      const aiText = (t ? t + "\n\n" : "") + `Данные из файла «${p.name}» (CSV, первая строка может быть заголовком):\n${p.table}`;
+      await ask([...msgs, { role: "user", text: aiText, display }]);
+      return;
+    }
     await ask([...msgs, { role: "user", text: t }]);
   };
 
-  // Прикрепить файл: Excel/CSV → парсим текстом; картинка → OCR скана счёта.
+  // Прикрепить файл: НЕ отправляем сразу — держим «прикреплённым», ждём комментарий.
   const onFile = async (e) => {
     const f = e.target.files && e.target.files[0]; if (e.target) e.target.value = ""; if (!f || busy) return;
     const ext = (f.name.split(".").pop() || "").toLowerCase();
     const isImg = (f.type || "").startsWith("image/") || ["png", "jpg", "jpeg", "webp", "heic"].includes(ext);
     if (isImg) {
-      let b64;
-      try { b64 = await imageToJpegB64(f); }
-      catch { setMsgs((m) => [...m, { role: "ai", stub: true, text: "Не смог открыть изображение. Пришлите фото/скан в JPG или PNG." }]); return; }
-      const display = `📷 ${f.name} — скан счёта, распознаю и соберу`;
-      await ask([...msgs, { role: "user", text: "Распознай счёт со скана и собери счёт по нему.", display }], { mime: "image/jpeg", data: b64 });
+      try { const data = await imageToJpegB64(f); setPending({ kind: "image", name: f.name, mime: "image/jpeg", data }); }
+      catch { setMsgs((m) => [...m, { role: "ai", stub: true, text: "Не смог открыть изображение. Пришлите фото/скан в JPG или PNG." }]); }
       return;
     }
     if (!["xlsx", "xls", "csv"].includes(ext)) {
@@ -971,9 +983,7 @@ function DocsAssistant({ onInvoice }) {
     } catch { setMsgs((m) => [...m, { role: "ai", stub: true, text: "Не смог прочитать файл. Проверьте, что это Excel или CSV." }]); return; }
     table = table.split("\n").slice(0, 80).join("\n").slice(0, 6000).trim();
     if (!table) { setMsgs((m) => [...m, { role: "ai", stub: true, text: "Файл пустой — не нашёл в нём данных." }]); return; }
-    const aiText = `Собери счёт по позициям из файла «${f.name}». Данные в CSV (первая строка может быть заголовком):\n${table}`;
-    const display = `📎 ${f.name} — отправил файл, собери счёт`;
-    await ask([...msgs, { role: "user", text: aiText, display }]);
+    setPending({ kind: "file", name: f.name, table });
   };
 
   return (
@@ -1020,7 +1030,15 @@ function DocsAssistant({ onInvoice }) {
           </div>
         )}
       </div>
-      <div style={{ display: "flex", alignItems: "flex-end", gap: 10, padding: "12px 14px", borderTop: "1px solid #f0f0f0" }}>
+      {pending && (
+        <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "10px 14px 0", padding: "8px 12px", background: "#f4f4f4", border: "1px solid #e6e6e6", borderRadius: 10, fontSize: 13, color: "#333" }}>
+          <span style={{ flexShrink: 0 }}>{pending.kind === "image" ? "📷" : "📎"}</span>
+          <span style={{ maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: 500 }}>{pending.name}</span>
+          <span style={{ flex: 1, minWidth: 0, color: MUTED, fontSize: 12 }}>прикреплено — добавьте комментарий и отправьте</span>
+          <button type="button" onClick={() => setPending(null)} title="Убрать" style={{ border: "none", background: "transparent", cursor: "pointer", color: "#888", fontSize: 18, lineHeight: 1, flexShrink: 0 }}>×</button>
+        </div>
+      )}
+      <div style={{ display: "flex", alignItems: "flex-end", gap: 10, padding: "12px 14px", borderTop: pending ? "none" : "1px solid #f0f0f0" }}>
         <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv,image/*" style={{ display: "none" }} onChange={onFile} />
         <button type="button" title="Прикрепить Excel/CSV или скан счёта" onClick={() => fileRef.current && fileRef.current.click()} disabled={busy}
           onMouseEnter={(e) => { if (busy) return; e.currentTarget.style.background = "#f4f4f4"; e.currentTarget.style.borderColor = "#cfcfcf"; e.currentTarget.style.color = "#111"; e.currentTarget.style.transform = "translateY(-1px)"; }}
@@ -1030,9 +1048,9 @@ function DocsAssistant({ onInvoice }) {
         </button>
         <textarea value={text} onChange={(e) => setText(e.target.value)} rows={1} disabled={busy}
           onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
-          placeholder="Напишите позиции или прикрепите Excel — «сделай счёт»…"
+          placeholder={pending ? "Добавьте комментарий к файлу (напр.: только монтаж, покупатель — ТСС Ноябрьск)…" : "Напишите позиции, прикрепите Excel/скан — «сделай счёт»…"}
           style={{ flex: 1, resize: "none", maxHeight: 120, minHeight: 44, border: "1px solid #e6e6e6", borderRadius: 12, padding: "11px 14px", fontFamily: UI, fontSize: 14, fontWeight: 300, color: TEXT, outline: "none", lineHeight: 1.5, opacity: busy ? 0.6 : 1 }} />
-        <Btn kind="primary" onClick={send} disabled={!text.trim() || busy} style={{ height: 44, width: 44, padding: 0, borderRadius: 12 }}>
+        <Btn kind="primary" onClick={send} disabled={(!text.trim() && !pending) || busy} style={{ height: 44, width: 44, padding: 0, borderRadius: 12 }}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" /></svg>
         </Btn>
       </div>
