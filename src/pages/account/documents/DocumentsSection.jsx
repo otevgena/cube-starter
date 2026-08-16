@@ -703,21 +703,38 @@ function Registry({ onOpen, onNew }) {
 }
 
 /* ============================ Платёжное поручение (.txt для банка) ============================ */
-function PaymentOrderForm({ onBack }) {
+function PaymentOrderForm({ initial, onBack }) {
   const orgs = listOrgs();
   const cps = listCounterparties();
   const org0 = orgs[0] || null;
   const bank0 = org0 && org0.banks && org0.banks[0] ? org0.banks[0] : null;
-  const [p, setP] = React.useState(() => ({
-    payerOrgId: org0 ? org0.id : "", payerBankIdx: 0,
-    payerName: org0 ? org0.name : "", payerInn: org0 ? org0.inn : "", payerKpp: org0 ? org0.kpp : "",
-    payerAcc: bank0 ? bank0.account : "", payerBik: bank0 ? bank0.bik : "", payerBank1: bank0 ? bank0.bankName : "", payerBank2: "", payerCorr: bank0 ? bank0.corrAccount : "",
-    recvCpId: "", recvName: "", recvInn: "", recvKpp: "", recvAcc: "", recvBik: "", recvBank1: "", recvBank2: "", recvCorr: "",
-    docNum: "", docDate: today(),
-    sum: "", schetNum: "", schetDate: "", subject: "", vatRate: DEFAULT_VAT_RATE, purpose: "",
-  }));
+  const [p, setP] = React.useState(() => {
+    const base = {
+      payerOrgId: org0 ? org0.id : "", payerBankIdx: 0,
+      payerName: org0 ? org0.name : "", payerInn: org0 ? org0.inn : "", payerKpp: org0 ? org0.kpp : "",
+      payerAcc: bank0 ? bank0.account : "", payerBik: bank0 ? bank0.bik : "", payerBank1: bank0 ? bank0.bankName : "", payerBank2: "", payerCorr: bank0 ? bank0.corrAccount : "",
+      recvCpId: "", recvName: "", recvInn: "", recvKpp: "", recvAcc: "", recvBik: "", recvBank1: "", recvBank2: "", recvCorr: "",
+      docNum: "", docDate: today(),
+      sum: "", schetNum: "", schetDate: "", subject: "", vatRate: DEFAULT_VAT_RATE, purpose: "",
+    };
+    if (!initial) return base;
+    return {
+      ...base,
+      recvName: initial.recvName || "", recvInn: initial.recvInn || "", recvKpp: initial.recvKpp || "",
+      recvAcc: initial.recvAcc || "", recvBik: initial.recvBik || "",
+      sum: initial.sum || "", schetNum: initial.schetNum || "", schetDate: initial.schetDate || "",
+      subject: initial.subject || "", vatRate: initial.vatRate || DEFAULT_VAT_RATE, purpose: initial.purpose || "",
+    };
+  });
   const set = (k, v) => setP((s) => ({ ...s, [k]: v }));
   const [bikBusy, setBikBusy] = React.useState(false);
+
+  // Пришли из чата с БИК получателя → подтянем банк/корсчёт.
+  React.useEffect(() => {
+    if (initial && String(initial.recvBik || "").replace(/\D/g, "").length === 9) {
+      lookupBankByBik(initial.recvBik).then((r) => { if (r) setP((s) => ({ ...s, recvBank1: r.bankName || s.recvBank1, recvCorr: r.corrAccount || s.recvCorr })); }).catch(() => {});
+    }
+  }, []); // eslint-disable-line
 
   const pickPayerOrg = (id) => {
     const o = orgs.find((x) => x.id === id); if (!o) return set("payerOrgId", "");
@@ -922,7 +939,7 @@ function loadChat() {
   try { const s = JSON.parse(localStorage.getItem(CHAT_LS) || "null"); if (s && Array.isArray(s.msgs) && s.msgs.length) return s; } catch {}
   return null;
 }
-function DocsAssistant({ onInvoice }) {
+function DocsAssistant({ onInvoice, onPayment }) {
   const [saved] = React.useState(loadChat); // читаем сохранённую переписку один раз
   const [msgs, setMsgs] = React.useState(saved ? saved.msgs : [CHAT_GREETING]);
   const [text, setText] = React.useState("");
@@ -934,7 +951,7 @@ function DocsAssistant({ onInvoice }) {
   const scrollToBottom = () => { const el = scrollRef.current; if (el) el.scrollTop = el.scrollHeight; };
   React.useEffect(() => { scrollToBottom(); }, [msgs, busy]);
   // Сохраняем переписку + черновик, чтобы не терялись при переходе по вкладкам/разделам.
-  React.useEffect(() => { try { localStorage.setItem(CHAT_LS, JSON.stringify({ msgs, draft: draftRef.current })); } catch {} }, [msgs]);
+  React.useEffect(() => { try { localStorage.setItem(CHAT_LS, JSON.stringify({ msgs: msgs.map((m) => ({ ...m, anim: false })), draft: draftRef.current })); } catch {} }, [msgs]);
   const clearChat = () => { draftRef.current = null; setMsgs([CHAT_GREETING]); try { localStorage.removeItem(CHAT_LS); } catch {} };
 
   // Общая отправка истории на бэкенд (текст / файл / скан-картинка).
@@ -944,17 +961,26 @@ function DocsAssistant({ onInvoice }) {
     try {
       const res = await askAssistant(history.map((m) => ({ role: m.role, text: m.text })), draftRef.current, image);
       let inv = res.invoice || null;
+      let pay = res.payment || null;
+      let cpCand = null;
       let note = "";
-      // Обогащение покупателя из реестра (DaData): назвал компанию без ИНН → найдём реальные реквизиты.
+      // Счёт: обогащаем покупателя из реестра (DaData) — назвал компанию без ИНН → реальные реквизиты.
       if (inv && inv.buyerName && !inv.buyerInn) {
         try {
-          const sug = await suggestParty(inv.buyerName);
-          const top = sug && sug[0];
-          if (top && top.inn) { inv = { ...inv, buyerName: top.name || inv.buyerName, buyerInn: top.inn, buyerKpp: top.kpp || "" }; note = `\n\nНашёл в реестре: ${top.name}, ИНН ${top.inn}. Подставил покупателя — поправьте в счёте, если это не тот.`; }
+          const top = (await suggestParty(inv.buyerName))[0];
+          if (top && top.inn) { inv = { ...inv, buyerName: top.name || inv.buyerName, buyerInn: top.inn, buyerKpp: top.kpp || "" }; note = `\n\nНашёл в реестре: ${top.name}, ИНН ${top.inn}. Подставил покупателя — поправьте, если не тот.`; }
         } catch {}
       }
+      // Платёжка: обогащаем получателя из реестра.
+      if (pay && pay.recvName && !pay.recvInn) {
+        try { const top = (await suggestParty(pay.recvName))[0]; if (top && top.inn) pay = { ...pay, recvName: top.name || pay.recvName, recvInn: top.inn, recvKpp: top.kpp || "" }; } catch {}
+      }
+      // Добавить контрагента: ищем кандидата в реестре для подтверждения.
+      if (res.action && res.action.type === "add_counterparty" && res.action.query) {
+        try { cpCand = (await suggestParty(res.action.query))[0] || null; } catch {}
+      }
       if (inv) draftRef.current = inv;
-      setMsgs((m) => [...m, { role: "ai", anim: true, text: (res.reply || (inv ? "Счёт собран." : "Готово.")) + note, invoice: inv }]);
+      setMsgs((m) => [...m, { role: "ai", anim: true, text: (res.reply || (inv ? "Счёт собран." : pay ? "Платёжное поручение готово." : "Готово.")) + note, invoice: inv, payment: pay, cpCand }]);
     } catch (e) {
       const code = (e && (e.status || e.code)) || "";
       setMsgs((m) => [...m, { role: "ai", stub: true, text: code === 403 ? "Нет доступа к помощнику." : "Не удалось связаться с помощником. Попробуйте ещё раз чуть позже." }]);
@@ -1044,6 +1070,22 @@ function DocsAssistant({ onInvoice }) {
                 </Btn>
               </div>
             )}
+            {m.payment && (
+              <div style={{ marginTop: 8 }}>
+                <Btn kind="primary" onClick={() => onPayment(m.payment)} style={{ height: 38 }}>Открыть платёжное поручение</Btn>
+              </div>
+            )}
+            {m.cpCand && m.cpCand.inn && (
+              <div style={{ marginTop: 8 }}>
+                {m.cpAdded ? (
+                  <span style={{ fontSize: 13, color: "#2f7d4f" }}>✓ Добавлен в контрагенты: {m.cpCand.name}</span>
+                ) : (
+                  <Btn kind="primary" onClick={() => { addCounterparty({ name: m.cpCand.name, inn: m.cpCand.inn, kpp: m.cpCand.kpp || "", address: m.cpCand.address || "" }); setMsgs((prev) => prev.map((x, xi) => xi === i ? { ...x, cpAdded: true } : x)); }} style={{ height: 38 }}>
+                    Добавить: {m.cpCand.name} (ИНН {m.cpCand.inn})
+                  </Btn>
+                )}
+              </div>
+            )}
           </div>
         ))}
         {busy && (
@@ -1104,13 +1146,13 @@ export default function DocumentsSection() {
         Выставление счетов, печать и PDF. Реквизиты организаций и контрагентов хранятся в справочниках и подставляются в документ.
       </div>
 
-      {view.name === "home" && (<><DocsAssistant onInvoice={(inv) => setView({ name: "form", id: null, draft: inv })} /><DocsLauncher go={go} /></>)}
+      {view.name === "home" && (<><DocsAssistant onInvoice={(inv) => setView({ name: "form", id: null, draft: inv })} onPayment={(p) => setView({ name: "pay", payment: p })} /><DocsLauncher go={go} /></>)}
 
       {view.name === "list" && (<div style={{ marginTop: 22 }}><BackLink /><div style={{ marginTop: 16 }} /><Registry onOpen={(id) => go("form", id)} onNew={() => go("form", null)} /></div>)}
       {view.name === "form" && (<div style={{ marginTop: 22 }}><InvoiceForm key={view.id || (view.draft ? "ai" : "new")} id={view.id} initial={view.draft} onDone={() => go("list")} /></div>)}
       {view.name === "orgs" && (<div style={{ marginTop: 22 }}><OrgsPanel onBack={() => go("home")} /></div>)}
       {view.name === "cps" && (<div style={{ marginTop: 22 }}><CounterpartiesPanel onBack={() => go("home")} /></div>)}
-      {view.name === "pay" && (<div style={{ marginTop: 22 }}><BackLink /><div style={{ marginTop: 16 }} /><PaymentOrderForm onBack={() => go("home")} /></div>)}
+      {view.name === "pay" && (<div style={{ marginTop: 22 }}><BackLink /><div style={{ marginTop: 16 }} /><PaymentOrderForm key={view.payment ? "ai" : "new"} initial={view.payment} onBack={() => go("home")} /></div>)}
     </div>
   );
 }

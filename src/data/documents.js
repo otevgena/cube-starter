@@ -216,7 +216,7 @@ export async function askAssistant(messages, invoice, image) {
   const body = { messages: messages || [], invoice: invoice || null };
   if (image && image.data) body.image = { mime: image.mime || "image/jpeg", data: image.data };
   const data = await api("/assistant", { method: "POST", body });
-  return { reply: (data && data.reply) || "", invoice: (data && data.invoice) || null };
+  return { reply: (data && data.reply) || "", invoice: (data && data.invoice) || null, payment: (data && data.payment) || null, action: (data && data.action) || null };
 }
 
 /* ============================ деньги, НДС, номера ============================ */
