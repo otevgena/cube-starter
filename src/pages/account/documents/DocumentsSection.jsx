@@ -6,7 +6,7 @@ import {
   listDocuments, getDocument, addDocument, saveDocument, deleteDocument, hydrateDocuments, isDocumentsLoading,
   listOrgs, addOrg, saveOrg, deleteOrg, hydrateOrgs,
   listCounterparties, addCounterparty, saveCounterparty, deleteCounterparty, hydrateCounterparties,
-  lookupOrgByInn, lookupBankByBik, askAssistant,
+  lookupOrgByInn, lookupBankByBik, askAssistant, suggestParty,
   KUB_ORG_SEED, VAT_MODES, DEFAULT_VAT_RATE, computeTotals, fmtMoney, parseNum, itemSum, nextInvoiceNumber,
 } from "@/data/documents.js";
 import { InvoiceSheetModal } from "@/components/documents/InvoiceSheet.jsx";
@@ -410,7 +410,7 @@ function applyAiInvoice(base, ai) {
     basis: ai.basis || base.basis,
     vatMode: ai.vatMode || base.vatMode,
     vatRate: ai.vatRate || base.vatRate,
-    buyer: { ...(base.buyer || {}), ...(ai.buyerName ? { name: ai.buyerName } : {}), ...(ai.buyerInn ? { inn: ai.buyerInn } : {}) },
+    buyer: { ...(base.buyer || {}), ...(ai.buyerName ? { name: ai.buyerName } : {}), ...(ai.buyerInn ? { inn: ai.buyerInn } : {}), ...(ai.buyerKpp ? { kpp: ai.buyerKpp } : {}) },
     items: items.length ? items : base.items,
     opts: { ...(base.opts || {}), code: hasCode || !!(base.opts && base.opts.code) },
   };
@@ -904,29 +904,38 @@ async function imageToJpegB64(file, maxDim = 1600, quality = 0.72) {
   return c.toDataURL("image/jpeg", quality).split(",")[1];
 }
 // Постепенное «печатание» текста ответа (по несколько символов за тик).
-function TypeText({ text, animate }) {
+function TypeText({ text, animate, onStep }) {
   const full = String(text || "");
   const [n, setN] = React.useState(animate ? 0 : full.length);
   React.useEffect(() => {
     if (!animate) { setN(full.length); return; }
     setN(0);
     let i = 0; const step = Math.max(2, Math.round(full.length / 55));
-    const id = setInterval(() => { i += step; setN(i >= full.length ? full.length : i); if (i >= full.length) clearInterval(id); }, 22);
+    const id = setInterval(() => { i += step; setN(i >= full.length ? full.length : i); if (onStep) onStep(); if (i >= full.length) clearInterval(id); }, 22);
     return () => clearInterval(id);
   }, [full, animate]);
   return <>{full.slice(0, n)}{n < full.length ? <span style={{ opacity: 0.35 }}>▋</span> : null}</>;
 }
+const CHAT_LS = "cube:docs:chat:v1";
+const CHAT_GREETING = { role: "ai", text: "Здравствуйте! Я помогу с документами. Пришлите позиции текстом, прикрепите Excel или скан/фото счёта (скрепка слева) и напишите «сделай счёт» — соберу счёт. Можно попросить поправить цену, добавить строку или изменить НДС." };
+function loadChat() {
+  try { const s = JSON.parse(localStorage.getItem(CHAT_LS) || "null"); if (s && Array.isArray(s.msgs) && s.msgs.length) return s; } catch {}
+  return null;
+}
 function DocsAssistant({ onInvoice }) {
-  const [msgs, setMsgs] = React.useState([
-    { role: "ai", text: "Здравствуйте! Я помогу с документами. Пришлите позиции текстом, прикрепите Excel или скан/фото счёта (скрепка слева) и напишите «сделай счёт» — соберу счёт. Можно попросить поправить цену, добавить строку или изменить НДС." },
-  ]);
+  const [saved] = React.useState(loadChat); // читаем сохранённую переписку один раз
+  const [msgs, setMsgs] = React.useState(saved ? saved.msgs : [CHAT_GREETING]);
   const [text, setText] = React.useState("");
   const [busy, setBusy] = React.useState(false);
   const [pending, setPending] = React.useState(null); // прикреплённый, но не отправленный файл/скан
-  const draftRef = React.useRef(null); // последний собранный счёт (для правок «поменяй цену…»)
+  const draftRef = React.useRef(saved ? saved.draft || null : null); // последний собранный счёт (для правок «поменяй цену…»)
   const scrollRef = React.useRef(null);
   const fileRef = React.useRef(null);
-  React.useEffect(() => { const el = scrollRef.current; if (el) el.scrollTop = el.scrollHeight; }, [msgs, busy]);
+  const scrollToBottom = () => { const el = scrollRef.current; if (el) el.scrollTop = el.scrollHeight; };
+  React.useEffect(() => { scrollToBottom(); }, [msgs, busy]);
+  // Сохраняем переписку + черновик, чтобы не терялись при переходе по вкладкам/разделам.
+  React.useEffect(() => { try { localStorage.setItem(CHAT_LS, JSON.stringify({ msgs, draft: draftRef.current })); } catch {} }, [msgs]);
+  const clearChat = () => { draftRef.current = null; setMsgs([CHAT_GREETING]); try { localStorage.removeItem(CHAT_LS); } catch {} };
 
   // Общая отправка истории на бэкенд (текст / файл / скан-картинка).
   const ask = async (history, image) => {
@@ -934,8 +943,18 @@ function DocsAssistant({ onInvoice }) {
     setBusy(true);
     try {
       const res = await askAssistant(history.map((m) => ({ role: m.role, text: m.text })), draftRef.current, image);
-      if (res.invoice) draftRef.current = res.invoice;
-      setMsgs((m) => [...m, { role: "ai", anim: true, text: res.reply || (res.invoice ? "Счёт собран." : "Готово."), invoice: res.invoice || null }]);
+      let inv = res.invoice || null;
+      let note = "";
+      // Обогащение покупателя из реестра (DaData): назвал компанию без ИНН → найдём реальные реквизиты.
+      if (inv && inv.buyerName && !inv.buyerInn) {
+        try {
+          const sug = await suggestParty(inv.buyerName);
+          const top = sug && sug[0];
+          if (top && top.inn) { inv = { ...inv, buyerName: top.name || inv.buyerName, buyerInn: top.inn, buyerKpp: top.kpp || "" }; note = `\n\nНашёл в реестре: ${top.name}, ИНН ${top.inn}. Подставил покупателя — поправьте в счёте, если это не тот.`; }
+        } catch {}
+      }
+      if (inv) draftRef.current = inv;
+      setMsgs((m) => [...m, { role: "ai", anim: true, text: (res.reply || (inv ? "Счёт собран." : "Готово.")) + note, invoice: inv }]);
     } catch (e) {
       const code = (e && (e.status || e.code)) || "";
       setMsgs((m) => [...m, { role: "ai", stub: true, text: code === 403 ? "Нет доступа к помощнику." : "Не удалось связаться с помощником. Попробуйте ещё раз чуть позже." }]);
@@ -1003,6 +1022,11 @@ function DocsAssistant({ onInvoice }) {
           <div style={{ fontSize: 14.5, fontWeight: 600, color: TEXT }}>Помощник по документам</div>
           <div style={{ fontSize: 12, color: MUTED }}>Соберёт счёт из ваших позиций и поправит его по просьбе</div>
         </div>
+        {msgs.length > 1 && (
+          <button type="button" onClick={clearChat} title="Очистить переписку"
+            style={{ border: "none", background: "transparent", cursor: "pointer", color: MUTED, fontSize: 12.5, padding: "2px 4px", flexShrink: 0 }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = TEXT)} onMouseLeave={(e) => (e.currentTarget.style.color = MUTED)}>Очистить</button>
+        )}
         <span style={{ fontSize: 11.5, color: "#8a8a8a", border: "1px solid #e6e6e6", borderRadius: 999, padding: "3px 10px", whiteSpace: "nowrap", flexShrink: 0 }}>YandexGPT&nbsp;Lite</span>
       </div>
       <div ref={scrollRef} style={{ height: 200, overflowY: "auto", padding: "16px 18px", display: "flex", flexDirection: "column", gap: 12, background: "#fafafa" }}>
@@ -1012,7 +1036,7 @@ function DocsAssistant({ onInvoice }) {
               background: m.role === "user" ? "#111" : "#fff",
               color: m.role === "user" ? "#fff" : (m.stub ? "#8a8a8a" : TEXT),
               border: m.role === "user" ? "none" : "1px solid #ececec", whiteSpace: "pre-wrap",
-              borderBottomRightRadius: m.role === "user" ? 4 : 14, borderBottomLeftRadius: m.role === "user" ? 14 : 4 }}>{m.role === "ai" && !m.stub ? <TypeText text={m.text} animate={!!m.anim} /> : (m.display || m.text)}</div>
+              borderBottomRightRadius: m.role === "user" ? 4 : 14, borderBottomLeftRadius: m.role === "user" ? 14 : 4 }}>{m.role === "ai" && !m.stub ? <TypeText text={m.text} animate={!!m.anim} onStep={scrollToBottom} /> : (m.display || m.text)}</div>
             {m.invoice && m.invoice.items && m.invoice.items.length > 0 && (
               <div style={{ marginTop: 8 }}>
                 <Btn kind="primary" onClick={() => onInvoice(m.invoice)} style={{ height: 38 }}>
