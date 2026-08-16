@@ -9,6 +9,7 @@ import {
   lookupOrgByInn, lookupBankByBik, askAssistant, suggestParty,
   KUB_ORG_SEED, VAT_MODES, DEFAULT_VAT_RATE, computeTotals, fmtMoney, parseNum, itemSum, nextInvoiceNumber,
 } from "@/data/documents.js";
+import { listObjects, hydrateObjects, OBJECT_STATUSES, STAGE_STATUSES, labelOf } from "@/data/objects.js";
 import { InvoiceSheetModal } from "@/components/documents/InvoiceSheet.jsx";
 import { downloadInvoiceExcel } from "@/components/documents/InvoiceExcel.js";
 import { downloadPaymentTxt, buildPurpose } from "@/components/documents/PaymentOrder.js";
@@ -920,6 +921,49 @@ async function imageToJpegB64(file, maxDim = 1600, quality = 0.72) {
   if (bmp.close) bmp.close();
   return c.toDataURL("image/jpeg", quality).split(",")[1];
 }
+// Прочитать файл (напр. PDF) в base64 без изменения — для OCR как есть.
+async function fileToBase64(file) {
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  let bin = ""; const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+  return btoa(bin);
+}
+// Краткая сводка по объекту (ТОЛЬКО чтение) — для ответа ИИ по фактам.
+function objBrief(o) {
+  const lbl = (list, code) => { try { return labelOf(list, code) || code || "—"; } catch { return code || "—"; } };
+  const stages = (o.stages || []).map((s) => `  - ${s.title}: ${lbl(STAGE_STATUSES, s.status)} (${s.progress || 0}%)${s.id === o.currentStageId ? " ← текущий" : ""}`).join("\n");
+  const docs = (o.documents || []).map((d) => `  - [${d.category || "Прочее"}] ${d.title || d.file || "документ"} (${d.type || ""}${d.status ? ", " + d.status : ""})`).join("\n");
+  const now = o.now || {};
+  let invLine = "Счетов этому заказчику не найдено";
+  try {
+    const oi = String(o.inn || "").replace(/\D/g, "");
+    if (oi) {
+      const invs = listDocuments().filter((d) => d.buyer && String(d.buyer.inn || "").replace(/\D/g, "") === oi);
+      if (invs.length) invLine = `Счета этому заказчику (${invs.length}): ` + invs.map((d) => `№${d.number || "—"} на ${fmtMoney(d.totals && d.totals.total)} [${d.status || "черновик"}]`).join("; ");
+    }
+  } catch {}
+  return [
+    `Объект: ${o.title || "—"} (№ ${o.id})`,
+    `Заказчик: ${o.customerName || "—"}${o.inn ? ", ИНН " + o.inn : ""}`,
+    `Адрес: ${o.address || o.city || "—"}`,
+    o.contractNumber ? `Договор №: ${o.contractNumber}` : null,
+    `Статус: ${lbl(OBJECT_STATUSES, o.status)}, прогресс ${o.progress || 0}%`,
+    now.doingNow ? `Сейчас: ${now.doingNow}` : null,
+    now.nextStep ? `Дальше: ${now.nextStep}` : null,
+    now.customerNeeds ? `От заказчика нужно: ${now.customerNeeds}` : null,
+    stages ? `Этапы:\n${stages}` : null,
+    docs ? `Документы объекта:\n${docs}` : "Документы объекта: нет",
+    invLine,
+  ].filter(Boolean).join("\n");
+}
+function summarizeObjects(query) {
+  const all = listObjects();
+  if (!all.length) return "В системе нет объектов (или не загрузились).";
+  const q = String(query || "").toLowerCase().trim();
+  const matches = q ? all.filter((o) => [o.title, o.customerName, o.id, o.city, o.address, o.contractNumber].some((v) => String(v || "").toLowerCase().includes(q))) : [];
+  if (!matches.length) return "Точного совпадения не нашёл. Есть объекты: " + all.slice(0, 12).map((o) => `${o.title} (${o.customerName})`).join("; ");
+  return matches.slice(0, 4).map(objBrief).join("\n\n———\n\n");
+}
 // Постепенное «печатание» текста ответа (по несколько символов за тик).
 function TypeText({ text, animate, onStep }) {
   const full = String(text || "");
@@ -934,7 +978,7 @@ function TypeText({ text, animate, onStep }) {
   return <>{full.slice(0, n)}{n < full.length ? <span style={{ opacity: 0.35 }}>▋</span> : null}</>;
 }
 const CHAT_LS = "cube:docs:chat:v1";
-const CHAT_GREETING = { role: "ai", text: "Здравствуйте! Я помогу с документами. Пришлите позиции текстом, прикрепите Excel или скан/фото счёта (скрепка слева) и напишите «сделай счёт» — соберу счёт. Можно попросить поправить цену, добавить строку или изменить НДС." };
+const CHAT_GREETING = { role: "ai", text: "Привет! Я Марк, помощник КУБ по документам. Могу собрать счёт или платёжку, добавить контрагента. Пришлите позиции текстом, прикрепите Excel, скан/фото или PDF счёта (скрепка слева) — и напишите, что нужно. Можно и просто спросить." };
 function loadChat() {
   try { const s = JSON.parse(localStorage.getItem(CHAT_LS) || "null"); if (s && Array.isArray(s.msgs) && s.msgs.length) return s; } catch {}
   return null;
@@ -960,6 +1004,13 @@ function DocsAssistant({ onInvoice, onPayment }) {
     setBusy(true);
     try {
       const res = await askAssistant(history.map((m) => ({ role: m.role, text: m.text })), draftRef.current, image);
+      // Чтение объекта: подгружаем данные из системы и переспрашиваем модель (без показа служебного сообщения).
+      if (res.action && res.action.type === "read_object" && res.action.query) {
+        const summary = summarizeObjects(res.action.query);
+        const res2 = await askAssistant([...history, { role: "user", text: `OBJECT_DATA (данные из системы, отвечай строго по ним, не выдумывай):\n${summary}` }].map((m) => ({ role: m.role, text: m.text })), draftRef.current);
+        setMsgs((m) => [...m, { role: "ai", anim: true, text: res2.reply || summary, invoice: res2.invoice || null, payment: res2.payment || null }]);
+        return;
+      }
       let inv = res.invoice || null;
       let pay = res.payment || null;
       let cpCand = null;
@@ -1011,14 +1062,21 @@ function DocsAssistant({ onInvoice, onPayment }) {
   const onFile = async (e) => {
     const f = e.target.files && e.target.files[0]; if (e.target) e.target.value = ""; if (!f || busy) return;
     const ext = (f.name.split(".").pop() || "").toLowerCase();
+    const isPdf = ext === "pdf" || (f.type || "") === "application/pdf";
     const isImg = (f.type || "").startsWith("image/") || ["png", "jpg", "jpeg", "webp", "heic"].includes(ext);
+    if (isPdf) {
+      if (f.size > 2 * 1024 * 1024) { setMsgs((m) => [...m, { role: "ai", stub: true, text: "PDF великоват (>2 МБ). Пришлите покороче или отдельными страницами." }]); return; }
+      try { const data = await fileToBase64(f); setPending({ kind: "image", name: f.name, mime: "application/pdf", data }); }
+      catch { setMsgs((m) => [...m, { role: "ai", stub: true, text: "Не смог прочитать PDF. Пришлите JPG/PNG или Excel." }]); }
+      return;
+    }
     if (isImg) {
       try { const data = await imageToJpegB64(f); setPending({ kind: "image", name: f.name, mime: "image/jpeg", data }); }
       catch { setMsgs((m) => [...m, { role: "ai", stub: true, text: "Не смог открыть изображение. Пришлите фото/скан в JPG или PNG." }]); }
       return;
     }
     if (!["xlsx", "xls", "csv"].includes(ext)) {
-      setMsgs((m) => [...m, { role: "ai", stub: true, text: "Пришлите Excel/CSV с позициями, фото/скан счёта (JPG, PNG) или впишите позиции текстом. PDF пока не читаю." }]);
+      setMsgs((m) => [...m, { role: "ai", stub: true, text: "Пришлите Excel/CSV с позициями, фото/скан или PDF счёта, либо впишите позиции текстом." }]);
       return;
     }
     let table = "";
@@ -1105,7 +1163,7 @@ function DocsAssistant({ onInvoice, onPayment }) {
         </div>
       )}
       <div style={{ display: "flex", alignItems: "flex-end", gap: 10, padding: "12px 14px", borderTop: pending ? "none" : "1px solid #f0f0f0" }}>
-        <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv,image/*" style={{ display: "none" }} onChange={onFile} />
+        <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv,image/*,application/pdf,.pdf" style={{ display: "none" }} onChange={onFile} />
         <button type="button" title="Прикрепить Excel/CSV или скан счёта" onClick={() => fileRef.current && fileRef.current.click()} disabled={busy}
           onMouseEnter={(e) => { if (busy) return; e.currentTarget.style.background = "#f4f4f4"; e.currentTarget.style.borderColor = "#cfcfcf"; e.currentTarget.style.color = "#111"; e.currentTarget.style.transform = "translateY(-1px)"; }}
           onMouseLeave={(e) => { e.currentTarget.style.background = "#fff"; e.currentTarget.style.borderColor = "#e6e6e6"; e.currentTarget.style.color = "#555"; e.currentTarget.style.transform = "none"; }}
@@ -1127,7 +1185,7 @@ function DocsAssistant({ onInvoice, onPayment }) {
 /* ============================ Корневой раздел ============================ */
 export default function DocumentsSection() {
   const [view, setView] = React.useState({ name: "home", id: null });
-  React.useEffect(() => { hydrateDocuments(); hydrateOrgs(); hydrateCounterparties(); }, []);
+  React.useEffect(() => { hydrateDocuments(); hydrateOrgs(); hydrateCounterparties(); try { hydrateObjects(); } catch {} }, []);
   const go = (name, id = null) => setView({ name, id });
 
   const BackLink = () => (
