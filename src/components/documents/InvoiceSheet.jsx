@@ -10,6 +10,7 @@
 import React from "react";
 import { createPortal } from "react-dom";
 import { fmtMoney, rublesInWords, computeTotals, DEFAULT_VAT_RATE } from "@/data/documents.js";
+import { downloadInvoiceExcel } from "@/components/documents/InvoiceExcel.js";
 
 const INK = "#000";
 const LINE = "#000";
@@ -300,6 +301,7 @@ export function InvoiceSheetModal({ doc = {}, onClose }) {
         <button type="button" title="Закрыть" onClick={onClose} style={tile}>с.</button>
         <div style={{ display: "flex", alignItems: "center", gap: 6, height: phone ? 52 : 60, padding: "6px 10px", borderRadius: 10, background: "#3E3E3E" }}>
           <button type="button" onClick={save} style={{ ...pill, opacity: saving ? 0.7 : 1 }}>{saving ? "Готовим…" : "Скачать PDF"}</button>
+          <button type="button" onClick={() => downloadInvoiceExcel(doc)} style={pill}>Excel</button>
           <button type="button" onClick={() => printInvoice(doc)} style={pill}>Печать</button>
         </div>
       </div>

@@ -6,16 +6,19 @@ import {
   listDocuments, getDocument, addDocument, saveDocument, deleteDocument, hydrateDocuments, isDocumentsLoading,
   listOrgs, addOrg, saveOrg, deleteOrg, hydrateOrgs,
   listCounterparties, addCounterparty, saveCounterparty, deleteCounterparty, hydrateCounterparties,
-  lookupOrgByInn, lookupBankByBik,
+  lookupOrgByInn, lookupBankByBik, askAssistant,
   KUB_ORG_SEED, VAT_MODES, DEFAULT_VAT_RATE, computeTotals, fmtMoney, parseNum, itemSum, nextInvoiceNumber,
 } from "@/data/documents.js";
 import { InvoiceSheetModal } from "@/components/documents/InvoiceSheet.jsx";
+import { downloadInvoiceExcel } from "@/components/documents/InvoiceExcel.js";
+import { downloadPaymentTxt, buildPurpose } from "@/components/documents/PaymentOrder.js";
+import ImportItemsModal from "@/pages/account/documents/ImportItems.jsx";
 
 /* ============================ стиль ============================ */
 const UI = "'Inter Tight',Inter,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif";
-const TEXT = "#111", MUTED = "#8a8a8a", CARROT = "#F1571F", LINE = "#e6e6e6", CARD = "#fafafa";
+const TEXT = "#111", MUTED = "#777", CARROT = "#FA5D29", LINE = "#e6e6e6", CARD = "#fbfbfb";
 
-const DEFAULT_NOTICE = "Внимание! Оплата данного счета означает согласие с условиями поставки товара. Уведомление об оплате обязательно, в противном случае не гарантируется наличие товара на складе. Товар отпускается по факту прихода денег на р/с Поставщика, самовывозом, при наличии доверенности и паспорта.";
+const DEFAULT_NOTICE = "Внимание! Оплата данного счёта означает согласие с условиями оказания услуг и выполнения работ. Счёт действителен к оплате в течение 5 (пяти) банковских дней с даты выставления. Работы (услуги) выполняются после поступления оплаты на расчётный счёт Исполнителя, если иное не предусмотрено договором. По всем вопросам обращайтесь по реквизитам, указанным в счёте.";
 
 /* ---- примитивы формы (эталон КУБ: подчёркивание, без контура) ---- */
 function FLabel({ children, style }) {
@@ -29,23 +32,124 @@ function UnderInput({ value, onChange, placeholder, type = "text", style, onBlur
       style={{ height: 44, width: "100%", border: 0, borderRadius: 0, background: disabled ? "#f6f6f6" : "#fff", padding: "0 12px", fontFamily: UI, fontSize: 14, fontWeight: 300, color: TEXT, outline: "none", boxShadow: `inset 0 -1px 0 0 ${foc ? "#111" : LINE}`, transition: "box-shadow .18s ease", ...style }} />
   );
 }
-function UnderSelect({ value, onChange, children, style, disabled }) {
+// Кастомный выпадающий список — как UnderSelect в объектах (кнопка-подчёркивание + меню).
+function UnderSelect({ value, onChange, options = [], placeholder = "— выбрать —", disabled }) {
+  const [open, setOpen] = React.useState(false);
+  const ref = React.useRef(null);
+  const cur = options.find((o) => String(o.value) === String(value));
+  React.useEffect(() => { const f = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); }; document.addEventListener("mousedown", f); return () => document.removeEventListener("mousedown", f); }, []);
   return (
-    <select value={value ?? ""} onChange={(e) => onChange?.(e.target.value)} disabled={disabled}
-      style={{ height: 44, width: "100%", border: 0, borderRadius: 0, background: disabled ? "#f6f6f6" : "#fff", padding: "0 10px", fontFamily: UI, fontSize: 14, fontWeight: 300, color: TEXT, outline: "none", boxShadow: `inset 0 -1px 0 0 ${LINE}`, cursor: "pointer", ...style }}>
-      {children}
-    </select>
+    <div ref={ref} style={{ position: "relative", width: "100%" }}>
+      <button type="button" disabled={disabled} onClick={() => setOpen((o) => !o)}
+        style={{ width: "100%", height: 46, border: "none", outline: "none", borderRadius: 0, background: disabled ? "#f6f6f6" : "#fff", color: cur ? TEXT : "#9a9a9a", padding: "0 14px", fontFamily: UI, fontSize: 14, fontWeight: 300, boxShadow: `inset 0 -1px 0 0 ${open ? "#111" : LINE}`, transition: "box-shadow .18s ease", display: "grid", gridTemplateColumns: "1fr 24px", alignItems: "center", textAlign: "left", cursor: disabled ? "default" : "pointer" }}>
+        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{cur ? cur.label : placeholder}</span>
+        <svg viewBox="0 0 24 24" width="18" height="18" style={{ color: "#b1b1b1", justifySelf: "end", transform: open ? "rotate(180deg)" : "none", transition: "transform .18s ease" }}><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+      </button>
+      {open && (
+        <div className="animate-svcfade" style={{ position: "absolute", left: 0, right: 0, top: 46, background: "#fff", boxShadow: "0 14px 40px rgba(0,0,0,.10)", zIndex: 40, maxHeight: 320, overflowY: "auto" }}>
+          {options.map((o) => {
+            const active = String(o.value) === String(value);
+            return (
+              <button key={String(o.value)} type="button" onClick={() => { onChange?.(o.value); setOpen(false); }}
+                style={{ display: "block", width: "100%", textAlign: "left", padding: "12px 14px", border: "none", background: active ? "#f3f3f3" : "#fff", fontFamily: UI, fontSize: 15, fontWeight: 300, color: TEXT, cursor: "pointer", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}
+                onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = "#f8f8f8"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = active ? "#f3f3f3" : "#fff"; }}>{o.label}</button>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }
+// Кнопки в стиле сайта: primary=чёрная (подъём при наведении), ghost=контур→заливка, soft=светлая, danger=мягкая. Наведение через JS.
 function Btn({ children, onClick, kind = "ghost", style, disabled, type = "button" }) {
-  const base = { display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, height: 44, padding: "0 20px", borderRadius: 10, fontFamily: UI, fontSize: 14, fontWeight: 400, cursor: disabled ? "default" : "pointer", opacity: disabled ? 0.55 : 1, transition: "background .15s ease, border-color .15s ease", whiteSpace: "nowrap" };
+  const [h, setH] = React.useState(false); const on = h && !disabled;
   const kinds = {
-    primary: { background: "#1c1c1c", color: "#fff", border: "1px solid #1c1c1c" },
-    accent: { background: CARROT, color: "#fff", border: `1px solid ${CARROT}` },
-    ghost: { background: "#fff", color: TEXT, border: `1px solid ${LINE}` },
-    danger: { background: "#fff", color: "#d3441c", border: "1px solid #f0cfc4" },
+    primary: { background: on ? "#262626" : "#111", color: "#fff", border: `1px solid ${on ? "#262626" : "#111"}`, boxShadow: on ? "0 8px 22px rgba(0,0,0,.18)" : "none", transform: on ? "translateY(-1px)" : "none" },
+    ghost: { background: on ? "#111" : "transparent", color: on ? "#fff" : "#111", border: "1px solid #111" },
+    soft: { background: on ? "#f2f2f2" : "#fff", color: TEXT, border: `1px solid ${on ? "#c8c8c8" : "#e2e2e2"}` },
+    danger: { background: on ? "#fbe9e2" : "transparent", color: "#c0431c", border: `1px solid ${on ? "#e6c4b6" : "#e9d6ce"}` },
   };
-  return <button type={type} onClick={onClick} disabled={disabled} style={{ ...base, ...kinds[kind], ...style }}>{children}</button>;
+  return <button type={type} onClick={onClick} disabled={disabled} onMouseEnter={() => setH(true)} onMouseLeave={() => setH(false)}
+    style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, height: 42, padding: "0 18px", borderRadius: kind === "primary" ? 10 : 12, fontFamily: UI, fontSize: 14, fontWeight: kind === "primary" ? 600 : 400, cursor: disabled ? "default" : "pointer", opacity: disabled ? 0.5 : 1, whiteSpace: "nowrap", transition: "background-color .16s ease, color .16s ease, box-shadow .16s ease, transform .16s ease, border-color .16s ease", ...kinds[kind], ...style }}>{children}</button>;
+}
+// Чекбокс-квадрат с масштабирующейся точкой (как SquareCheck в объектах).
+function Check({ checked, onChange, label }) {
+  return (
+    <span onClick={() => onChange?.(!checked)} style={{ display: "inline-flex", alignItems: "center", gap: 9, cursor: "pointer", fontSize: 13.5, fontWeight: 300, color: TEXT, userSelect: "none" }}>
+      <span aria-hidden="true" style={{ width: 18, height: 18, display: "inline-grid", placeItems: "center", border: `1px solid ${checked ? TEXT : "#cfcfcf"}`, borderRadius: 4, background: "#fff", flexShrink: 0, transition: "border-color .14s ease" }}>
+        <span style={{ width: 10, height: 10, borderRadius: 3, background: TEXT, transform: checked ? "scale(1)" : "scale(0)", transition: "transform 140ms ease-out" }} />
+      </span>
+      {label}
+    </span>
+  );
+}
+// Сегмент-переключатель (как «Заказчику приходит / Команде приходит»).
+function Seg({ value, onChange, options }) {
+  return (
+    <div style={{ display: "inline-flex", gap: 4, background: "#ededed", borderRadius: 10, padding: 4, flexWrap: "wrap" }}>
+      {options.map((o) => (
+        <button key={o.value} type="button" onClick={() => onChange(o.value)}
+          style={{ border: "none", background: value === o.value ? "#111" : "transparent", color: value === o.value ? "#fff" : "#666", fontFamily: UI, fontSize: 13, fontWeight: 400, padding: "8px 15px", borderRadius: 8, cursor: "pointer", transition: "background-color .15s ease, color .15s ease" }}>{o.label}</button>
+      ))}
+    </div>
+  );
+}
+function UploadIcon({ size = 18 }) {
+  return <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M7 18a5 5 0 010-10 6 6 0 0111.7 1.7A4 4 0 1119 18H7z" /><path d="M12 14V8m0 0l-3 3m3-3l3 3" /></svg>;
+}
+function ExcelIcon() {
+  return <span aria-hidden="true" style={{ display: "inline-grid", placeItems: "center", background: "#2f7d4f", color: "#fff", borderRadius: 7, height: 26, padding: "0 8px", fontSize: 11.5, fontWeight: 700, letterSpacing: ".02em", fontFamily: UI }}>XLSX</span>;
+}
+function PlusIcon({ size = 18 }) {
+  return <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="#1f7a44" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>;
+}
+// Плоская кнопка-ссылка (иконка + текст, без контура) — как «+ Добавить строку»/«загрузить из файла».
+function PlainBtn({ icon, children, onClick }) {
+  const [h, setH] = React.useState(false);
+  return (
+    <button type="button" onClick={onClick} onMouseEnter={() => setH(true)} onMouseLeave={() => setH(false)}
+      style={{ display: "inline-flex", alignItems: "center", gap: 9, height: 40, padding: "0 4px", border: "none", background: "transparent", color: h ? "#000" : "#222", fontFamily: UI, fontSize: 14.5, fontWeight: 400, cursor: "pointer", transition: "color .15s ease" }}>
+      {icon}<span style={{ borderBottom: h ? "1px solid #aaa" : "1px solid transparent", transition: "border-color .15s ease" }}>{children}</span>
+    </button>
+  );
+}
+// Поле ИНН покупателя с подсказкой-подтверждением (как в профиле): вводишь ИНН →
+// всплывает найденная компания → нажимаешь, реквизиты подставляются (не автоматом).
+function BuyerInn({ inn, filled, onChange, onConfirm }) {
+  const [sug, setSug] = React.useState(null);
+  const [open, setOpen] = React.useState(false);
+  const [loading, setLoading] = React.useState(false);
+  const ref = React.useRef(null);
+  const firstRun = React.useRef(true); // первый рендер = открыли форму, а не ввод пользователя
+  React.useEffect(() => { const f = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); }; document.addEventListener("mousedown", f); return () => document.removeEventListener("mousedown", f); }, []);
+  React.useEffect(() => {
+    const q = String(inn || "").replace(/\D/g, "");
+    const wasFirst = firstRun.current; firstRun.current = false;
+    if (q.length !== 10 && q.length !== 12) { setSug(null); setOpen(false); setLoading(false); return; }
+    // Открыли уже заполненного покупателя (есть название) — не навязываем подсказку.
+    // Показываем только когда ИНН реально меняют (после первого рендера).
+    if (wasFirst && filled) return;
+    let alive = true; setLoading(true);
+    const t = setTimeout(() => { lookupOrgByInn(q).then((r) => { if (!alive) return; setLoading(false); if (r && r.name) { setSug(r); setOpen(true); } else { setSug(null); setOpen(false); } }); }, 350);
+    return () => { alive = false; clearTimeout(t); };
+  }, [inn]);
+  return (
+    <div ref={ref} style={{ position: "relative" }}>
+      <UnderInput value={inn} onChange={onChange} placeholder="ИНН — введите, найдём компанию" />
+      {loading && <div style={{ position: "absolute", right: 12, top: 15, fontSize: 12, color: MUTED }}>…</div>}
+      {open && sug && (
+        <div className="animate-svcfade" style={{ position: "absolute", left: 0, right: 0, top: 46, background: "#fff", boxShadow: "0 14px 40px rgba(0,0,0,.12)", zIndex: 40 }}>
+          <button type="button" onClick={() => { onConfirm(sug); setOpen(false); }}
+            style={{ display: "block", width: "100%", textAlign: "left", padding: "12px 14px", border: "none", background: "#fff", cursor: "pointer", fontFamily: UI }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = "#f8f8f8")} onMouseLeave={(e) => (e.currentTarget.style.background = "#fff")}>
+            <div style={{ fontSize: 15, fontWeight: 400, color: TEXT }}>{sug.name}</div>
+            <div style={{ fontSize: 12.5, color: MUTED, marginTop: 2 }}>Нажмите, чтобы подставить реквизиты{sug.kpp ? ` · КПП ${sug.kpp}` : ""}</div>
+          </button>
+        </div>
+      )}
+    </div>
+  );
 }
 function Row({ label, children, style }) {
   return (
@@ -152,11 +256,26 @@ function OrgEditor({ org, onSave, onClose }) {
             </div>
           ))}
         </div>
-        <div style={{ marginTop: 12, display: "flex", gap: 20 }}>
-          <label style={{ fontSize: 13.5, display: "inline-flex", alignItems: "center", gap: 8, cursor: "pointer" }}><input type="checkbox" checked={!!o.showSignature} onChange={(e) => set("showSignature", e.target.checked)} /> ставить подпись по умолчанию</label>
-          <label style={{ fontSize: 13.5, display: "inline-flex", alignItems: "center", gap: 8, cursor: "pointer" }}><input type="checkbox" checked={!!o.showStamp} onChange={(e) => set("showStamp", e.target.checked)} /> ставить печать по умолчанию</label>
+        <div style={{ marginTop: 12, display: "flex", gap: 22, flexWrap: "wrap" }}>
+          <Check checked={!!o.showSignature} onChange={(v) => set("showSignature", v)} label="ставить подпись по умолчанию" />
+          <Check checked={!!o.showStamp} onChange={(v) => set("showStamp", v)} label="ставить печать по умолчанию" />
         </div>
         <div style={{ fontSize: 12, color: MUTED, marginTop: 8 }}>Подпись и печать (прозрачный PNG) хранятся приватно и подставляются в счёт автоматически. В публичный доступ не попадают.</div>
+      </Section>
+
+      <Section title="Шаблон Excel (необязательно)">
+        <div style={{ fontSize: 13, color: MUTED, marginBottom: 8 }}>
+          Загрузите ваш файл-образец счёта (.xlsx) — тогда «Скачать Excel» будет <b>один-в-один</b> с ним: шрифты, рамки и разметка сохранятся, поменяются только данные. Позиции любой длины переносятся на 2-ю и 3-ю страницу.
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          <div style={{ height: 40, minWidth: 150, padding: "0 12px", display: "inline-flex", alignItems: "center", border: `1px solid ${LINE}`, borderRadius: 10, background: "#fff", fontSize: 13, color: o.invoiceTemplateXlsx ? "#0a7d33" : "#bbb" }}>
+            {o.invoiceTemplateXlsx ? "шаблон загружен ✓" : "шаблон не загружен"}
+          </div>
+          <label style={{ height: 40, lineHeight: "40px", padding: "0 14px", border: `1px solid ${LINE}`, borderRadius: 10, cursor: "pointer", fontSize: 13 }}>
+            Загрузить .xlsx<input type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" style={{ display: "none" }} onChange={(e) => upload("invoiceTemplateXlsx", e.target.files?.[0])} />
+          </label>
+          {o.invoiceTemplateXlsx && <Btn kind="danger" onClick={() => set("invoiceTemplateXlsx", "")} style={{ height: 40 }}>Убрать</Btn>}
+        </div>
       </Section>
 
       <div style={{ display: "flex", gap: 10, marginTop: 20, justifyContent: "flex-end" }}>
@@ -266,6 +385,7 @@ function emptyInvoice(orgs, docs) {
     buyerId: "", buyer: {}, consignee: null,
     currency: "RUB", vatMode: "included", vatRate: DEFAULT_VAT_RATE,
     items: [{ name: "", unit: "", qty: "", price: "", sum: "" }],
+    opts: { code: false, discount: false, photo: false },
     message: DEFAULT_NOTICE, status: "draft",
   };
 }
@@ -276,13 +396,43 @@ function snapSeller(org) {
   return { name: org.name || "", address: org.address || "", inn: org.inn || "", kpp: org.kpp || "", director: org.director || "", accountant: org.accountant || "", showSignature: org.showSignature !== false, showStamp: org.showStamp !== false };
 }
 function snapBank(b) { return { account: b.account || "", bik: b.bik || "", bankName: b.bankName || "", corrAccount: b.corrAccount || "" }; }
+// Наложить invoice от ИИ на пустой счёт (buyer/НДС/позиции); суммы считаем сами.
+function applyAiInvoice(base, ai) {
+  if (!ai) return base;
+  const items = (ai.items || []).map((it) => {
+    const sum = Math.round(parseNum(it.qty) * parseNum(it.price) * 100) / 100;
+    return { name: it.name || "", unit: it.unit || "", qty: it.qty ?? "", price: it.price ?? "", sum: sum || "", code: it.code || "" };
+  });
+  const hasCode = items.some((it) => it.code);
+  return {
+    ...base,
+    basis: ai.basis || base.basis,
+    vatMode: ai.vatMode || base.vatMode,
+    vatRate: ai.vatRate || base.vatRate,
+    buyer: { ...(base.buyer || {}), ...(ai.buyerName ? { name: ai.buyerName } : {}), ...(ai.buyerInn ? { inn: ai.buyerInn } : {}) },
+    items: items.length ? items : base.items,
+    opts: { ...(base.opts || {}), code: hasCode || !!(base.opts && base.opts.code) },
+  };
+}
 
-function InvoiceForm({ id, onDone }) {
+function InvoiceForm({ id, initial, onDone }) {
   const orgs = listOrgs();
   const cps = listCounterparties();
-  const [doc, setDoc] = React.useState(() => (id ? (getDocument(id) || emptyInvoice(orgs, listDocuments())) : emptyInvoice(orgs, listDocuments())));
+  const [doc, setDoc] = React.useState(() => {
+    if (id) return getDocument(id) || emptyInvoice(orgs, listDocuments());
+    const base = emptyInvoice(orgs, listDocuments());
+    return initial ? applyAiInvoice(base, initial) : base;
+  });
   const [preview, setPreview] = React.useState(false);
+  const [importOpen, setImportOpen] = React.useState(false);
+  const [importFile, setImportFile] = React.useState(null);
+  const fileRef = React.useRef(null);
   const [bikBusy, setBikBusy] = React.useState(false);
+  const onImportItems = (imported) => {
+    if (!imported || !imported.length) return;
+    const hasCode = imported.some((it) => it.code);
+    setDoc((p) => { const keep = p.items.filter((it) => it.name || it.price || it.qty); return { ...p, opts: hasCode ? { ...(p.opts || {}), code: true } : (p.opts || {}), items: [...keep, ...imported] }; });
+  };
   const set = (k, v) => setDoc((p) => ({ ...p, [k]: v }));
   const setSeller = (k, v) => setDoc((p) => ({ ...p, seller: { ...p.seller, [k]: v } }));
   const setBank = (k, v) => setDoc((p) => ({ ...p, bank: { ...p.bank, [k]: v } }));
@@ -290,10 +440,16 @@ function InvoiceForm({ id, onDone }) {
 
   const totals = computeTotals(doc.items, doc.vatMode, doc.vatRate);
 
+  // доп. функции счёта (скидка/код/фото)
+  const opts = doc.opts || {};
+  const setOpt = (k, v) => setDoc((p) => ({ ...p, opts: { ...(p.opts || {}), [k]: v } }));
+  const itemSumD = (it) => { const base = parseNum(it.qty) * parseNum(it.price); const d = parseNum(it.discount) || 0; return Math.round(base * (1 - d / 100) * 100) / 100; };
+  // Общая скидка/наценка = проставить один % во ВСЕ позиции (дальше можно поправить в строке).
+  const applyGlobalDiscount = () => { const gd = parseNum(opts.globalDiscount) || 0; setDoc((p) => ({ ...p, items: p.items.map((it) => { const nit = { ...it, discount: gd }; nit.sum = itemSumD(nit); return nit; }) })); };
   // позиции
   const setItem = (i, k, v) => setDoc((p) => {
     const items = p.items.slice(); items[i] = { ...items[i], [k]: v };
-    if (k === "qty" || k === "price") items[i].sum = itemSum(items[i]); // авто-сумма
+    if (k === "qty" || k === "price" || k === "discount") items[i].sum = itemSumD(items[i]); // авто-сумма (со скидкой/наценкой)
     return { ...p, items };
   });
   const addItem = () => setDoc((p) => ({ ...p, items: [...p.items, { name: "", unit: "", qty: "", price: "", sum: "" }] }));
@@ -315,10 +471,10 @@ function InvoiceForm({ id, onDone }) {
     if (!c) { setDoc((p) => ({ ...p, buyerId: "", buyer: {} })); return; }
     setDoc((p) => ({ ...p, buyerId: c.id, buyer: { name: c.name || "", inn: c.inn || "", kpp: c.kpp || "", address: c.address || "" } }));
   };
-  const findBuyerByInn = async () => {
-    const r = await lookupOrgByInn(doc.buyer.inn);
-    if (r) setDoc((p) => ({ ...p, buyer: { ...p.buyer, name: r.name || p.buyer.name, kpp: r.kpp || p.buyer.kpp, address: r.address || p.buyer.address } }));
-  };
+  // Меняем ИНН покупателя → сбрасываем связанного контрагента и его поля (начинаем заново).
+  const onBuyerInn = (v) => setDoc((p) => ({ ...p, buyerId: "", buyer: { inn: v } }));
+  // Подтверждение компании из подсказки по ИНН (как в профиле — не автоматом).
+  const confirmBuyer = (sug) => setDoc((p) => ({ ...p, buyer: { ...p.buyer, name: sug.name || "", kpp: sug.kpp || "", address: sug.address || "" } }));
   const fillBik = async () => {
     setBikBusy(true); const r = await lookupBankByBik(doc.bank.bik);
     if (r) setDoc((p) => ({ ...p, bank: { ...p.bank, bankName: r.bankName || p.bank.bankName, corrAccount: r.corrAccount || p.bank.corrAccount } }));
@@ -342,7 +498,7 @@ function InvoiceForm({ id, onDone }) {
 
   // Печать/подпись подтягиваем из карточки организации (в самом счёте их не храним).
   const sellerOrg = orgs.find((o) => o.id === doc.sellerId);
-  const previewDoc = { ...doc, totals, seller: { ...doc.seller, signatureDataUri: sellerOrg?.signatureDataUri || "", stampDataUri: sellerOrg?.stampDataUri || "" } };
+  const previewDoc = { ...doc, totals, seller: { ...doc.seller, signatureDataUri: sellerOrg?.signatureDataUri || "", stampDataUri: sellerOrg?.stampDataUri || "" }, _templateXlsx: sellerOrg?.invoiceTemplateXlsx || "" };
 
   return (
     <div>
@@ -352,7 +508,7 @@ function InvoiceForm({ id, onDone }) {
       </div>
 
       {!orgs.length && (
-        <div style={{ padding: 14, border: `1px solid ${CARROT}`, borderRadius: 10, background: "#fff6f2", marginBottom: 14, fontSize: 14 }}>
+        <div style={{ padding: "14px 16px", border: "1.5px dotted #c7c7c7", borderRadius: 12, background: "#f8f8f8", marginBottom: 14, fontSize: 14, fontWeight: 300, color: "#444" }}>
           Сначала добавьте свою организацию (продавца) с реквизитами, банком и печатью — на вкладке «Мои организации».
         </div>
       )}
@@ -362,10 +518,8 @@ function InvoiceForm({ id, onDone }) {
 
       <Section title="Продавец (исполнитель)">
         <Row label="Моя организация">
-          <UnderSelect value={doc.sellerId} onChange={pickOrg}>
-            <option value="">— выбрать организацию —</option>
-            {orgs.map((o) => <option key={o.id} value={o.id}>{o.name} (ИНН {o.inn})</option>)}
-          </UnderSelect>
+          <UnderSelect value={doc.sellerId} onChange={pickOrg} placeholder="— выбрать организацию —"
+            options={orgs.map((o) => ({ value: o.id, label: `${o.name} (ИНН ${o.inn})` }))} />
         </Row>
         <Row label="Название"><UnderInput value={doc.seller.name} onChange={(v) => setSeller("name", v)} /></Row>
         <Row label="Адрес"><UnderInput value={doc.seller.address} onChange={(v) => setSeller("address", v)} /></Row>
@@ -373,9 +527,9 @@ function InvoiceForm({ id, onDone }) {
         <Row label="Руководитель"><UnderInput value={doc.seller.director} onChange={(v) => setSeller("director", v)} /></Row>
         <Row label="Главный бухгалтер"><UnderInput value={doc.seller.accountant} onChange={(v) => setSeller("accountant", v)} /></Row>
         <Row label="Печать / подпись">
-          <div style={{ display: "flex", gap: 18, alignItems: "center", fontSize: 13.5 }}>
-            <label style={{ display: "inline-flex", gap: 8, alignItems: "center", cursor: "pointer" }}><input type="checkbox" checked={!!doc.seller.showSignature} onChange={(e) => setSeller("showSignature", e.target.checked)} /> подпись</label>
-            <label style={{ display: "inline-flex", gap: 8, alignItems: "center", cursor: "pointer" }}><input type="checkbox" checked={!!doc.seller.showStamp} onChange={(e) => setSeller("showStamp", e.target.checked)} /> печать</label>
+          <div style={{ display: "flex", gap: 20, alignItems: "center", flexWrap: "wrap" }}>
+            <Check checked={!!doc.seller.showSignature} onChange={(v) => setSeller("showSignature", v)} label="подпись" />
+            <Check checked={!!doc.seller.showStamp} onChange={(v) => setSeller("showStamp", v)} label="печать" />
             {!doc.seller.stampDataUri && <span style={{ color: MUTED, fontSize: 12 }}>(загрузите печать/подпись в карточке организации)</span>}
           </div>
         </Row>
@@ -383,7 +537,7 @@ function InvoiceForm({ id, onDone }) {
 
       <Section title="Банковские реквизиты продавца">
         {(() => { const org = orgs.find((o) => o.id === doc.sellerId); const banks = (org && org.banks) || []; return banks.length > 1 ? (
-          <Row label="Банковский счёт"><UnderSelect value="" onChange={pickBank}><option value="">— выбрать счёт —</option>{banks.map((b) => <option key={b.id} value={b.id}>{b.label || b.bankName} · {b.account}</option>)}</UnderSelect></Row>
+          <Row label="Банковский счёт"><UnderSelect value="" onChange={pickBank} placeholder="— выбрать счёт —" options={banks.map((b) => ({ value: b.id, label: `${b.label || b.bankName} · ${b.account}` }))} /></Row>
         ) : null; })()}
         <Row label="Расчётный счёт"><UnderInput value={doc.bank.account} onChange={(v) => setBank("account", v)} placeholder="20 цифр" /></Row>
         <Row label="БИК"><div style={{ display: "flex", gap: 8 }}><UnderInput value={doc.bank.bik} onChange={(v) => setBank("bik", v)} placeholder="9 цифр" /><Btn onClick={fillBik} disabled={bikBusy}>{bikBusy ? "…" : "Заполнить по БИК"}</Btn></div></Row>
@@ -393,24 +547,18 @@ function InvoiceForm({ id, onDone }) {
 
       <Section title="Покупатель (заказчик)">
         <Row label="Контрагент">
-          <UnderSelect value={doc.buyerId} onChange={pickBuyer}>
-            <option value="">— выбрать / новый —</option>
-            {cps.map((c) => <option key={c.id} value={c.id}>{c.name} (ИНН {c.inn})</option>)}
-          </UnderSelect>
+          <UnderSelect value={doc.buyerId} onChange={pickBuyer} placeholder="— выбрать / новый —"
+            options={cps.map((c) => ({ value: c.id, label: `${c.name} (ИНН ${c.inn})` }))} />
         </Row>
-        <Row label="ИНН"><div style={{ display: "flex", gap: 8 }}><UnderInput value={doc.buyer.inn} onChange={(v) => setBuyer("inn", v)} placeholder="Поиск по ИНН" /><Btn onClick={findBuyerByInn}>Найти по ИНН</Btn></div></Row>
+        <Row label="ИНН"><BuyerInn inn={doc.buyer.inn} filled={!!doc.buyer.name} onChange={onBuyerInn} onConfirm={confirmBuyer} /></Row>
         <Row label="Название / ФИО"><UnderInput value={doc.buyer.name} onChange={(v) => setBuyer("name", v)} placeholder='ООО "Покупатель"' /></Row>
         <Row label="КПП"><UnderInput value={doc.buyer.kpp} onChange={(v) => setBuyer("kpp", v)} /></Row>
         <Row label="Адрес"><UnderInput value={doc.buyer.address} onChange={(v) => setBuyer("address", v)} /></Row>
       </Section>
 
       <Section title="Ставка НДС">
-        <div style={{ display: "flex", gap: 20, alignItems: "center", flexWrap: "wrap" }}>
-          {VAT_MODES.map((m) => (
-            <label key={m.code} style={{ display: "inline-flex", gap: 8, alignItems: "center", cursor: "pointer", fontSize: 14 }}>
-              <input type="radio" name="vatmode" checked={doc.vatMode === m.code} onChange={() => set("vatMode", m.code)} /> {m.label}
-            </label>
-          ))}
+        <div style={{ display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap" }}>
+          <Seg value={doc.vatMode} onChange={(v) => set("vatMode", v)} options={VAT_MODES.map((m) => ({ value: m.code, label: m.label }))} />
           {doc.vatMode !== "none" && (
             <div style={{ display: "inline-flex", gap: 8, alignItems: "center" }}>
               <span style={{ fontSize: 14, color: "#444" }}>ставка</span>
@@ -424,28 +572,72 @@ function InvoiceForm({ id, onDone }) {
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", minWidth: 720, borderCollapse: "collapse" }}>
             <thead><tr style={{ background: "#f0f0f0" }}>
-              {["Наименование", "Ед. изм.", "Кол-во", "Цена", "Сумма", ""].map((h, i) => <th key={i} style={{ textAlign: i === 0 ? "left" : "center", fontSize: 12.5, fontWeight: 600, padding: "8px 8px", border: `1px solid ${LINE}` }}>{h}</th>)}
+              <th style={{ textAlign: "left", fontSize: 12.5, fontWeight: 600, padding: "8px 8px", border: `1px solid ${LINE}` }}>Наименование</th>
+              {opts.code && <th style={{ textAlign: "center", fontSize: 12.5, fontWeight: 600, padding: "8px 8px", border: `1px solid ${LINE}` }}>Код товара</th>}
+              <th style={{ textAlign: "center", fontSize: 12.5, fontWeight: 600, padding: "8px 8px", border: `1px solid ${LINE}` }}>Ед. изм.</th>
+              <th style={{ textAlign: "center", fontSize: 12.5, fontWeight: 600, padding: "8px 8px", border: `1px solid ${LINE}` }}>Кол-во</th>
+              <th style={{ textAlign: "center", fontSize: 12.5, fontWeight: 600, padding: "8px 8px", border: `1px solid ${LINE}` }}>Цена</th>
+              {opts.discount && <th style={{ textAlign: "center", fontSize: 12.5, fontWeight: 600, padding: "8px 8px", border: `1px solid ${LINE}` }}>Скидка/наценка,&nbsp;%</th>}
+              <th style={{ textAlign: "center", fontSize: 12.5, fontWeight: 600, padding: "8px 8px", border: `1px solid ${LINE}` }}>Сумма</th>
+              <th style={{ border: `1px solid ${LINE}` }} />
             </tr></thead>
             <tbody>
               {doc.items.map((it, i) => (
                 <tr key={i}>
                   <td style={{ border: `1px solid ${LINE}`, padding: 4 }}><UnderInput value={it.name} onChange={(v) => setItem(i, "name", v)} style={{ boxShadow: "none", height: 38 }} /></td>
+                  {opts.code && <td style={{ border: `1px solid ${LINE}`, padding: 4, width: 100 }}><UnderInput value={it.code} onChange={(v) => setItem(i, "code", v)} style={{ boxShadow: "none", height: 38, textAlign: "center" }} /></td>}
                   <td style={{ border: `1px solid ${LINE}`, padding: 4, width: 80 }}><UnderInput value={it.unit} onChange={(v) => setItem(i, "unit", v)} placeholder="шт, усл" style={{ boxShadow: "none", height: 38, textAlign: "center" }} /></td>
                   <td style={{ border: `1px solid ${LINE}`, padding: 4, width: 90 }}><UnderInput value={it.qty} onChange={(v) => setItem(i, "qty", v)} style={{ boxShadow: "none", height: 38, textAlign: "center" }} /></td>
                   <td style={{ border: `1px solid ${LINE}`, padding: 4, width: 120 }}><UnderInput value={it.price} onChange={(v) => setItem(i, "price", v)} style={{ boxShadow: "none", height: 38, textAlign: "right" }} /></td>
-                  <td style={{ border: `1px solid ${LINE}`, padding: "0 8px", width: 130, textAlign: "right", fontSize: 13.5, fontWeight: 600 }}>{fmtMoney(it.sum || itemSum(it))}</td>
-                  <td style={{ border: `1px solid ${LINE}`, padding: 4, width: 40, textAlign: "center" }}><button onClick={() => rmItem(i)} title="Удалить" style={{ border: "none", background: "none", color: "#d3441c", cursor: "pointer", fontSize: 18 }}>×</button></td>
+                  {opts.discount && <td style={{ border: `1px solid ${LINE}`, padding: 4, width: 110 }}><UnderInput value={it.discount} onChange={(v) => setItem(i, "discount", v)} placeholder="0" style={{ boxShadow: "none", height: 38, textAlign: "center" }} /></td>}
+                  <td style={{ border: `1px solid ${LINE}`, padding: "0 8px", width: 130, textAlign: "right", fontSize: 13.5, fontWeight: 600 }}>{fmtMoney(it.sum != null && it.sum !== "" ? it.sum : itemSumD(it))}</td>
+                  <td style={{ border: `1px solid ${LINE}`, padding: 4, width: 40, textAlign: "center" }}><button onClick={() => rmItem(i)} title="Удалить" style={{ border: "none", background: "none", color: "#c0431c", cursor: "pointer", fontSize: 18 }}>×</button></td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginTop: 10, flexWrap: "wrap", gap: 12 }}>
-          <Btn onClick={addItem}>+ Добавить строку</Btn>
-          <div style={{ minWidth: 260, textAlign: "right" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, marginBottom: 4 }}><span style={{ color: MUTED }}>Итого:</span><b>{fmtMoney(totals.subtotal)}</b></div>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, marginBottom: 4 }}><span style={{ color: MUTED }}>{doc.vatMode === "included" ? `В том числе НДС (${doc.vatRate}%):` : doc.vatMode === "ontop" ? `НДС (${doc.vatRate}%):` : "Без НДС:"}</span><b>{fmtMoney(totals.vat)}</b></div>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 16, borderTop: `1px solid ${LINE}`, paddingTop: 6 }}><span>Всего к оплате:</span><b>{fmtMoney(totals.total)}</b></div>
+          <div>
+            <div style={{ display: "flex", gap: 22, flexWrap: "wrap", alignItems: "center" }}>
+              <PlainBtn icon={<PlusIcon size={18} />} onClick={addItem}>Добавить строку</PlainBtn>
+              <PlainBtn icon={<ExcelIcon size={20} />} onClick={() => fileRef.current?.click()}>Загрузить товары из файла</PlainBtn>
+              <input ref={fileRef} type="file" accept=".xlsx,.xls" style={{ display: "none" }} onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) { setImportFile(f); setImportOpen(true); } }} />
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 9, marginTop: 16 }}>
+              <Check checked={!!opts.discount} onChange={(v) => {
+                if (!v) {
+                  // сняли галку — убираем скидку/наценку из позиций, цены возвращаются к полным
+                  setDoc((p) => ({ ...p, opts: { ...(p.opts || {}), discount: false, _globalOpen: false, globalDiscount: "" }, items: p.items.map((it) => { const nit = { ...it, discount: "" }; nit.sum = itemSumD(nit); return nit; }) }));
+                } else setOpt("discount", true);
+              }} label="добавить скидку/наценку" />
+              {opts.discount && (
+                <div className="animate-svcfade" style={{ marginLeft: 27, display: "flex", flexDirection: "column", gap: 8 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 18, flexWrap: "wrap" }}>
+                    <Check checked={!!opts.discountPrint} onChange={(v) => setOpt("discountPrint", v)} label="печатать в документе" />
+                    <span onClick={() => setOpt("_globalOpen", !opts._globalOpen)} style={{ color: "#333", fontSize: 13.5, cursor: "pointer", borderBottom: "1px dashed #999" }}>задать общую скидку/наценку</span>
+                  </div>
+                  {opts._globalOpen && (
+                    <div className="animate-svcfade" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                      <span style={{ fontSize: 13.5, color: "#444" }}>Общая</span>
+                      <UnderInput value={opts.globalDiscount} onChange={(v) => setOpt("globalDiscount", v)} placeholder="0" style={{ width: 80 }} />
+                      <span style={{ fontSize: 13.5 }}>%</span>
+                      <Btn kind="ghost" onClick={applyGlobalDiscount} style={{ height: 34, padding: "0 14px" }}>Применить ко всем</Btn>
+                    </div>
+                  )}
+                </div>
+              )}
+              <Check checked={!!opts.code} onChange={(v) => setOpt("code", v)} label="добавить «Код товара»" />
+              <Check checked={!!opts.photo} onChange={(v) => setOpt("photo", v)} label="добавить «Фото товара» (скоро)" />
+            </div>
+          </div>
+          <div style={{ width: 320, maxWidth: "100%", flexShrink: 0, display: "grid", gridTemplateColumns: "1fr auto", columnGap: 16, rowGap: 6, alignItems: "baseline" }}>
+            <div style={{ textAlign: "right", fontSize: 14, color: MUTED, whiteSpace: "nowrap" }}>Итого:</div>
+            <div style={{ textAlign: "right", fontSize: 14, fontWeight: 700, whiteSpace: "nowrap", minWidth: 110 }}>{fmtMoney(totals.subtotal)}</div>
+            <div style={{ textAlign: "right", fontSize: 14, color: MUTED, whiteSpace: "nowrap" }}>{doc.vatMode === "included" ? `В том числе НДС (${doc.vatRate}%):` : doc.vatMode === "ontop" ? `НДС (${doc.vatRate}%):` : "Без НДС:"}</div>
+            <div style={{ textAlign: "right", fontSize: 14, fontWeight: 700, whiteSpace: "nowrap", minWidth: 110 }}>{fmtMoney(totals.vat)}</div>
+            <div style={{ textAlign: "right", fontSize: 16, borderTop: `1px solid ${LINE}`, paddingTop: 6, whiteSpace: "nowrap" }}>Всего к оплате:</div>
+            <div style={{ textAlign: "right", fontSize: 16, fontWeight: 700, borderTop: `1px solid ${LINE}`, paddingTop: 6, whiteSpace: "nowrap", minWidth: 110 }}>{fmtMoney(totals.total)}</div>
           </div>
         </div>
       </Section>
@@ -457,14 +649,15 @@ function InvoiceForm({ id, onDone }) {
 
       <div style={{ display: "flex", gap: 10, marginTop: 22, flexWrap: "wrap", justifyContent: "space-between", alignItems: "center" }}>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-          <Btn kind="primary" onClick={onSave}>Сохранить</Btn>
-          <Btn kind="accent" onClick={() => { persist(); setPreview(true); }}>Просмотр / печать</Btn>
-          <Btn onClick={onIssue}>Пометить «Выставлен»</Btn>
+          <Btn kind="primary" onClick={() => { persist(); downloadInvoiceExcel({ ...doc, totals, seller: { ...doc.seller, signatureDataUri: sellerOrg?.signatureDataUri || "", stampDataUri: sellerOrg?.stampDataUri || "" } }, sellerOrg?.invoiceTemplateXlsx); }}>Скачать Excel</Btn>
+          <Btn kind="ghost" onClick={onSave}>Сохранить</Btn>
+          <Btn kind="soft" onClick={onIssue}>Пометить «Выставлен»</Btn>
         </div>
         <StatusBadge status={doc.status} />
       </div>
 
       {preview && <InvoiceSheetModal doc={previewDoc} onClose={() => setPreview(false)} />}
+      {importOpen && <ImportItemsModal file={importFile} onClose={() => { setImportOpen(false); setImportFile(null); }} onImport={onImportItems} />}
     </div>
   );
 }
@@ -508,31 +701,300 @@ function Registry({ onOpen, onNew }) {
   );
 }
 
+/* ============================ Платёжное поручение (.txt для банка) ============================ */
+function PaymentOrderForm({ onBack }) {
+  const orgs = listOrgs();
+  const cps = listCounterparties();
+  const org0 = orgs[0] || null;
+  const bank0 = org0 && org0.banks && org0.banks[0] ? org0.banks[0] : null;
+  const [p, setP] = React.useState(() => ({
+    payerOrgId: org0 ? org0.id : "", payerBankIdx: 0,
+    payerName: org0 ? org0.name : "", payerInn: org0 ? org0.inn : "", payerKpp: org0 ? org0.kpp : "",
+    payerAcc: bank0 ? bank0.account : "", payerBik: bank0 ? bank0.bik : "", payerBank1: bank0 ? bank0.bankName : "", payerBank2: "", payerCorr: bank0 ? bank0.corrAccount : "",
+    recvCpId: "", recvName: "", recvInn: "", recvKpp: "", recvAcc: "", recvBik: "", recvBank1: "", recvBank2: "", recvCorr: "",
+    docNum: "", docDate: today(),
+    sum: "", schetNum: "", schetDate: "", subject: "", vatRate: DEFAULT_VAT_RATE, purpose: "",
+  }));
+  const set = (k, v) => setP((s) => ({ ...s, [k]: v }));
+  const [bikBusy, setBikBusy] = React.useState(false);
+
+  const pickPayerOrg = (id) => {
+    const o = orgs.find((x) => x.id === id); if (!o) return set("payerOrgId", "");
+    const b = (o.banks || [])[0] || null;
+    setP((s) => ({ ...s, payerOrgId: id, payerBankIdx: 0, payerName: o.name || "", payerInn: o.inn || "", payerKpp: o.kpp || "", payerAcc: b ? b.account : "", payerBik: b ? b.bik : "", payerBank1: b ? b.bankName : "", payerCorr: b ? b.corrAccount : "" }));
+  };
+  const pickPayerBank = (idx) => {
+    const o = orgs.find((x) => x.id === p.payerOrgId); const b = o && o.banks ? o.banks[Number(idx)] : null; if (!b) return;
+    setP((s) => ({ ...s, payerBankIdx: Number(idx), payerAcc: b.account || "", payerBik: b.bik || "", payerBank1: b.bankName || "", payerCorr: b.corrAccount || "" }));
+  };
+  const pickRecvCp = (id) => {
+    const c = cps.find((x) => x.id === id); if (!c) return set("recvCpId", "");
+    setP((s) => ({ ...s, recvCpId: id, recvName: c.name || "", recvInn: c.inn || "", recvKpp: c.kpp || "" }));
+  };
+  const doRecvBik = async () => {
+    if (String(p.recvBik || "").replace(/\D/g, "").length !== 9) return;
+    setBikBusy(true); const r = await lookupBankByBik(p.recvBik); setBikBusy(false);
+    if (r) setP((s) => ({ ...s, recvBank1: r.bankName || s.recvBank1, recvCorr: r.corrAccount || s.recvCorr }));
+  };
+  const download = () => {
+    if (!p.recvName || !p.recvAcc || String(p.recvBik || "").replace(/\D/g, "").length !== 9) { alert("Заполните получателя: название, расчётный счёт и БИК."); return; }
+    if (!parseNum(p.sum)) { alert("Укажите сумму платежа."); return; }
+    if (!p.payerAcc) { alert("Выберите организацию-плательщика с расчётным счётом."); return; }
+    downloadPaymentTxt(p);
+  };
+
+  const payerOrg = orgs.find((x) => x.id === p.payerOrgId);
+  const purposePreview = buildPurpose(p);
+
+  return (
+    <div>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+        <div style={{ fontSize: 18, fontWeight: 600 }}>Платёжное поручение</div>
+        <Btn kind="primary" onClick={download}>Скачать .txt для банка</Btn>
+      </div>
+      <div style={{ fontSize: 13, color: MUTED, marginBottom: 4, maxWidth: 640, lineHeight: 1.6 }}>
+        Файл в формате 1C (Windows-1251) для загрузки в интернет-банк (Т-Бизнес и др.). Плательщик — ваша организация, получатель — из счёта поставщика.
+      </div>
+
+      <Section title="Плательщик (мы)">
+        {orgs.length > 0 ? (
+          <>
+            <Row label="Организация">
+              <UnderSelect value={p.payerOrgId} onChange={pickPayerOrg} options={orgs.map((o) => ({ value: o.id, label: `${o.name} (ИНН ${o.inn})` }))} placeholder="— выберите организацию —" />
+            </Row>
+            {payerOrg && (payerOrg.banks || []).length > 1 && (
+              <Row label="Счёт списания">
+                <UnderSelect value={String(p.payerBankIdx)} onChange={pickPayerBank} options={(payerOrg.banks || []).map((b, i) => ({ value: String(i), label: `${b.bankName || "банк"} · ${b.account || ""}` }))} />
+              </Row>
+            )}
+          </>
+        ) : (
+          <div style={{ fontSize: 13.5, color: MUTED }}>Нет организаций. Добавьте свою организацию с банковским счётом в разделе «Мои организации».</div>
+        )}
+        <Row label="Название"><UnderInput value={p.payerName} onChange={(v) => set("payerName", v)} /></Row>
+        <Row label="ИНН / КПП">
+          <div style={{ display: "flex", gap: 10 }}><UnderInput value={p.payerInn} onChange={(v) => set("payerInn", v)} placeholder="ИНН" /><UnderInput value={p.payerKpp} onChange={(v) => set("payerKpp", v)} placeholder="КПП" /></div>
+        </Row>
+        <Row label="Расчётный счёт"><UnderInput value={p.payerAcc} onChange={(v) => set("payerAcc", v)} /></Row>
+        <Row label="БИК / банк">
+          <div style={{ display: "flex", gap: 10 }}><UnderInput value={p.payerBik} onChange={(v) => set("payerBik", v)} placeholder="БИК" style={{ maxWidth: 140 }} /><UnderInput value={p.payerBank1} onChange={(v) => set("payerBank1", v)} placeholder="Банк" /></div>
+        </Row>
+        <Row label="Город банка"><UnderInput value={p.payerBank2} onChange={(v) => set("payerBank2", v)} placeholder="г. Москва" /></Row>
+        <Row label="Корр. счёт"><UnderInput value={p.payerCorr} onChange={(v) => set("payerCorr", v)} /></Row>
+      </Section>
+
+      <Section title="Получатель (кому платим)">
+        {cps.length > 0 && (
+          <Row label="Из контрагентов">
+            <UnderSelect value={p.recvCpId} onChange={pickRecvCp} options={cps.map((c) => ({ value: c.id, label: `${c.name} (ИНН ${c.inn})` }))} placeholder="— выбрать из справочника —" />
+          </Row>
+        )}
+        <Row label="Название"><UnderInput value={p.recvName} onChange={(v) => set("recvName", v)} placeholder='ООО "Поставщик"' /></Row>
+        <Row label="ИНН / КПП">
+          <div style={{ display: "flex", gap: 10 }}><UnderInput value={p.recvInn} onChange={(v) => set("recvInn", v)} placeholder="ИНН" /><UnderInput value={p.recvKpp} onChange={(v) => set("recvKpp", v)} placeholder="КПП" /></div>
+        </Row>
+        <Row label="Расчётный счёт"><UnderInput value={p.recvAcc} onChange={(v) => set("recvAcc", v)} /></Row>
+        <Row label="БИК банка">
+          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+            <UnderInput value={p.recvBik} onChange={(v) => set("recvBik", v)} onBlur={doRecvBik} placeholder="БИК — подтянем банк" style={{ maxWidth: 180 }} />
+            {bikBusy && <span style={{ fontSize: 12, color: MUTED }}>ищем…</span>}
+          </div>
+        </Row>
+        <Row label="Банк"><UnderInput value={p.recvBank1} onChange={(v) => set("recvBank1", v)} /></Row>
+        <Row label="Город банка"><UnderInput value={p.recvBank2} onChange={(v) => set("recvBank2", v)} placeholder="г. Москва" /></Row>
+        <Row label="Корр. счёт"><UnderInput value={p.recvCorr} onChange={(v) => set("recvCorr", v)} /></Row>
+      </Section>
+
+      <Section title="Платёж">
+        <Row label="№ / дата поручения">
+          <div style={{ display: "flex", gap: 10 }}><UnderInput value={p.docNum} onChange={(v) => set("docNum", v)} placeholder="№" style={{ maxWidth: 120 }} /><UnderInput value={p.docDate} onChange={(v) => set("docDate", v)} placeholder="дд.мм.гггг" /></div>
+        </Row>
+        <Row label="Сумма, ₽"><UnderInput value={p.sum} onChange={(v) => set("sum", v)} placeholder="0,00" /></Row>
+        <Row label="Счёт-основание">
+          <div style={{ display: "flex", gap: 10 }}><UnderInput value={p.schetNum} onChange={(v) => set("schetNum", v)} placeholder="№ счёта" style={{ maxWidth: 140 }} /><UnderInput value={p.schetDate} onChange={(v) => set("schetDate", v)} placeholder="дата счёта" /></div>
+        </Row>
+        <Row label="За что (предмет)"><UnderInput value={p.subject} onChange={(v) => set("subject", v)} placeholder="плиту ЕВРО-ВЕНТ 80 …" /></Row>
+        <Row label="Ставка НДС в т.ч., %"><UnderInput value={p.vatRate} onChange={(v) => set("vatRate", v)} placeholder="22" style={{ maxWidth: 100 }} /></Row>
+        <Row label="Назначение платежа" style={{ alignItems: "start" }}>
+          <div>
+            <textarea value={p.purpose} onChange={(e) => set("purpose", e.target.value)} rows={3}
+              placeholder={purposePreview}
+              style={{ width: "100%", resize: "vertical", minHeight: 66, border: `1px solid ${LINE}`, borderRadius: 10, padding: "10px 12px", fontFamily: UI, fontSize: 14, fontWeight: 300, color: TEXT, outline: "none", lineHeight: 1.5 }} />
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 6 }}>
+              <button type="button" onClick={() => set("purpose", purposePreview)} style={{ border: "none", background: "transparent", cursor: "pointer", fontFamily: UI, fontSize: 12.5, color: "#333", borderBottom: "1px dashed #999", padding: 0 }}>Собрать из полей выше</button>
+              <span style={{ fontSize: 12, color: MUTED }}>если оставить пустым — соберётся автоматически</span>
+            </div>
+          </div>
+        </Row>
+      </Section>
+
+      <div style={{ marginTop: 18 }}>
+        <Btn kind="primary" onClick={download}>Скачать .txt для банка</Btn>
+      </div>
+    </div>
+  );
+}
+
+/* ============================ Блоки-разделы (как в «Администраторе») ============================ */
+const DIcon = {
+  plus: (<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="3" width="16" height="18" rx="2" /><path d="M12 8v8M8 12h8" /></svg>),
+  bill: (<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M6 2h9l3 3v16l-2.4-1.4L13.2 21l-2.4-1.4L8.4 21 6 19.6V2z" /><path d="M9 8h6M9 12h6M9 16h4" /></svg>),
+  org: (<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 21h18M5 21V5l7-2v18M19 21V9l-7-2M8 8h.01M8 12h.01M8 16h.01" /></svg>),
+  cp: (<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="8" r="3" /><path d="M3 20c0-3.3 2.7-5 6-5s6 1.7 6 5" /><path d="M16 5.2a3 3 0 0 1 0 5.6M18.5 20c0-2.2-1-3.7-2.6-4.6" /></svg>),
+  act: (<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="3" width="16" height="18" rx="2" /><path d="M8 12.5l2.5 2.5L16 9" /></svg>),
+  upd: (<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="3" width="16" height="18" rx="2" /><path d="M8 8h8M8 12h8M8 16h8M12 8v8" /></svg>),
+  offer: (<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="3" width="16" height="18" rx="2" /><path d="M9 8h6M9 16h5M13 11c1.3 0 2.2.7 2.2 1.6S14.3 14.2 13 14.2 10.8 13.5 10.8 12.6" /></svg>),
+  pay: (<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="5" width="20" height="14" rx="2" /><path d="M2 10h20M6 15h4" /></svg>),
+};
+function DocsCard({ icon, title, sub, onClick, locked }) {
+  if (locked) {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", borderRadius: 12, padding: 30, background: "#eee", minHeight: 123, opacity: 0.5 }}>
+        <span style={{ color: "#bbb", display: "inline-flex" }}>{icon}</span>
+        <div style={{ marginTop: "auto", paddingTop: 28 }}>
+          <div style={{ fontSize: 14, lineHeight: "19.6px", fontWeight: 600, color: "#9a9a9a" }}>{title}</div>
+          <div style={{ marginTop: 8, fontSize: 14, lineHeight: "19.6px", fontWeight: 300, color: "#b0b0b0" }}>Скоро</div>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <button type="button" onClick={onClick}
+      style={{ textAlign: "left", cursor: "pointer", display: "flex", flexDirection: "column", border: "none", borderRadius: 12, padding: 30, background: "#e9e9e9", minHeight: 123, transition: "background-color .18s ease, box-shadow .18s ease, transform .18s ease" }}
+      onMouseEnter={(e) => { e.currentTarget.style.background = "#fff"; e.currentTarget.style.boxShadow = "0 12px 32px rgba(0,0,0,.08)"; e.currentTarget.style.transform = "translateY(-2px)"; }}
+      onMouseLeave={(e) => { e.currentTarget.style.background = "#e9e9e9"; e.currentTarget.style.boxShadow = "none"; e.currentTarget.style.transform = "none"; }}>
+      <span style={{ color: TEXT, display: "inline-flex" }}>{icon}</span>
+      <div style={{ marginTop: "auto", paddingTop: 28 }}>
+        <div style={{ fontSize: 14, lineHeight: "19.6px", fontWeight: 600, color: "#222" }}>{title}</div>
+        <div style={{ marginTop: 8, fontSize: 14, lineHeight: "19.6px", fontWeight: 300, color: "#222" }}>{sub}</div>
+      </div>
+    </button>
+  );
+}
+function DocsLauncher({ go }) {
+  useStoreVersion("documents:changed");
+  const cnt = listDocuments().length;
+  return (
+    <div style={{ marginTop: 26 }}>
+      <div style={{ fontSize: 15, fontWeight: 600, color: TEXT }}>Разделы</div>
+      <div style={{ marginTop: 16, display: "grid", gap: 16, gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))" }}>
+        <DocsCard icon={DIcon.plus} title="Новый счёт" sub="Создать счёт на оплату" onClick={() => go("form")} />
+        <DocsCard icon={DIcon.bill} title="Счета" sub={cnt ? `Выставлено счетов: ${cnt}` : "Реестр выставленных счетов"} onClick={() => go("list")} />
+        <DocsCard icon={DIcon.org} title="Мои организации" sub="Реквизиты, банк, подпись и печать" onClick={() => go("orgs")} />
+        <DocsCard icon={DIcon.cp} title="Контрагенты" sub="Покупатели и заказчики" onClick={() => go("cps")} />
+        <DocsCard icon={DIcon.pay} title="Платёжное поручение" sub="Счёт → .txt для банка (Т-Бизнес)" onClick={() => go("pay")} />
+        <DocsCard icon={DIcon.act} title="Акт выполненных работ" locked />
+        <DocsCard icon={DIcon.upd} title="УПД" locked />
+        <DocsCard icon={DIcon.offer} title="Коммерческое предложение" locked />
+      </div>
+    </div>
+  );
+}
+
+/* ============================ Помощник по документам (YandexGPT Lite) ============================ */
+function DocsAssistant({ onInvoice }) {
+  const [msgs, setMsgs] = React.useState([
+    { role: "ai", text: "Здравствуйте! Я помогу с документами. Пришлите список позиций и напишите «сделай счёт» — соберу счёт. Можно попросить поправить цену, добавить строку или изменить НДС." },
+  ]);
+  const [text, setText] = React.useState("");
+  const [busy, setBusy] = React.useState(false);
+  const draftRef = React.useRef(null); // последний собранный счёт (для правок «поменяй цену…»)
+  const scrollRef = React.useRef(null);
+  React.useEffect(() => { const el = scrollRef.current; if (el) el.scrollTop = el.scrollHeight; }, [msgs, busy]);
+
+  const send = async () => {
+    const t = text.trim(); if (!t || busy) return;
+    setText("");
+    const history = [...msgs, { role: "user", text: t }];
+    setMsgs(history);
+    setBusy(true);
+    try {
+      const res = await askAssistant(history.map((m) => ({ role: m.role, text: m.text })), draftRef.current);
+      if (res.invoice) draftRef.current = res.invoice;
+      setMsgs((m) => [...m, { role: "ai", text: res.reply || (res.invoice ? "Счёт собран." : "Готово."), invoice: res.invoice || null }]);
+    } catch (e) {
+      const code = (e && (e.status || e.code)) || "";
+      setMsgs((m) => [...m, { role: "ai", stub: true, text: code === 403 ? "Нет доступа к помощнику." : "Не удалось связаться с помощником. Попробуйте ещё раз чуть позже." }]);
+    } finally { setBusy(false); }
+  };
+
+  return (
+    <div style={{ marginTop: 22, border: "1px solid #ececec", borderRadius: 16, background: "#fff", boxShadow: "0 8px 30px rgba(0,0,0,.05)", overflow: "hidden" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "14px 18px", borderBottom: "1px solid #f0f0f0" }}>
+        <span style={{ width: 30, height: 30, borderRadius: 9, background: "#111", display: "grid", placeItems: "center", color: "#fff", flexShrink: 0 }}>
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a4 4 0 0 1-4 4H8l-4 3V7a4 4 0 0 1 4-4h9a4 4 0 0 1 4 4z" /></svg>
+        </span>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 14.5, fontWeight: 600, color: TEXT }}>Помощник по документам</div>
+          <div style={{ fontSize: 12, color: MUTED }}>Соберёт счёт из ваших позиций и поправит его по просьбе</div>
+        </div>
+        <span style={{ fontSize: 11.5, color: "#8a8a8a", border: "1px solid #e6e6e6", borderRadius: 999, padding: "3px 10px", whiteSpace: "nowrap", flexShrink: 0 }}>YandexGPT&nbsp;Lite</span>
+      </div>
+      <div ref={scrollRef} style={{ height: 200, overflowY: "auto", padding: "16px 18px", display: "flex", flexDirection: "column", gap: 12, background: "#fafafa" }}>
+        {msgs.map((m, i) => (
+          <div key={i} style={{ alignSelf: m.role === "user" ? "flex-end" : "flex-start", maxWidth: "80%" }}>
+            <div style={{ padding: "10px 14px", borderRadius: 14, fontSize: 14, fontWeight: 300, lineHeight: 1.5,
+              background: m.role === "user" ? "#111" : "#fff",
+              color: m.role === "user" ? "#fff" : (m.stub ? "#8a8a8a" : TEXT),
+              border: m.role === "user" ? "none" : "1px solid #ececec", whiteSpace: "pre-wrap",
+              borderBottomRightRadius: m.role === "user" ? 4 : 14, borderBottomLeftRadius: m.role === "user" ? 14 : 4 }}>{m.text}</div>
+            {m.invoice && m.invoice.items && m.invoice.items.length > 0 && (
+              <div style={{ marginTop: 8 }}>
+                <Btn kind="primary" onClick={() => onInvoice(m.invoice)} style={{ height: 38 }}>
+                  Открыть счёт · позиций: {m.invoice.items.length}
+                </Btn>
+              </div>
+            )}
+          </div>
+        ))}
+        {busy && (
+          <div style={{ alignSelf: "flex-start", maxWidth: "80%" }}>
+            <div style={{ padding: "10px 14px", borderRadius: 14, fontSize: 14, color: MUTED, background: "#fff", border: "1px solid #ececec", borderBottomLeftRadius: 4 }}>Печатает…</div>
+          </div>
+        )}
+      </div>
+      <div style={{ display: "flex", alignItems: "flex-end", gap: 10, padding: "12px 14px", borderTop: "1px solid #f0f0f0" }}>
+        <textarea value={text} onChange={(e) => setText(e.target.value)} rows={1} disabled={busy}
+          onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
+          placeholder="Например: сделай счёт для ООО «Ромашка» на эти позиции…"
+          style={{ flex: 1, resize: "none", maxHeight: 120, minHeight: 44, border: "1px solid #e6e6e6", borderRadius: 12, padding: "11px 14px", fontFamily: UI, fontSize: 14, fontWeight: 300, color: TEXT, outline: "none", lineHeight: 1.5, opacity: busy ? 0.6 : 1 }} />
+        <Btn kind="primary" onClick={send} disabled={!text.trim() || busy} style={{ height: 44, width: 44, padding: 0, borderRadius: 12 }}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" /></svg>
+        </Btn>
+      </div>
+    </div>
+  );
+}
+
 /* ============================ Корневой раздел ============================ */
 export default function DocumentsSection() {
-  const [view, setView] = React.useState({ name: "list", id: null });
+  const [view, setView] = React.useState({ name: "home", id: null });
   React.useEffect(() => { hydrateDocuments(); hydrateOrgs(); hydrateCounterparties(); }, []);
+  const go = (name, id = null) => setView({ name, id });
 
-  const tabBtn = (name, label) => (
-    <button onClick={() => setView({ name, id: null })}
-      style={{ height: 38, padding: "0 16px", borderRadius: 999, border: `1px solid ${view.name === name ? "#1c1c1c" : LINE}`, background: view.name === name ? "#1c1c1c" : "#fff", color: view.name === name ? "#fff" : TEXT, fontFamily: UI, fontSize: 13.5, cursor: "pointer" }}>
-      {label}
+  const BackLink = () => (
+    <button type="button" onClick={() => go("home")}
+      style={{ border: "none", background: "transparent", cursor: "pointer", fontFamily: UI, fontSize: 14, fontWeight: 400, color: MUTED, display: "inline-flex", alignItems: "center", gap: 6, padding: 0 }}
+      onMouseEnter={(e) => { e.currentTarget.style.color = TEXT; }} onMouseLeave={(e) => { e.currentTarget.style.color = MUTED; }}>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
+      Все документы
     </button>
   );
 
   return (
-    <div className="animate-svcfade" style={{ fontFamily: UI, marginTop: 8, maxWidth: 900 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 18 }}>
-        <div style={{ fontSize: 22, fontWeight: 700, marginRight: 8 }}>Документы</div>
-        {tabBtn("list", "Счета")}
-        {tabBtn("orgs", "Мои организации")}
-        {tabBtn("cps", "Контрагенты")}
+    <div className="animate-svcfade" style={{ fontFamily: UI, marginTop: 8, maxWidth: 980 }}>
+      <div style={{ fontSize: 22, fontWeight: 700 }}>Документы</div>
+      <div style={{ marginTop: 6, fontSize: 14, fontWeight: 300, color: "#777", maxWidth: 680, lineHeight: 1.6 }}>
+        Выставление счетов, печать и PDF. Реквизиты организаций и контрагентов хранятся в справочниках и подставляются в документ.
       </div>
 
-      {view.name === "list" && <Registry onOpen={(id) => setView({ name: "form", id })} onNew={() => setView({ name: "form", id: null })} />}
-      {view.name === "form" && <InvoiceForm id={view.id} onDone={() => setView({ name: "list", id: null })} />}
-      {view.name === "orgs" && <OrgsPanel onBack={() => setView({ name: "list", id: null })} />}
-      {view.name === "cps" && <CounterpartiesPanel onBack={() => setView({ name: "list", id: null })} />}
+      {view.name === "home" && (<><DocsAssistant onInvoice={(inv) => setView({ name: "form", id: null, draft: inv })} /><DocsLauncher go={go} /></>)}
+
+      {view.name === "list" && (<div style={{ marginTop: 22 }}><BackLink /><div style={{ marginTop: 16 }} /><Registry onOpen={(id) => go("form", id)} onNew={() => go("form", null)} /></div>)}
+      {view.name === "form" && (<div style={{ marginTop: 22 }}><InvoiceForm key={view.id || (view.draft ? "ai" : "new")} id={view.id} initial={view.draft} onDone={() => go("list")} /></div>)}
+      {view.name === "orgs" && (<div style={{ marginTop: 22 }}><OrgsPanel onBack={() => go("home")} /></div>)}
+      {view.name === "cps" && (<div style={{ marginTop: 22 }}><CounterpartiesPanel onBack={() => go("home")} /></div>)}
+      {view.name === "pay" && (<div style={{ marginTop: 22 }}><BackLink /><div style={{ marginTop: 16 }} /><PaymentOrderForm onBack={() => go("home")} /></div>)}
     </div>
   );
 }

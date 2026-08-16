@@ -30,8 +30,10 @@ async function getAPIBase() {
     }
     const isLocalHost = ['localhost','127.0.0.1'].includes(location.hostname);
     if (isLocalHost) {
-      const ok = await probe(LOCAL_API + '/health');
-      API_BASE = ok ? LOCAL_API : PROD_API;
+      // В dev ходим ОТНОСИТЕЛЬНО (same-origin): Vite проксирует /auth,/objects,
+      // /documents и т.д. на боевой backend (см. vite.config.js server.proxy).
+      // Так httpOnly-куки сессии и CORS работают без cross-site блокировок.
+      API_BASE = '';
       return API_BASE;
     }
     API_BASE = PROD_API;
@@ -215,16 +217,24 @@ export async function api(path, { method = 'GET', body, authRequired = true, sig
     }
   }
 
+  // Тело ответа читаем РОВНО ОДИН раз: повторное чтение Response (res.json() в try,
+  // затем res.text() в catch) роняет «body stream already read» — частый случай при
+  // обрыве соединения / VPN. Читаем текстом, потом пробуем разобрать как JSON.
+  const raw = await res.text().catch(() => '');
+  let data = null;
+  if (raw) { try { data = JSON.parse(raw); } catch { data = null; } }
+
   if (!res.ok) {
-    let payload;
-    try { payload = await res.json(); } catch { payload = { error: await res.text() }; }
-    const err = new Error(payload?.error || 'Request failed');
+    const friendly = res.status >= 500
+      ? 'Сервер временно недоступен. Попробуйте позже.'
+      : `Не удалось выполнить запрос (${res.status}).`;
+    const err = new Error((data && data.error) || friendly);
     err.status = res.status;
-    err.payload = payload;
+    err.payload = data || { error: raw || 'request_failed' };
     throw err;
   }
 
-  return res.json();
+  return data;
 }
 
 // ===== high-level методы =====

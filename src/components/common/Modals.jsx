@@ -783,10 +783,15 @@ function SadBadge() {
 
 /* Технические ошибки приводим к человеческому виду. */
 function humanizeError(msg) {
-  const m = String(msg || "");
-  if (/failed to fetch|networkerror|load failed|network request failed/i.test(m))
-    return "Не удалось связаться с сервером. Проверьте интернет-соединение и попробуйте ещё раз.";
-  return m || "Произошла непредвиденная ошибка. Попробуйте ещё раз.";
+  const m = String(msg || "").trim();
+  if (!m) return "Произошла непредвиденная ошибка. Попробуйте ещё раз.";
+  // Сеть / обрыв / таймаут (часто из-за VPN).
+  if (/failed to fetch|networkerror|load failed|network request failed|abort|timeout|timed out|body stream|stream already read/i.test(m))
+    return "Не удалось связаться с сервером. Проверьте интернет-соединение (если включён VPN — попробуйте отключить) и повторите.";
+  // Системные/технические строки клиенту не показываем: нет кириллицы или явная JS-ошибка.
+  const looksTechnical = !/[а-яё]/i.test(m) || /failed to execute|response|typeerror|referenceerror|undefined|unexpected token|json|\bfetch\b|null is not|nan/i.test(m);
+  if (looksTechnical) return "Не удалось выполнить запрос. Попробуйте ещё раз — если не выходит, отключите VPN или зайдите чуть позже.";
+  return m;
 }
 
 /* ===== Экран ошибки: та же панель, что у форм, но с грустным смайлом ===== */

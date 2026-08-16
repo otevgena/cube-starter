@@ -209,6 +209,14 @@ export async function suggestParty(query) {
   } catch { return []; }
 }
 
+/* ============================ ИИ-помощник (YandexGPT через бэкенд-прокси) ============================ */
+// messages: [{role:'user'|'ai', text}], invoice: текущий черновик (или null).
+// Возвращает { reply: string, invoice: {buyerName,buyerInn,basis,vatMode,vatRate,items[]} | null }.
+export async function askAssistant(messages, invoice) {
+  const data = await api("/assistant", { method: "POST", body: { messages: messages || [], invoice: invoice || null } });
+  return { reply: (data && data.reply) || "", invoice: (data && data.invoice) || null };
+}
+
 /* ============================ деньги, НДС, номера ============================ */
 export const VAT_MODES = [
   { code: "included", label: "с НДС в том числе" },
