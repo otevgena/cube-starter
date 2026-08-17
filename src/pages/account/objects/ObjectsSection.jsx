@@ -655,6 +655,16 @@ function AdminObjectsList() {
   const [fResp, setFResp] = React.useState("");
   const [fCity, setFCity] = React.useState("");
   const [creating, setCreating] = React.useState(false);
+  // Юр.лицо заказчика хранится в аккаунте (org), а в объекте — только ФИО-контакт.
+  // Подтягиваем аккаунты, чтобы показать компанию сотрудникам (только чтение, ничего не меняем).
+  const [accounts, setAccounts] = React.useState([]);
+  React.useEffect(() => { let alive = true; DB.listAccounts().then((a) => { if (alive) setAccounts(a || []); }).catch(() => {}); return () => { alive = false; }; }, []);
+  const acctIdx = React.useMemo(() => {
+    const byId = new Map(), byEmail = new Map();
+    (accounts || []).forEach((a) => { if (a && a.id) byId.set(String(a.id), a); if (a && a.email) byEmail.set(String(a.email).toLowerCase(), a); });
+    return { byId, byEmail };
+  }, [accounts]);
+  const orgOf = (o) => { const a = (o.customerId && acctIdx.byId.get(String(o.customerId))) || (o.customerEmail && acctIdx.byEmail.get(String(o.customerEmail).toLowerCase())) || null; return (a && a.org) || o.customerOrg || ""; };
 
   const all = DB.listObjects();
   const cities = [...new Set(all.map((o) => o.city).filter(Boolean))];
@@ -664,7 +674,7 @@ function AdminObjectsList() {
     if (fStatus && o.status !== fStatus) return false;
     if (fResp && o.responsibleName !== fResp) return false;
     if (fCity && o.city !== fCity) return false;
-    if (t && ![o.title, o.customerName, o.inn, o.contractNumber, o.id].some((f) => String(f || "").toLowerCase().includes(t))) return false;
+    if (t && ![o.title, o.customerName, orgOf(o), o.inn, o.contractNumber, o.id].some((f) => String(f || "").toLowerCase().includes(t))) return false;
     return true;
   });
   const activeCount = [fStatus, fResp, fCity].filter(Boolean).length + (t ? 1 : 0);
@@ -718,6 +728,7 @@ function AdminObjectsList() {
                   {/* Сотрудника уведомляют ТОЛЬКО новые сообщения заказчика, а не собственные правки (документы/статус). */}
                   {DB.hasUnreadMessages(o.id, "staff") && <NewBadge />}
                 </div>
+                {orgOf(o) && <div style={{ marginTop: 2, fontSize: 13.5, fontWeight: 400, color: "#555" }}>Заказчик: {orgOf(o)}</div>}
                 <div style={{ marginTop: 3, fontSize: 13, fontWeight: 300, color: MUTED }}>{o.address || o.city}{o.responsibleName ? <>{" · "}<RespHover name={o.responsibleName} coExecutors={o.coExecutors} /></> : ""} · {(o.documents || []).length} док.</div>
               </div>
               <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" style={{ flexShrink: 0, color: "#bdbdbd" }}>

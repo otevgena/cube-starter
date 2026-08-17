@@ -9,7 +9,7 @@ import {
   lookupOrgByInn, lookupBankByBik, askAssistant, suggestParty,
   KUB_ORG_SEED, VAT_MODES, DEFAULT_VAT_RATE, computeTotals, fmtMoney, parseNum, itemSum, nextInvoiceNumber,
 } from "@/data/documents.js";
-import { listObjects, hydrateObjects, OBJECT_STATUSES, STAGE_STATUSES, labelOf } from "@/data/objects.js";
+import { listObjects, hydrateObjects, listAccounts, OBJECT_STATUSES, STAGE_STATUSES, labelOf } from "@/data/objects.js";
 import { InvoiceSheetModal } from "@/components/documents/InvoiceSheet.jsx";
 import { downloadInvoiceExcel } from "@/components/documents/InvoiceExcel.js";
 import { downloadPaymentTxt, buildPurpose } from "@/components/documents/PaymentOrder.js";
@@ -942,22 +942,24 @@ async function fileToBase64(file) {
   return btoa(bin);
 }
 // Краткая сводка по объекту (ТОЛЬКО чтение) — для ответа ИИ по фактам.
-function objBrief(o) {
+// org/orgInn — юр.лицо заказчика (подтянуто из аккаунта, т.к. в объекте хранится ФИО).
+function objBrief(o, org, orgInn) {
   const lbl = (list, code) => { try { return labelOf(list, code) || code || "—"; } catch { return code || "—"; } };
   const stages = (o.stages || []).map((s) => `  - ${s.title}: ${lbl(STAGE_STATUSES, s.status)} (${s.progress || 0}%)${s.id === o.currentStageId ? " ← текущий" : ""}`).join("\n");
   const docs = (o.documents || []).map((d) => `  - [${d.category || "Прочее"}] ${d.title || d.file || "документ"} (${d.type || ""}${d.status ? ", " + d.status : ""})`).join("\n");
   const now = o.now || {};
+  const innForInv = String(o.inn || orgInn || "").replace(/\D/g, "");
   let invLine = "Счетов этому заказчику не найдено";
   try {
-    const oi = String(o.inn || "").replace(/\D/g, "");
-    if (oi) {
-      const invs = listDocuments().filter((d) => d.buyer && String(d.buyer.inn || "").replace(/\D/g, "") === oi);
+    if (innForInv) {
+      const invs = listDocuments().filter((d) => d.buyer && String(d.buyer.inn || "").replace(/\D/g, "") === innForInv);
       if (invs.length) invLine = `Счета этому заказчику (${invs.length}): ` + invs.map((d) => `№${d.number || "—"} на ${fmtMoney(d.totals && d.totals.total)} [${d.status || "черновик"}]`).join("; ");
     }
   } catch {}
   return [
     `Объект: ${o.title || "—"} (№ ${o.id})`,
-    `Заказчик: ${o.customerName || "—"}${o.inn ? ", ИНН " + o.inn : ""}`,
+    `Контактное лицо заказчика: ${o.customerName || "—"}`,
+    org ? `Заказчик (юр.лицо): ${org}${orgInn ? ", ИНН " + orgInn : (o.inn ? ", ИНН " + o.inn : "")}` : (o.inn ? `ИНН заказчика: ${o.inn}` : null),
     `Адрес: ${o.address || o.city || "—"}`,
     o.contractNumber ? `Договор №: ${o.contractNumber}` : null,
     `Статус: ${lbl(OBJECT_STATUSES, o.status)}, прогресс ${o.progress || 0}%`,
@@ -969,13 +971,22 @@ function objBrief(o) {
     invLine,
   ].filter(Boolean).join("\n");
 }
-function summarizeObjects(query) {
+async function summarizeObjects(query) {
   const all = listObjects();
   if (!all.length) return "В системе нет объектов (или не загрузились).";
+  // Подтягиваем аккаунты, чтобы связать объект (ФИО-контакт) с юр.лицом заказчика (org).
+  let accounts = [];
+  try { accounts = (await listAccounts()) || []; } catch {}
+  const byId = new Map(), byEmail = new Map();
+  accounts.forEach((a) => { if (a && a.id) byId.set(String(a.id), a); if (a && a.email) byEmail.set(String(a.email).toLowerCase(), a); });
+  const acctOf = (o) => (o.customerId && byId.get(String(o.customerId))) || (o.customerEmail && byEmail.get(String(o.customerEmail).toLowerCase())) || null;
+  const orgOf = (o) => { const a = acctOf(o); return (a && a.org) || o.customerOrg || ""; };
+  const innOf = (o) => { const a = acctOf(o); return String((a && a.inn) || o.inn || "").replace(/\D/g, ""); };
+
   const q = String(query || "").toLowerCase().trim();
-  const matches = q ? all.filter((o) => [o.title, o.customerName, o.id, o.city, o.address, o.contractNumber].some((v) => String(v || "").toLowerCase().includes(q))) : [];
-  if (!matches.length) return "Точного совпадения не нашёл. Есть объекты: " + all.slice(0, 12).map((o) => `${o.title} (${o.customerName})`).join("; ");
-  return matches.slice(0, 4).map(objBrief).join("\n\n———\n\n");
+  const matches = q ? all.filter((o) => [o.title, o.customerName, orgOf(o), innOf(o), o.id, o.city, o.address, o.contractNumber].some((v) => String(v || "").toLowerCase().includes(q))) : [];
+  if (!matches.length) return "Точного совпадения не нашёл. Есть объекты: " + all.slice(0, 12).map((o) => { const org = orgOf(o); return `${o.title}${org ? " — " + org : (o.customerName ? " — " + o.customerName : "")}`; }).join("; ");
+  return matches.slice(0, 4).map((o) => objBrief(o, orgOf(o), innOf(o))).join("\n\n———\n\n");
 }
 // Нормализация названия компании (без ООО/АО/кавычек) для проверки совпадения из реестра.
 function nameKey(s) {
@@ -1031,7 +1042,7 @@ function DocsAssistant({ onInvoice, onPayment }) {
       const res = await askAssistant(history.map((m) => ({ role: m.role, text: m.text })), draftRef.current, image);
       // Чтение объекта: подгружаем данные из системы и переспрашиваем модель (без показа служебного сообщения).
       if (res.action && res.action.type === "read_object" && res.action.query) {
-        const summary = summarizeObjects(res.action.query);
+        const summary = await summarizeObjects(res.action.query);
         const res2 = await askAssistant([...history, { role: "user", text: `OBJECT_DATA (данные из системы, отвечай строго по ним, не выдумывай):\n${summary}` }].map((m) => ({ role: m.role, text: m.text })), draftRef.current);
         setMsgs((m) => [...m, { role: "ai", anim: true, text: res2.reply || summary, invoice: res2.invoice || null, payment: res2.payment || null }]);
         return;
