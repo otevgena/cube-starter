@@ -22,6 +22,18 @@ const TEXT = "#111", MUTED = "#777", CARROT = "#FA5D29", LINE = "#e6e6e6", CARD 
 
 const DEFAULT_NOTICE = "Внимание! Оплата данного счёта означает согласие с условиями оказания услуг и выполнения работ. Счёт действителен к оплате в течение 5 (пяти) банковских дней с даты выставления. Работы (услуги) выполняются после поступления оплаты на расчётный счёт Исполнителя, если иное не предусмотрено договором. По всем вопросам обращайтесь по реквизитам, указанным в счёте.";
 
+// Адаптив: узкий экран (телефон/маленький планшет портрет). Обновляется на resize/повороте.
+function useNarrow(bp = 640) {
+  const get = () => (typeof window !== "undefined" ? window.innerWidth <= bp : false);
+  const [n, setN] = React.useState(get);
+  React.useEffect(() => {
+    const f = () => setN(get());
+    window.addEventListener("resize", f);
+    return () => window.removeEventListener("resize", f);
+  }, [bp]);
+  return n;
+}
+
 /* ---- примитивы формы (эталон КУБ: подчёркивание, без контура) ---- */
 function FLabel({ children, style }) {
   return <div style={{ fontSize: 12, letterSpacing: ".04em", textTransform: "uppercase", color: TEXT, fontWeight: 300, marginBottom: 6, ...style }}>{children}</div>;
@@ -154,9 +166,10 @@ function BuyerInn({ inn, filled, onChange, onConfirm }) {
   );
 }
 function Row({ label, children, style }) {
+  const narrow = useNarrow(640);
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "minmax(160px,220px) 1fr", gap: 14, alignItems: "center", marginBottom: 10, ...style }}>
-      <div style={{ fontSize: 13.5, fontWeight: 300, color: "#444", textAlign: "right" }}>{label}</div>
+    <div style={{ display: "grid", gridTemplateColumns: narrow ? "1fr" : "minmax(160px,220px) 1fr", gap: narrow ? 5 : 14, alignItems: narrow ? "start" : "center", marginBottom: narrow ? 13 : 10, ...style }}>
+      <div style={{ fontSize: 13.5, fontWeight: 300, color: "#444", textAlign: narrow ? "left" : "right" }}>{label}</div>
       <div>{children}</div>
     </div>
   );
@@ -896,7 +909,7 @@ function DocsLauncher({ go }) {
   return (
     <div style={{ marginTop: 26 }}>
       <div style={{ fontSize: 15, fontWeight: 600, color: TEXT }}>Разделы</div>
-      <div style={{ marginTop: 16, display: "grid", gap: 16, gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))" }}>
+      <div style={{ marginTop: 16, display: "grid", gap: 16, gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 240px), 1fr))" }}>
         <DocsCard icon={DIcon.plus} title="Новый счёт" sub="Создать счёт на оплату" onClick={() => go("form")} />
         <DocsCard icon={DIcon.bill} title="Счета" sub={cnt ? `Выставлено счетов: ${cnt}` : "Реестр выставленных счетов"} onClick={() => go("list")} />
         <DocsCard icon={DIcon.org} title="Мои организации" sub="Реквизиты, банк, подпись и печать" onClick={() => go("orgs")} />
