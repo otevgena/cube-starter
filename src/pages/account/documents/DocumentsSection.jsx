@@ -964,6 +964,18 @@ function summarizeObjects(query) {
   if (!matches.length) return "Точного совпадения не нашёл. Есть объекты: " + all.slice(0, 12).map((o) => `${o.title} (${o.customerName})`).join("; ");
   return matches.slice(0, 4).map(objBrief).join("\n\n———\n\n");
 }
+// Нормализация названия компании (без ООО/АО/кавычек) для проверки совпадения из реестра.
+function nameKey(s) {
+  return String(s || "").toUpperCase().replace(/[«»"'().,]/g, "").replace(/\b(ООО|АО|ПАО|ЗАО|ИП|НАО|ОАО)\b/g, "").replace(/\s+/g, "").trim();
+}
+// Совпадает ли кандидат из реестра с тем, что просил пользователь (защита от случайных попаданий).
+function looseMatch(candidate, query) {
+  if (/^\d{10,12}$/.test(String(query || "").replace(/\D/g, ""))) return true; // запрос по ИНН — доверяем
+  const c = nameKey(candidate), q = nameKey(query);
+  if (!c || !q) return false;
+  if (q.length <= 4) return c.includes(q);        // короткая аббревиатура — строгое включение
+  return c.includes(q) || q.includes(c);
+}
 // Постепенное «печатание» текста ответа (по несколько символов за тик).
 function TypeText({ text, animate, onStep }) {
   const full = String(text || "");
@@ -978,7 +990,7 @@ function TypeText({ text, animate, onStep }) {
   return <>{full.slice(0, n)}{n < full.length ? <span style={{ opacity: 0.35 }}>▋</span> : null}</>;
 }
 const CHAT_LS = "cube:docs:chat:v1";
-const CHAT_GREETING = { role: "ai", text: "Привет! Я Марк, помощник КУБ по документам. Могу собрать счёт или платёжку, добавить контрагента. Пришлите позиции текстом, прикрепите Excel, скан/фото или PDF счёта (скрепка слева) — и напишите, что нужно. Можно и просто спросить." };
+const CHAT_GREETING = { role: "ai", text: "Привет! Я Техас, помощник КУБ по документам. Могу собрать счёт или платёжку, добавить контрагента, заглянуть в объекты. Пришлите позиции текстом, прикрепите Excel, скан/фото или PDF счёта (скрепка слева) — и напишите, что нужно. Можно и просто спросить." };
 function loadChat() {
   try { const s = JSON.parse(localStorage.getItem(CHAT_LS) || "null"); if (s && Array.isArray(s.msgs) && s.msgs.length) return s; } catch {}
   return null;
@@ -1015,20 +1027,24 @@ function DocsAssistant({ onInvoice, onPayment }) {
       let pay = res.payment || null;
       let cpCand = null;
       let note = "";
-      // Счёт: обогащаем покупателя из реестра (DaData) — назвал компанию без ИНН → реальные реквизиты.
+      // Счёт: обогащаем покупателя из реестра (DaData) — только при совпадении по названию.
       if (inv && inv.buyerName && !inv.buyerInn) {
         try {
-          const top = (await suggestParty(inv.buyerName))[0];
-          if (top && top.inn) { inv = { ...inv, buyerName: top.name || inv.buyerName, buyerInn: top.inn, buyerKpp: top.kpp || "" }; note = `\n\nНашёл в реестре: ${top.name}, ИНН ${top.inn}. Подставил покупателя — поправьте, если не тот.`; }
+          const top = (await suggestParty(inv.buyerName)).find((s) => s.inn && looseMatch(s.name, inv.buyerName));
+          if (top) { inv = { ...inv, buyerName: top.name || inv.buyerName, buyerInn: top.inn, buyerKpp: top.kpp || "" }; note = `\n\nНашёл в реестре: ${top.name}, ИНН ${top.inn}. Подставил покупателя — поправьте, если не тот.`; }
         } catch {}
       }
       // Платёжка: обогащаем получателя из реестра.
       if (pay && pay.recvName && !pay.recvInn) {
-        try { const top = (await suggestParty(pay.recvName))[0]; if (top && top.inn) pay = { ...pay, recvName: top.name || pay.recvName, recvInn: top.inn, recvKpp: top.kpp || "" }; } catch {}
+        try { const top = (await suggestParty(pay.recvName)).find((s) => s.inn && looseMatch(s.name, pay.recvName)); if (top) pay = { ...pay, recvName: top.name || pay.recvName, recvInn: top.inn, recvKpp: top.kpp || "" }; } catch {}
       }
-      // Добавить контрагента: ищем кандидата в реестре для подтверждения.
+      // Добавить контрагента: берём кандидата, совпавшего по названию/ИНН; иначе честно скажем.
       if (res.action && res.action.type === "add_counterparty" && res.action.query) {
-        try { cpCand = (await suggestParty(res.action.query))[0] || null; } catch {}
+        try {
+          const list = await suggestParty(res.action.query);
+          cpCand = (list || []).find((s) => s.inn && looseMatch(s.name, res.action.query)) || null;
+          if (!cpCand) note = `\n\nНе нашёл точного совпадения по «${res.action.query}» в реестре. Уточните полное название или пришлите ИНН.`;
+        } catch {}
       }
       if (inv) draftRef.current = inv;
       setMsgs((m) => [...m, { role: "ai", anim: true, text: (res.reply || (inv ? "Счёт собран." : pay ? "Платёжное поручение готово." : "Готово.")) + note, invoice: inv, payment: pay, cpCand }]);
