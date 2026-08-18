@@ -657,7 +657,7 @@ function AdminObjectsList() {
   const [creating, setCreating] = React.useState(false);
   // Юр.лицо заказчика хранится в аккаунте (org), а в объекте — только ФИО-контакт.
   // Подтягиваем аккаунты, чтобы показать компанию сотрудникам (только чтение, ничего не меняем).
-  const [accounts, setAccounts] = React.useState([]);
+  const [accounts, setAccounts] = React.useState(() => (DB.accountsCached ? DB.accountsCached() : []));
   React.useEffect(() => { let alive = true; DB.listAccounts().then((a) => { if (alive) setAccounts(a || []); }).catch(() => {}); return () => { alive = false; }; }, []);
   const acctIdx = React.useMemo(() => {
     const byId = new Map(), byEmail = new Map();

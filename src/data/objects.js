@@ -773,17 +773,23 @@ export async function hydrateObjects({ force = false } = {}) {
 
 // Список зарегистрированных учётных записей (для выбора заказчика при создании объекта).
 // Возвращает [{ id, email, name, group, role, org }]. При ошибке/локальном режиме — [].
+// Кешируем последний успешный ответ (синхронный доступ через accountsCached) —
+// чтобы «Заказчик: ООО …» в списке объектов показывался сразу, без подгрузки-мигания.
+let _accountsCache = null;
+export function accountsCached() { return _accountsCache || []; }
 export async function listAccounts() {
-  if (!apiEnabled()) return [];
+  if (!apiEnabled()) return _accountsCache || [];
   try {
     const data = await api("/admin/users", { method: "GET" });
     const users = Array.isArray(data && data.users) ? data.users : Array.isArray(data) ? data : [];
-    return users.map((u) => ({
+    const mapped = users.map((u) => ({
       id: u.id, email: u.email || "", name: u.name || "",
       group: u.group || u.user_group || "", role: u.role || "customer", org: u.org || "",
     }));
+    _accountsCache = mapped;
+    return mapped;
   } catch {
-    return [];
+    return _accountsCache || [];
   }
 }
 
