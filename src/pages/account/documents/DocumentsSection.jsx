@@ -1028,6 +1028,7 @@ function DocsAssistant({ onInvoice, onPayment }) {
   const draftRef = React.useRef(saved ? saved.draft || null : null); // последний собранный счёт (для правок «поменяй цену…»)
   const scrollRef = React.useRef(null);
   const fileRef = React.useRef(null);
+  const narrow = useNarrow(560);
   const scrollToBottom = () => { const el = scrollRef.current; if (el) el.scrollTop = el.scrollHeight; };
   React.useEffect(() => { scrollToBottom(); }, [msgs, busy]);
   // Сохраняем переписку + черновик, чтобы не терялись при переходе по вкладкам/разделам.
@@ -1138,13 +1139,13 @@ function DocsAssistant({ onInvoice, onPayment }) {
         .cube-typing span:nth-child(2){animation-delay:.18s}
         .cube-typing span:nth-child(3){animation-delay:.36s}
       `}</style>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "14px 18px", borderBottom: "1px solid #f0f0f0" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: narrow ? "11px 13px" : "14px 18px", borderBottom: "1px solid #f0f0f0" }}>
         <span style={{ width: 30, height: 30, borderRadius: 9, background: "#111", display: "grid", placeItems: "center", color: "#fff", flexShrink: 0 }}>
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a4 4 0 0 1-4 4H8l-4 3V7a4 4 0 0 1 4-4h9a4 4 0 0 1 4 4z" /></svg>
         </span>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 14.5, fontWeight: 600, color: TEXT }}>Помощник по документам</div>
-          <div style={{ fontSize: 12, color: MUTED }}>Соберёт счёт из ваших позиций и поправит его по просьбе</div>
+          {!narrow && <div style={{ fontSize: 12, color: MUTED }}>Соберёт счёт из ваших позиций и поправит его по просьбе</div>}
         </div>
         {msgs.length > 1 && (
           <button type="button" onClick={clearChat} title="Очистить переписку"
@@ -1153,9 +1154,9 @@ function DocsAssistant({ onInvoice, onPayment }) {
         )}
         <span style={{ fontSize: 11.5, color: "#8a8a8a", border: "1px solid #e6e6e6", borderRadius: 999, padding: "3px 10px", whiteSpace: "nowrap", flexShrink: 0 }}>YandexGPT&nbsp;Lite</span>
       </div>
-      <div ref={scrollRef} style={{ height: 200, overflowY: "auto", padding: "16px 18px", display: "flex", flexDirection: "column", gap: 12, background: "#fafafa" }}>
+      <div ref={scrollRef} style={{ height: narrow ? 240 : 200, overflowY: "auto", padding: narrow ? "13px 13px" : "16px 18px", display: "flex", flexDirection: "column", gap: 10, background: "#fafafa" }}>
         {msgs.map((m, i) => (
-          <div key={i} style={{ alignSelf: m.role === "user" ? "flex-end" : "flex-start", maxWidth: "80%" }}>
+          <div key={i} style={{ alignSelf: m.role === "user" ? "flex-end" : "flex-start", maxWidth: narrow ? "90%" : "80%" }}>
             <div style={{ padding: "10px 14px", borderRadius: 14, fontSize: 14, fontWeight: 300, lineHeight: 1.5,
               background: m.role === "user" ? "#111" : "#fff",
               color: m.role === "user" ? "#fff" : (m.stub ? "#8a8a8a" : TEXT),
@@ -1187,7 +1188,7 @@ function DocsAssistant({ onInvoice, onPayment }) {
           </div>
         ))}
         {busy && (
-          <div style={{ alignSelf: "flex-start", maxWidth: "80%" }}>
+          <div style={{ alignSelf: "flex-start", maxWidth: narrow ? "90%" : "80%" }}>
             <div style={{ padding: "14px 16px", borderRadius: 14, background: "#fff", border: "1px solid #ececec", borderBottomLeftRadius: 4, display: "inline-flex", alignItems: "center" }}>
               <span className="cube-typing"><span /><span /><span /></span>
             </div>
@@ -1202,7 +1203,7 @@ function DocsAssistant({ onInvoice, onPayment }) {
           <button type="button" onClick={() => setPending(null)} title="Убрать" style={{ border: "none", background: "transparent", cursor: "pointer", color: "#888", fontSize: 18, lineHeight: 1, flexShrink: 0 }}>×</button>
         </div>
       )}
-      <div style={{ display: "flex", alignItems: "flex-end", gap: 10, padding: "12px 14px", borderTop: pending ? "none" : "1px solid #f0f0f0" }}>
+      <div style={{ display: "flex", alignItems: "flex-end", gap: narrow ? 8 : 10, padding: narrow ? "10px 12px" : "12px 14px", borderTop: pending ? "none" : "1px solid #f0f0f0" }}>
         <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv,image/*,application/pdf,.pdf" style={{ display: "none" }} onChange={onFile} />
         <button type="button" title="Прикрепить Excel/CSV или скан счёта" onClick={() => fileRef.current && fileRef.current.click()} disabled={busy}
           onMouseEnter={(e) => { if (busy) return; e.currentTarget.style.background = "#f4f4f4"; e.currentTarget.style.borderColor = "#cfcfcf"; e.currentTarget.style.color = "#111"; e.currentTarget.style.transform = "translateY(-1px)"; }}
@@ -1212,7 +1213,7 @@ function DocsAssistant({ onInvoice, onPayment }) {
         </button>
         <textarea value={text} onChange={(e) => setText(e.target.value)} rows={1} disabled={busy}
           onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
-          placeholder={pending ? "Добавьте комментарий к файлу (напр.: только монтаж, покупатель — ТСС Ноябрьск)…" : "Напишите позиции, прикрепите Excel/скан — «сделай счёт»…"}
+          placeholder={pending ? (narrow ? "Комментарий к файлу…" : "Добавьте комментарий к файлу (напр.: только монтаж, покупатель — ТСС Ноябрьск)…") : (narrow ? "Сообщение или файл…" : "Напишите позиции, прикрепите Excel/скан — «сделай счёт»…")}
           style={{ flex: 1, resize: "none", maxHeight: 120, minHeight: 44, border: "1px solid #e6e6e6", borderRadius: 12, padding: "11px 14px", fontFamily: UI, fontSize: 14, fontWeight: 300, color: TEXT, outline: "none", lineHeight: 1.5, opacity: busy ? 0.6 : 1 }} />
         <Btn kind="primary" onClick={send} disabled={(!text.trim() && !pending) || busy} style={{ height: 44, width: 44, padding: 0, borderRadius: 12 }}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" /></svg>
