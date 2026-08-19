@@ -1550,7 +1550,16 @@ function AdminObjectEditor({ id, autoOpenMessages }) {
       ? accounts.find((a) => String(a.email || "").toLowerCase() === String(obj.customerEmail).toLowerCase())
       : null;
   const custValue = custMatch || (obj.customerName ? { id: "__current__", name: obj.customerName, email: obj.customerEmail || "" } : null);
-  const pickCustomer = (a) => save({ customerName: a.name || a.email, customerEmail: a.email || "", customerId: a.id || "" });
+  // Привязка заказчика: пишем ПОЛНЫЙ комплект доступа (id + email + запись в customerUsers),
+  // иначе заказчик без почты (вход по логину) видит объект, но получает 403 на файлы/архивы.
+  const pickCustomer = (a) => {
+    const email = String(a.email || "").trim().toLowerCase();
+    const accId = String(a.id || "").trim();
+    const existing = Array.isArray(obj.customerUsers) ? obj.customerUsers : [];
+    const already = existing.some((u) => (accId && String(u.accountId || "") === accId) || (email && String(u.email || "").toLowerCase() === email));
+    const customerUsers = already ? existing : [...existing, { id: "cu-" + (accId || email), accountId: accId, email, name: a.name || email || accId, addedAt: (new Date()).toISOString().slice(0, 10) }];
+    save({ customerName: a.name || a.email || "", customerEmail: email, customerId: accId, ownerEmail: email, ownerUserId: accId, customerUsers });
+  };
 
   return (
     <div style={{ fontFamily: UI, marginTop: 8 }}>
