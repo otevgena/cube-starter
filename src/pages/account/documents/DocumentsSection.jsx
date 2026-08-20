@@ -21,6 +21,13 @@ const UI = "'Inter Tight',Inter,system-ui,-apple-system,'Segoe UI',Roboto,sans-s
 const TEXT = "#111", MUTED = "#777", CARROT = "#FA5D29", LINE = "#e6e6e6", CARD = "#fbfbfb";
 
 const DEFAULT_NOTICE = "Внимание! Оплата данного счёта означает согласие с условиями оказания услуг и выполнения работ. Счёт действителен к оплате в течение 5 (пяти) банковских дней с даты выставления. Работы (услуги) выполняются после поступления оплаты на расчётный счёт Исполнителя, если иное не предусмотрено договором. По всем вопросам обращайтесь по реквизитам, указанным в счёте.";
+const NOTICE_GOODS = "Внимание! Оплата данного счета означает согласие с условиями поставки товара. Уведомление об оплате обязательно, в противном случае не гарантируется наличие товара на складе. Товар отпускается по факту прихода денег на р/с Поставщика, самовывозом, при наличии доверенности и паспорта.";
+// Тип бланка: подписи сторон + текст-условие по умолчанию.
+const FORM_TYPES = [
+  { value: "services", label: "на оплату оказанных услуг", seller: "Исполнитель", buyer: "Заказчик", notice: DEFAULT_NOTICE },
+  { value: "universal", label: "универсальный", seller: "Поставщик", buyer: "Покупатель", notice: NOTICE_GOODS },
+];
+const formTypeOf = (v) => FORM_TYPES.find((t) => t.value === v) || FORM_TYPES[0];
 
 // Адаптив: узкий экран (телефон/маленький планшет портрет). Обновляется на resize/повороте.
 function useNarrow(bp = 640) {
@@ -391,11 +398,12 @@ function CPEditor({ cp, onClose, onSave }) {
 
 /* ============================ Форма счёта ============================ */
 function emptyInvoice(orgs, docs) {
-  const org = orgs[0] || null;
+  // Продавец по умолчанию — моя компания КУБ (чтобы не выбирать каждый раз); иначе первая организация.
+  const org = orgs.find((o) => String(o.name || "").toLowerCase().includes("куб")) || orgs[0] || null;
   const seller = org ? snapSeller(org) : {};
   const bank = org && org.banks && org.banks[0] ? snapBank(org.banks[0]) : {};
   return {
-    docType: "invoice", number: nextInvoiceNumber(docs), date: today(), basis: "",
+    docType: "invoice", formType: "services", number: nextInvoiceNumber(docs), date: today(), basis: "",
     sellerId: org ? org.id : "", seller, bank,
     buyerId: "", buyer: {}, consignee: null,
     currency: "RUB", vatMode: "included", vatRate: DEFAULT_VAT_RATE,
@@ -530,8 +538,17 @@ function InvoiceForm({ id, initial, onDone }) {
 
       <Row label="Счёт №"><div style={{ display: "flex", gap: 10 }}><UnderInput value={doc.number} onChange={(v) => set("number", v)} style={{ maxWidth: 160 }} /><div style={{ alignSelf: "center", color: MUTED, fontSize: 13.5 }}>от</div><UnderInput value={doc.date} onChange={(v) => set("date", v)} style={{ maxWidth: 140 }} /></div></Row>
       <Row label="Основание"><UnderInput value={doc.basis} onChange={(v) => set("basis", v)} placeholder="Договор №… (можно не указывать)" /></Row>
+      <Row label="Тип бланка">
+        <UnderSelect value={doc.formType || "services"} options={FORM_TYPES.map((t) => ({ value: t.value, label: t.label }))}
+          onChange={(v) => setDoc((p) => {
+            // Текст-условие меняем на дефолт нового типа, только если он не был отредактирован вручную.
+            const cur = p.message || "";
+            const untouched = cur.trim() === "" || FORM_TYPES.some((t) => t.notice === cur);
+            return { ...p, formType: v, message: untouched ? formTypeOf(v).notice : cur };
+          })} />
+      </Row>
 
-      <Section title="Продавец (исполнитель)">
+      <Section title={formTypeOf(doc.formType).seller}>
         <Row label="Моя организация">
           <UnderSelect value={doc.sellerId} onChange={pickOrg} placeholder="— выбрать организацию —"
             options={orgs.map((o) => ({ value: o.id, label: `${o.name} (ИНН ${o.inn})` }))} />
@@ -560,7 +577,7 @@ function InvoiceForm({ id, initial, onDone }) {
         <Row label="Корр. счёт"><UnderInput value={doc.bank.corrAccount} onChange={(v) => setBank("corrAccount", v)} /></Row>
       </Section>
 
-      <Section title="Покупатель (заказчик)">
+      <Section title={formTypeOf(doc.formType).buyer}>
         <Row label="Контрагент">
           <UnderSelect value={doc.buyerId} onChange={pickBuyer} placeholder="— выбрать / новый —"
             options={cps.map((c) => ({ value: c.id, label: `${c.name} (ИНН ${c.inn})` }))} />
