@@ -72,6 +72,11 @@ function buildSheet(sheetXml, doc) {
   set("A8", `Счет на оплату № ${doc.number || ""} от ${dWords(doc.date)} г.`);
   set("F10", partyLine(s)); set("F12", partyLine(doc.buyer));
   if (doc.basis) { set("A13", "Основание:"); set("F13", doc.basis); }
+  // Тип бланка: метки сторон (A10/A12) и текст-условие (E1) — по типу и «Сообщению для клиента».
+  const FT = { services: { seller: "Исполнитель", buyer: "Заказчик" }, universal: { seller: "Поставщик", buyer: "Покупатель" } };
+  const ft = FT[doc.formType] || FT.services;
+  set("A10", ft.seller + ":"); set("A12", ft.buyer + ":");
+  if (doc.message && String(doc.message).trim()) set("E1", String(doc.message).trim());
   for (let i = 0; i < N; i++) {
     const r = ITEM + i, it = items[i];
     const sum = it.sum != null && it.sum !== "" ? parseNum(it.sum) : parseNum(it.qty) * parseNum(it.price);
