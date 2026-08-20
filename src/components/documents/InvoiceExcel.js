@@ -5,6 +5,7 @@
 // workbook.xml). styles.xml не трогаем → Excel открывает без «восстановления».
 // Много позиций: генерим строки от 15-й, высота по тексту, итоги/подписи ниже,
 // печать: fit по ширине + перенос по высоте + повтор шапки таблицы + «страница X из Y».
+import JSZip from "jszip"; // статически (не await import) — иначе на давно открытой вкладке после деплоя ленивый чанк ловит 404
 import { computeTotals, rublesInWords, fmtMoney, parseNum, DEFAULT_VAT_RATE } from "@/data/documents.js";
 import { INVOICE_TEMPLATE_B64 } from "@/data/invoiceTemplateB64.js";
 
@@ -146,7 +147,6 @@ async function addImages(zip, doc, bb) {
 /* ---------- IO ---------- */
 function b64ToUint8(b64) { const raw = String(b64 || "").replace(/^data:[^,]*,/, ""); const bin = atob(raw); const a = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i); return a; }
 export async function downloadInvoiceExcel(doc = {}, templateXlsx = "") {
-  const { default: JSZip } = await import("jszip");
   const tpl = templateXlsx || doc._templateXlsx || INVOICE_TEMPLATE_B64;
   const zip = await JSZip.loadAsync(b64ToUint8(tpl));
   const path = zip.file("xl/worksheets/sheet1.xml") ? "xl/worksheets/sheet1.xml" : Object.keys(zip.files).find((f) => /^xl\/worksheets\/sheet\d+\.xml$/.test(f));
